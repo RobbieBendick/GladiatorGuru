@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/toggle-color-mode-button.tsx","./src/components/home/home.tsx","./src/components/nav/navbar.tsx","./src/components/routes/bind-routes.tsx","./src/config/api.ts","./src/schemas/route-paths.tsx"],"version":"5.9.3"}
