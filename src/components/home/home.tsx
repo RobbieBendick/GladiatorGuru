@@ -372,7 +372,7 @@ export function Home() {
     <AnimatedBackground>
       <Container maxWidth='lg' sx={{ py: { xs: 6, md: 10 } }}>
         <HeroContainer>
-          <HeroTitle variant='h1'>Gladiator Guru</HeroTitle>
+          <HeroTitle variant='h1'>GladiatorGuru</HeroTitle>
           <HeroSubtitle variant='h5'>
             Connect with the Best Players - Multi-R1 & Tournament Experience
           </HeroSubtitle>
@@ -385,7 +385,7 @@ export function Home() {
                 mb: 1,
               }}
             >
-              $30/hour
+              Starting at $30/hour
             </Typography>
             <Typography
               variant='body1'
@@ -485,9 +485,9 @@ export function Home() {
             variant='contained'
             size='large'
             endIcon={<ArrowForward />}
-            onClick={() => navigate(ROUTE_PATHS.home)}
+            onClick={() => (window.location.href = ROUTE_PATHS.home)}
           >
-            Get Started - $30/hour
+            Get Started - Starting at $30/hour
           </PrimaryButton>
         </CallToActionBox>
       </Container>

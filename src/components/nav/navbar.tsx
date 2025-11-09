@@ -73,7 +73,7 @@ function ResponsiveNavBar() {
                   cursor: 'pointer',
                 }}
               >
-                Gladiator Guru
+                GladiatorGuru
               </Typography>
             </Box>
 
@@ -112,7 +112,7 @@ function ResponsiveNavBar() {
                 cursor: 'pointer',
               }}
             >
-              Gladiator Guru
+              GladiatorGuru
             </Typography>
             <Box sx={{ flexGrow: 0 }}>
               {isMobile ? (
