@@ -1,0 +1,33 @@
+:root {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  --light-green: hsl(166, 100%, 70%);
+  --light-green-medium-alpha: hsl(166, 100%, 70%, 0.5);
+  --light-green-low-alpha: hsl(166, 100%, 70%, 0.1);
+  --slate: hsl(225, 20%, 61%);
+  --light-slate: hsl(225, 31%, 74%);
+  --lightest-slate: hsl(226, 70%, 88%);
+  --navy: hsl(216, 65%, 11%);
+  --light-navy: hsl(218, 58%, 16%);
+  --lightest-navy: hsl(218, 41%, 23%);
+  --navy-shadow: hsla(216, 86%, 6%, 0.7);
+}
+
+::-webkit-scrollbar {
+  width: 0.25em;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--light-green-low-alpha);
+  border-radius: 100vw;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--light-green-medium-alpha);
+  border-radius: 100vw;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsla(225, 20%, 61%, 0.8);
+}
+
