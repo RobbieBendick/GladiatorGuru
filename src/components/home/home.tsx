@@ -416,9 +416,18 @@ export function Home() {
         </HeroContainer>
 
         {/* Features Section */}
-        <Grid container spacing={4} sx={{ mt: 2 }}>
+        <Grid
+          container
+          spacing={4}
+          sx={{
+            mt: 2,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
           {features.map((feature, index) => (
-            <Grid item xs={12} sm={6} md={4} key={index}>
+            <Grid item xs={12} sm={6} md={4} key={index} display='flex'>
               <FeatureCard
                 sx={{
                   animation: `${scaleIn} 0.6s ease-out ${
