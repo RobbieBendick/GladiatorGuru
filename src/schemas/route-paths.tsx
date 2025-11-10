@@ -4,5 +4,5 @@ export interface IRoute {
 }
 export const ROUTE_PATHS: { [key: string]: string } = {
   home: '/',
+  booking: '/booking',
 };
-

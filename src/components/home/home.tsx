@@ -401,7 +401,7 @@ export function Home() {
               variant='contained'
               size='large'
               endIcon={<ArrowForward />}
-              onClick={() => navigate(ROUTE_PATHS.home)}
+              onClick={() => navigate(ROUTE_PATHS.booking)}
             >
               Book a Boost
             </PrimaryButton>
@@ -494,7 +494,7 @@ export function Home() {
             variant='contained'
             size='large'
             endIcon={<ArrowForward />}
-            onClick={() => (window.location.href = ROUTE_PATHS.home)}
+            onClick={() => navigate(ROUTE_PATHS.booking)}
           >
             Get Started - Starting at $30/hour
           </PrimaryButton>
