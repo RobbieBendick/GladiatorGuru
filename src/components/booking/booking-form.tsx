@@ -10,6 +10,7 @@ import {
   Paper,
   alpha,
   styled,
+  InputAdornment,
 } from '@mui/material';
 import { ArrowBack, Send } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -68,6 +69,10 @@ const getVersionDisplayName = (version: WowVersion): string => {
   return versionNames[version] || version;
 };
 
+// Discord logo path
+const DISCORD_LOGO_PATH = '/discord.png';
+const DISCORD_USERNAME_GUIDE_PATH = '/discord-username.png';
+
 // Styled MenuItem with image
 const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
   display: 'flex',
@@ -95,6 +100,17 @@ const FormPaper = styled(Paper)(({ theme }) => ({
 const StyledTextField = styled(TextField)(({ theme }) => ({
   '& .MuiInputLabel-asterisk': {
     color: theme.palette.error.main,
+  },
+  // Style calendar icon for datetime-local inputs to match text.primary color
+  '& input[type="datetime-local"]::-webkit-calendar-picker-indicator': {
+    filter: `brightness(0) saturate(100%) invert(${
+      theme.palette.mode === 'dark' ? '1' : '0'
+    })`,
+    cursor: 'pointer',
+    opacity: 0.7,
+  },
+  '& input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover': {
+    opacity: 1,
   },
 }));
 
@@ -132,6 +148,7 @@ interface BookingFormData {
   characterSpec: string;
   availabilityDateTime: string;
   discordUsername: string;
+  goal: string;
 }
 
 export function BookingForm() {
@@ -144,6 +161,7 @@ export function BookingForm() {
     characterSpec: '',
     availabilityDateTime: '',
     discordUsername: '',
+    goal: '',
   });
 
   const [errors, setErrors] = useState<
@@ -270,7 +288,7 @@ export function BookingForm() {
   };
 
   return (
-    <Container maxWidth='md' sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth='md'>
       <Box sx={{ mb: 3 }}>
         <Button
           startIcon={<ArrowBack />}
@@ -297,7 +315,7 @@ export function BookingForm() {
               <StyledTextField
                 fullWidth
                 select
-                label='Version'
+                label='Game Version'
                 value={formData.version}
                 onChange={handleChange('version')}
                 error={!!errors.version}
@@ -541,6 +559,67 @@ export function BookingForm() {
                 error={!!errors.discordUsername}
                 helperText={errors.discordUsername}
                 required
+                placeholder='Discord username (found in bottom-left corner of Discord)'
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position='start'>
+                      <img
+                        src={DISCORD_LOGO_PATH}
+                        alt='Discord'
+                        style={{
+                          width: 24,
+                          height: 24,
+                          objectFit: 'contain',
+                        }}
+                        onError={e => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              {!errors.discordUsername && (
+                <Box
+                  sx={{
+                    mt: 1,
+                    ml: 0,
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  <img
+                    src={DISCORD_USERNAME_GUIDE_PATH}
+                    alt='Discord username location guide'
+                    style={{
+                      maxWidth: '100%',
+                      height: 'auto',
+                      maxHeight: 100,
+                      objectFit: 'contain',
+                    }}
+                    onError={e => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                </Box>
+              )}
+            </Grid>
+
+            {/* Goal */}
+            <Grid item xs={12}>
+              <StyledTextField
+                fullWidth
+                label='Goal (Optional)'
+                value={formData.goal}
+                onChange={handleChange('goal')}
+                error={!!errors.goal}
+                helperText={
+                  errors.goal ||
+                  'What is your goal for this session? (e.g., Gladiator, 2200 elite set, etc.)'
+                }
+                placeholder='e.g., Gladiator, 2200 elite set, etc.'
+                multiline
+                rows={3}
               />
             </Grid>
 

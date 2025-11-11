@@ -8,6 +8,7 @@ import Menu from '@mui/material/Menu';
 import Container from '@mui/material/Container';
 import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
+import Button from '@mui/material/Button';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useMediaQuery } from '@mui/material';
 import Brightness2Icon from '@mui/icons-material/Brightness2';
@@ -56,7 +57,12 @@ function ResponsiveNavBar() {
   return (
     <>
       <AppBar sx={{ backgroundImage: 'unset' }}>
-        <Container className='nav' maxWidth='lg' sx={{ zIndex: 1200 }}>
+        <Container
+          className='nav'
+          maxWidth='lg'
+          sx={{ zIndex: 1200, px: 0 }}
+          disableGutters
+        >
           <Toolbar sx={{ justifyContent: 'space-between' }} disableGutters>
             <Box display='flex' flexDirection='row' alignItems='center'>
               <Typography
@@ -114,15 +120,38 @@ function ResponsiveNavBar() {
             >
               GladiatorGuru
             </Typography>
-            <Box sx={{ flexGrow: 0 }}>
+            <Box
+              sx={{
+                flexGrow: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+              }}
+            >
               {isMobile ? (
-                <Tooltip title='Open pages'>
-                  <IconButton onClick={handleOpenUserMenu} sx={{ p: 1 }}>
-                    <MenuIcon style={{ color: 'white' }} />
-                  </IconButton>
-                </Tooltip>
+                <>
+                  <Button
+                    variant='contained'
+                    onClick={() => navigate(ROUTE_PATHS.booking)}
+                    sx={{
+                      backgroundColor: 'primary.main',
+                      color: 'white',
+                      textTransform: 'none',
+                      '&:hover': {
+                        backgroundColor: 'primary.dark',
+                      },
+                    }}
+                  >
+                    Book a Boost
+                  </Button>
+                  <Tooltip title='Open pages'>
+                    <IconButton onClick={handleOpenUserMenu} sx={{ p: 1 }}>
+                      <MenuIcon style={{ color: 'white' }} />
+                    </IconButton>
+                  </Tooltip>
+                </>
               ) : (
-                <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   {Object.keys(routes).map((routeKey: string) => {
                     if (routes[routeKey] === currentPath) return;
                     return (
@@ -146,6 +175,20 @@ function ResponsiveNavBar() {
                       </Tooltip>
                     );
                   })}
+                  <Button
+                    variant='contained'
+                    onClick={() => navigate(ROUTE_PATHS.booking)}
+                    sx={{
+                      backgroundColor: 'primary.main',
+                      color: 'white',
+                      textTransform: 'none',
+                      '&:hover': {
+                        backgroundColor: 'primary.dark',
+                      },
+                    }}
+                  >
+                    Book a Boost
+                  </Button>
                   <ToggleColorModeButton color='white' />
                 </Box>
               )}
@@ -170,8 +213,29 @@ function ResponsiveNavBar() {
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
+                    gap: 1,
+                    p: 1,
                   }}
                 >
+                  <Button
+                    variant='contained'
+                    fullWidth
+                    onClick={() => {
+                      handleCloseUserMenu();
+                      navigate(ROUTE_PATHS.booking);
+                    }}
+                    sx={{
+                      backgroundColor: 'primary.main',
+                      color: 'white',
+                      textTransform: 'none',
+                      mb: 1,
+                      '&:hover': {
+                        backgroundColor: 'primary.dark',
+                      },
+                    }}
+                  >
+                    Book a Boost
+                  </Button>
                   {Object.keys(routes).map(routeKey => {
                     if (routes[routeKey] === currentPath) return;
                     return (
