@@ -426,9 +426,9 @@ export function Home() {
             <SecondaryButton
               variant='outlined'
               size='large'
-              onClick={() => navigate(ROUTE_PATHS.home)}
+              onClick={() => navigate(ROUTE_PATHS.howItWorks)}
             >
-              View Credentials
+              How It Works
             </SecondaryButton>
           </ButtonContainer>
         </HeroContainer>

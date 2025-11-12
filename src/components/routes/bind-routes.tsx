@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import { Home } from '../home/home';
 import { BookingForm } from '../booking/booking-form';
 import { BookingSuccess } from '../booking/booking-success';
+import { HowItWorks } from '../how-it-works/how-it-works';
 import { Login } from '../auth/login';
 import { Signup } from '../auth/signup';
 import { AdminLogin } from '../admin/admin-login';
@@ -30,6 +31,7 @@ export function BindRoutes(props: { children?: React.ReactNode }): JSX.Element {
           <Route key={route.path} path={route.path} element={route.element} />
         ))}
         <Route path={ROUTE_PATHS.bookingSuccess} element={<BookingSuccess />} />
+        <Route path={ROUTE_PATHS.howItWorks} element={<HowItWorks />} />
         <Route path={ROUTE_PATHS.login} element={<Login />} />
         <Route path={ROUTE_PATHS.signup} element={<Signup />} />
         <Route path={ROUTE_PATHS.adminLogin} element={<AdminLogin />} />
