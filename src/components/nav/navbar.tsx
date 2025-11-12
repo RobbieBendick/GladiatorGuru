@@ -122,6 +122,7 @@ function ResponsiveNavBar() {
                   style={{
                     height: '48px',
                     width: 'auto',
+                    marginLeft: '45px',
                   }}
                 />
               </Box>
@@ -167,7 +168,7 @@ function ResponsiveNavBar() {
               <img
                 src='/gladiator-guru-logo.png'
                 alt='GladiatorGuru'
-                style={{ height: '40px', width: 'auto' }}
+                style={{ height: '40px', width: 'auto', marginLeft: '45px' }}
               />
             </Box>
             <Box
