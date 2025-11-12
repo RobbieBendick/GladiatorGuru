@@ -374,7 +374,8 @@ export function Home() {
         <HeroContainer>
           <HeroTitle variant='h1'>GladiatorGuru</HeroTitle>
           <HeroSubtitle variant='h5'>
-            Connect with the Best Players - Multi-R1 & Tournament Experience
+            Connect with the best arena players - Multi-R1 & Tournament
+            Experience
           </HeroSubtitle>
           <PriceBox>
             <Typography
@@ -403,7 +404,7 @@ export function Home() {
               endIcon={<ArrowForward />}
               onClick={() => navigate(ROUTE_PATHS.booking)}
             >
-              Book a Boost
+              Book a Coach
             </PrimaryButton>
             <SecondaryButton
               variant='outlined'

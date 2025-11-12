@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
@@ -10,6 +10,7 @@ import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import MenuIcon from '@mui/icons-material/Menu';
+import LogoutIcon from '@mui/icons-material/Logout';
 import { useMediaQuery } from '@mui/material';
 import Brightness2Icon from '@mui/icons-material/Brightness2';
 import { LightMode } from '@mui/icons-material';
@@ -17,16 +18,28 @@ import { ToggleColorModeButton } from '../toggle-color-mode-button';
 import { ColorModeContext } from '../../app';
 import { ROUTE_PATHS } from '@/schemas/route-paths';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../../config/api';
+import { isAuthenticated, removeAuthToken } from '../../config/auth';
 
 function ResponsiveNavBar() {
   const [anchorElNav, setAnchorElNav] = useState<HTMLElement | null>(null);
   const [anchorElUser, setAnchorElUser] = useState<HTMLElement | null>(null);
+  const [authenticated, setAuthenticated] = useState(false);
   const { toggleColorMode, mode } = useContext(ColorModeContext);
   const location = useLocation();
   const navigate = useNavigate();
   // HashRouter provides pathname without the hash prefix
   const currentPath = location.pathname;
   const isHomePage = currentPath === ROUTE_PATHS.home;
+  const isBookingPage = currentPath === ROUTE_PATHS.booking;
+  const isAuthPage =
+    currentPath === ROUTE_PATHS.login || currentPath === ROUTE_PATHS.signup;
+  const isAdminPage = currentPath.startsWith('/admin');
+
+  // Check authentication status
+  useEffect(() => {
+    setAuthenticated(isAuthenticated());
+  }, [location.pathname]);
 
   const handleToggleColorMode = () => {
     toggleColorMode();
@@ -44,7 +57,31 @@ function ResponsiveNavBar() {
     setAnchorElUser(null);
   };
 
+  const handleLogout = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+    } catch (error) {
+      console.error('Error during logout:', error);
+    } finally {
+      removeAuthToken();
+      setAuthenticated(false);
+      handleCloseUserMenu();
+      navigate(ROUTE_PATHS.home);
+    }
+  };
+
   const isMobile = useMediaQuery('(max-width: 899px)');
+
+  // Don't show navbar on auth pages or admin pages
+  if (isAuthPage || isAdminPage) {
+    return null;
+  }
 
   interface Routes {
     [key: string]: string;
@@ -129,27 +166,11 @@ function ResponsiveNavBar() {
               }}
             >
               {isMobile ? (
-                <>
-                  <Button
-                    variant='contained'
-                    onClick={() => navigate(ROUTE_PATHS.booking)}
-                    sx={{
-                      backgroundColor: 'primary.main',
-                      color: 'white',
-                      textTransform: 'none',
-                      '&:hover': {
-                        backgroundColor: 'primary.dark',
-                      },
-                    }}
-                  >
-                    Book a Boost
-                  </Button>
-                  <Tooltip title='Open pages'>
-                    <IconButton onClick={handleOpenUserMenu} sx={{ p: 1 }}>
-                      <MenuIcon style={{ color: 'white' }} />
-                    </IconButton>
-                  </Tooltip>
-                </>
+                <Tooltip title='Open pages'>
+                  <IconButton onClick={handleOpenUserMenu} sx={{ p: 1 }}>
+                    <MenuIcon style={{ color: 'white' }} />
+                  </IconButton>
+                </Tooltip>
               ) : (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   {Object.keys(routes).map((routeKey: string) => {
@@ -175,20 +196,54 @@ function ResponsiveNavBar() {
                       </Tooltip>
                     );
                   })}
-                  <Button
-                    variant='contained'
-                    onClick={() => navigate(ROUTE_PATHS.booking)}
-                    sx={{
-                      backgroundColor: 'primary.main',
-                      color: 'white',
-                      textTransform: 'none',
-                      '&:hover': {
-                        backgroundColor: 'primary.dark',
-                      },
-                    }}
-                  >
-                    Book a Boost
-                  </Button>
+                  {!isBookingPage && (
+                    <Button
+                      variant='contained'
+                      onClick={() => navigate(ROUTE_PATHS.booking)}
+                      sx={{
+                        backgroundColor:
+                          mode === 'light' ? '#0a7d5a' : 'primary.main',
+                        color: 'white',
+                        textTransform: 'none',
+                        '&:hover': {
+                          backgroundColor:
+                            mode === 'light' ? '#085a42' : 'primary.dark',
+                        },
+                      }}
+                    >
+                      Book a Coach
+                    </Button>
+                  )}
+                  {authenticated ? (
+                    <Button
+                      variant='text'
+                      startIcon={<LogoutIcon sx={{ color: 'white' }} />}
+                      onClick={handleLogout}
+                      sx={{
+                        color: 'white',
+                        textTransform: 'none',
+                        '&:hover': {
+                          backgroundColor: 'transparent',
+                        },
+                      }}
+                    >
+                      Logout
+                    </Button>
+                  ) : (
+                    <Button
+                      variant='text'
+                      onClick={() => navigate(ROUTE_PATHS.login)}
+                      sx={{
+                        color: 'white',
+                        textTransform: 'none',
+                        '&:hover': {
+                          backgroundColor: 'transparent',
+                        },
+                      }}
+                    >
+                      Login/Signup
+                    </Button>
+                  )}
                   <ToggleColorModeButton color='white' />
                 </Box>
               )}
@@ -217,25 +272,29 @@ function ResponsiveNavBar() {
                     p: 1,
                   }}
                 >
-                  <Button
-                    variant='contained'
-                    fullWidth
-                    onClick={() => {
-                      handleCloseUserMenu();
-                      navigate(ROUTE_PATHS.booking);
-                    }}
-                    sx={{
-                      backgroundColor: 'primary.main',
-                      color: 'white',
-                      textTransform: 'none',
-                      mb: 1,
-                      '&:hover': {
-                        backgroundColor: 'primary.dark',
-                      },
-                    }}
-                  >
-                    Book a Boost
-                  </Button>
+                  {!isBookingPage && (
+                    <Button
+                      variant='contained'
+                      fullWidth
+                      onClick={() => {
+                        handleCloseUserMenu();
+                        navigate(ROUTE_PATHS.booking);
+                      }}
+                      sx={{
+                        backgroundColor:
+                          mode === 'light' ? '#0a7d5a' : 'primary.main',
+                        color: 'white',
+                        textTransform: 'none',
+                        mb: 1,
+                        '&:hover': {
+                          backgroundColor:
+                            mode === 'light' ? '#085a42' : 'primary.dark',
+                        },
+                      }}
+                    >
+                      Book a Coach
+                    </Button>
+                  )}
                   {Object.keys(routes).map(routeKey => {
                     if (routes[routeKey] === currentPath) return;
                     return (
@@ -250,13 +309,52 @@ function ResponsiveNavBar() {
                           width: '100%',
                           textAlign: 'center',
                           justifyContent: 'center',
-                          color: 'inherit',
+                          color: 'text.primary',
                         }}
                       >
                         {routeKey}
                       </MenuItem>
                     );
                   })}
+                  {authenticated ? (
+                    <MenuItem
+                      onClick={() => {
+                        handleLogout();
+                      }}
+                      sx={{
+                        textDecoration: 'none',
+                        width: '100%',
+                        textAlign: 'center',
+                        justifyContent: 'center',
+                        color: 'text.primary',
+                        '&:hover': {
+                          backgroundColor: 'transparent',
+                        },
+                      }}
+                    >
+                      <LogoutIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                      Logout
+                    </MenuItem>
+                  ) : (
+                    <MenuItem
+                      onClick={() => {
+                        handleCloseUserMenu();
+                        navigate(ROUTE_PATHS.login);
+                      }}
+                      sx={{
+                        textDecoration: 'none',
+                        width: '100%',
+                        textAlign: 'center',
+                        justifyContent: 'center',
+                        color: 'text.primary',
+                        '&:hover': {
+                          backgroundColor: 'transparent',
+                        },
+                      }}
+                    >
+                      Login/Signup
+                    </MenuItem>
+                  )}
 
                   <MenuItem
                     key='color-mode-button'

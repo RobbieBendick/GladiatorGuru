@@ -11,10 +11,14 @@ import {
   alpha,
   styled,
   InputAdornment,
+  useTheme,
+  CircularProgress,
+  FormHelperText,
 } from '@mui/material';
 import { ArrowBack, Send } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { ROUTE_PATHS } from '@/schemas/route-paths';
+import { ROUTE_PATHS } from '../../schemas/route-paths';
+import { API_BASE_URL } from '../../config/api';
 import {
   Class,
   getAvailableVersions,
@@ -71,7 +75,6 @@ const getVersionDisplayName = (version: WowVersion): string => {
 
 // Discord logo path
 const DISCORD_LOGO_PATH = '/discord.png';
-const DISCORD_USERNAME_GUIDE_PATH = '/discord-username.png';
 
 // Styled MenuItem with image
 const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
@@ -118,9 +121,7 @@ const FormTitle = styled(Typography)(({ theme }) => ({
   fontSize: '2.5rem',
   fontWeight: 700,
   marginBottom: theme.spacing(1),
-  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${
-    theme.palette.primary.dark || theme.palette.primary.main
-  } 100%)`,
+  background: theme.palette.text.primary,
   backgroundClip: 'text',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
@@ -144,6 +145,8 @@ interface BookingFormData {
   characterName: string;
   characterRealm: string;
   version: WowVersion | '';
+  bracket: string;
+  hours: string;
   characterClass: string;
   characterSpec: string;
   availabilityDateTime: string;
@@ -157,6 +160,8 @@ export function BookingForm() {
     characterName: '',
     characterRealm: '',
     version: '',
+    bracket: '',
+    hours: '',
     characterClass: '',
     characterSpec: '',
     availabilityDateTime: '',
@@ -167,6 +172,7 @@ export function BookingForm() {
   const [errors, setErrors] = useState<
     Partial<Record<keyof BookingFormData, string>>
   >({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Calculate min and max dates for datetime input
   const getMinDateTime = (): string => {
@@ -194,6 +200,7 @@ export function BookingForm() {
   const minDateTime = getMinDateTime();
   const maxDateTime = getMaxDateTime();
 
+  const theme = useTheme();
   const versions = getAvailableVersions();
   const availableClasses = formData.version
     ? getClassesForVersion(formData.version)
@@ -202,6 +209,70 @@ export function BookingForm() {
     formData.version && formData.characterClass
       ? getSpecsForClass(formData.version, formData.characterClass)
       : [];
+
+  // Adjust class color for better readability in light mode
+  const getReadableClassColor = (className: string): string => {
+    const baseColor = getClassColor(className);
+
+    // In light mode, darken bright colors for better readability
+    if (theme.palette.mode === 'light') {
+      // Bright colors that need adjustment
+      const brightColors: Record<string, string> = {
+        Priest: '#000000', // White -> Black
+        Rogue: '#B8860B', // Yellow -> Dark Goldenrod
+        Paladin: '#C2185B', // Light Pink -> Darker Pink
+        Monk: '#00CC7A', // Bright Green -> Darker Green
+      };
+
+      if (brightColors[className]) {
+        return brightColors[className];
+      }
+
+      // For other bright colors, darken them slightly
+      const hex = baseColor.replace('#', '');
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
+
+      // If color is too bright (average RGB > 200), darken it
+      const avg = (r + g + b) / 3;
+      if (avg > 200) {
+        const darkenFactor = 0.4;
+        const newR = Math.floor(r * darkenFactor);
+        const newG = Math.floor(g * darkenFactor);
+        const newB = Math.floor(b * darkenFactor);
+        return `#${newR.toString(16).padStart(2, '0')}${newG
+          .toString(16)
+          .padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+      }
+    }
+
+    return baseColor;
+  };
+
+  // Calculate total price
+  const calculateTotalPrice = (): number => {
+    if (!formData.bracket || !formData.hours) return 0;
+
+    // Extract number of coaches from bracket (e.g., "2v2-1" = 1 coach, "3v3-2" = 2 coaches)
+    const coachesMatch = formData.bracket.match(/-(\d+)$/);
+    const coaches = coachesMatch ? parseInt(coachesMatch[1], 10) : 0;
+    const hours = parseInt(formData.hours, 10) || 0;
+
+    const pricePerHour = 30;
+    return pricePerHour * coaches * hours;
+  };
+
+  const totalPrice = calculateTotalPrice();
+
+  // MenuProps for select dropdowns with grey background in light mode
+  const getMenuProps = () => ({
+    PaperProps: {
+      sx: {
+        backgroundColor: theme.palette.mode === 'light' ? '#f5f5f5' : undefined,
+      },
+    },
+  });
 
   const handleChange =
     (field: keyof BookingFormData) =>
@@ -243,6 +314,14 @@ export function BookingForm() {
       newErrors.version = 'Version is required';
     }
 
+    if (!formData.bracket) {
+      newErrors.bracket = 'Bracket is required';
+    }
+
+    if (!formData.hours) {
+      newErrors.hours = 'Hours is required';
+    }
+
     if (!formData.characterClass) {
       newErrors.characterClass = 'Character class is required';
     }
@@ -276,14 +355,39 @@ export function BookingForm() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (validateForm()) {
-      // TODO: Handle form submission (API call, etc.)
-      console.log('Form submitted:', formData);
-      // For now, just show an alert
-      alert('Booking request submitted! We will contact you via Discord.');
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/jobs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit booking request');
+      }
+
+      // Navigate to success page
+      navigate(ROUTE_PATHS.bookingSuccess);
+    } catch (error) {
+      console.error('Error submitting booking:', error);
+      setErrors({
+        ...errors,
+        // Set a general error message
+      });
+      alert('Failed to submit booking request. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -301,8 +405,33 @@ export function BookingForm() {
 
       <FormPaper elevation={3}>
         <FormTitle variant='h2' gutterBottom>
-          Book a Boost
+          Book a Coach
         </FormTitle>
+        <Box sx={{ mb: 2 }}>
+          <Typography
+            variant='h6'
+            sx={{
+              fontWeight: 700,
+              fontSize: '1.25rem',
+              color: 'primary.main',
+              mb: 0.5,
+            }}
+          >
+            $30/hr per coach
+          </Typography>
+          {totalPrice > 0 && (
+            <Typography
+              variant='h5'
+              sx={{
+                fontWeight: 700,
+                fontSize: '1.5rem',
+                color: 'primary.main',
+              }}
+            >
+              Total: ${totalPrice}
+            </Typography>
+          )}
+        </Box>
         <Typography variant='body1' color='text.secondary' sx={{ mb: 4 }}>
           Fill out the form below to request a boost. We'll contact you via
           Discord to confirm details.
@@ -323,6 +452,7 @@ export function BookingForm() {
                 required
                 SelectProps={{
                   native: false,
+                  MenuProps: getMenuProps(),
                   renderValue: value => {
                     if (!value) return '';
                     const version = value as WowVersion;
@@ -365,6 +495,51 @@ export function BookingForm() {
               </StyledTextField>
             </Grid>
 
+            {/* Bracket */}
+            <Grid item xs={12} sm={6}>
+              <StyledTextField
+                fullWidth
+                select
+                label='Bracket'
+                value={formData.bracket}
+                onChange={handleChange('bracket')}
+                error={!!errors.bracket}
+                helperText={errors.bracket}
+                required
+                SelectProps={{
+                  MenuProps: getMenuProps(),
+                }}
+              >
+                <MenuItem value='2v2-1'>2v2 (1 coach)</MenuItem>
+                <MenuItem value='3v3-1'>3v3 (1 coach)</MenuItem>
+                <MenuItem value='3v3-2'>3v3 (2 coaches)</MenuItem>
+              </StyledTextField>
+            </Grid>
+
+            {/* Hours */}
+            <Grid item xs={12} sm={6}>
+              <StyledTextField
+                fullWidth
+                select
+                label='Amount of Hours'
+                value={formData.hours}
+                onChange={handleChange('hours')}
+                error={!!errors.hours}
+                helperText={errors.hours}
+                required
+                SelectProps={{
+                  MenuProps: getMenuProps(),
+                }}
+              >
+                <MenuItem value='1'>1 hour</MenuItem>
+                <MenuItem value='2'>2 hours</MenuItem>
+                <MenuItem value='3'>3 hours</MenuItem>
+                <MenuItem value='4'>4 hours</MenuItem>
+                <MenuItem value='5'>5 hours</MenuItem>
+                <MenuItem value='6'>6 hours</MenuItem>
+              </StyledTextField>
+            </Grid>
+
             {/* Character Name */}
             <Grid item xs={12} sm={6}>
               <StyledTextField
@@ -400,14 +575,12 @@ export function BookingForm() {
                 value={formData.characterClass}
                 onChange={handleChange('characterClass')}
                 error={!!errors.characterClass}
-                helperText={
-                  errors.characterClass ||
-                  (!formData.version ? 'Select a version first' : '')
-                }
+                helperText={errors.characterClass}
                 required
                 disabled={!formData.version}
                 SelectProps={{
                   native: false,
+                  MenuProps: getMenuProps(),
                   renderValue: value => {
                     if (!value) return '';
                     const className = value as string;
@@ -427,7 +600,9 @@ export function BookingForm() {
                             e.currentTarget.style.display = 'none';
                           }}
                         />
-                        <Typography sx={{ color: getClassColor(className) }}>
+                        <Typography
+                          sx={{ color: getReadableClassColor(className) }}
+                        >
                           {className}
                         </Typography>
                       </Box>
@@ -450,13 +625,20 @@ export function BookingForm() {
                           e.currentTarget.style.display = 'none';
                         }}
                       />
-                      <Typography sx={{ color: getClassColor(classData.name) }}>
+                      <Typography
+                        sx={{ color: getReadableClassColor(classData.name) }}
+                      >
                         {classData.name}
                       </Typography>
                     </StyledMenuItem>
                   ))
                 )}
               </StyledTextField>
+              {!formData.version && !errors.characterClass && (
+                <FormHelperText error sx={{ pl: '5px' }}>
+                  Select a version first
+                </FormHelperText>
+              )}
             </Grid>
 
             {/* Character Spec */}
@@ -468,14 +650,12 @@ export function BookingForm() {
                 value={formData.characterSpec}
                 onChange={handleChange('characterSpec')}
                 error={!!errors.characterSpec}
-                helperText={
-                  errors.characterSpec ||
-                  (!formData.characterClass ? 'Select a class first' : '')
-                }
+                helperText={errors.characterSpec}
                 required
                 disabled={!formData.characterClass}
                 SelectProps={{
                   native: false,
+                  MenuProps: getMenuProps(),
                   renderValue: value => {
                     if (!value || !formData.characterClass) return '';
                     return (
@@ -523,6 +703,11 @@ export function BookingForm() {
                   ))
                 )}
               </StyledTextField>
+              {!formData.characterClass && !errors.characterSpec && (
+                <FormHelperText error sx={{ pl: '5px' }}>
+                  Select a class first
+                </FormHelperText>
+              )}
             </Grid>
 
             {/* Date/Time of Availability */}
@@ -589,7 +774,11 @@ export function BookingForm() {
                   }}
                 >
                   <img
-                    src={DISCORD_USERNAME_GUIDE_PATH}
+                    src={
+                      theme.palette.mode === 'light'
+                        ? '/discord-username-light.png'
+                        : '/discord-username-dark.png'
+                    }
                     alt='Discord username location guide'
                     style={{
                       maxWidth: '100%',
@@ -630,9 +819,16 @@ export function BookingForm() {
                   type='submit'
                   variant='contained'
                   size='large'
-                  endIcon={<Send />}
+                  endIcon={
+                    isSubmitting ? (
+                      <CircularProgress size={20} color='inherit' />
+                    ) : (
+                      <Send />
+                    )
+                  }
+                  disabled={isSubmitting}
                 >
-                  Submit Booking Request
+                  {isSubmitting ? 'Submitting...' : 'Submit Booking Request'}
                 </SubmitButton>
               </Box>
             </Grid>
