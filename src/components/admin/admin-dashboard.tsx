@@ -18,7 +18,6 @@ import {
   IconButton,
   styled,
   CircularProgress,
-  Chip,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -58,16 +57,6 @@ interface Job {
   createdAt: string;
   updatedAt: string;
 }
-
-const statusColors: Record<
-  string,
-  'default' | 'primary' | 'success' | 'warning' | 'error'
-> = {
-  pending: 'warning',
-  accepted: 'primary',
-  completed: 'success',
-  cancelled: 'error',
-};
 
 export function AdminDashboard() {
   const navigate = useNavigate();

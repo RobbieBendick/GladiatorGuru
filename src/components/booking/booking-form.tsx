@@ -827,8 +827,25 @@ export function BookingForm() {
                     )
                   }
                   disabled={isSubmitting}
+                  sx={{
+                    '& .button-text-full': {
+                      display: { xs: 'none', lg: 'inline' },
+                    },
+                    '& .button-text-short': {
+                      display: { xs: 'inline', lg: 'none' },
+                    },
+                  }}
                 >
-                  {isSubmitting ? 'Submitting...' : 'Submit Booking Request'}
+                  {isSubmitting ? (
+                    'Submitting...'
+                  ) : (
+                    <>
+                      <span className='button-text-short'>Submit</span>
+                      <span className='button-text-full'>
+                        Submit Booking Request
+                      </span>
+                    </>
+                  )}
                 </SubmitButton>
               </Box>
             </Grid>

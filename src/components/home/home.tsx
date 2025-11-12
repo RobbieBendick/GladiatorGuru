@@ -137,8 +137,8 @@ const HeroContainer = styled(Box)(({ theme }) => ({
       : alpha(theme.palette.background.default, 0.5),
   marginBottom: theme.spacing(6),
   [theme.breakpoints.down('md')]: {
-    padding: theme.spacing(4),
-    marginBottom: theme.spacing(6),
+    padding: theme.spacing(4, 0),
+    marginBottom: theme.spacing(3),
   },
 }));
 
@@ -192,6 +192,10 @@ const ButtonContainer = styled(Box)(({ theme }) => ({
   justifyContent: 'center',
   flexWrap: 'wrap',
   animation: `${fadeInUp} 0.8s ease-out 0.4s both`,
+  [theme.breakpoints.down('md')]: {
+    marginTop: theme.spacing(2),
+    gap: theme.spacing(2),
+  },
 }));
 
 const PrimaryButton = styled(Button)(({ theme }) => ({
@@ -253,6 +257,7 @@ const SecondaryButton = styled(Button)(({ theme }) => ({
 
 const FeatureCard = styled(Card)(({ theme }) => ({
   height: '100%',
+  minHeight: '250px',
   display: 'flex',
   flexDirection: 'column',
   transition: 'all 0.3s ease-in-out',
@@ -260,6 +265,12 @@ const FeatureCard = styled(Card)(({ theme }) => ({
   border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
   position: 'relative',
   overflow: 'hidden',
+  [theme.breakpoints.up('sm')]: {
+    minHeight: '290px',
+  },
+  [theme.breakpoints.up('md')]: {
+    minHeight: '330px',
+  },
   '&::before': {
     content: '""',
     position: 'absolute',
@@ -299,6 +310,10 @@ const PriceBox = styled(Box)(({ theme }) => ({
   backgroundColor: alpha(theme.palette.primary.main, 0.1),
   border: `2px solid ${alpha(theme.palette.primary.main, 0.3)}`,
   animation: `${fadeInUp} 0.8s ease-out 0.6s both`,
+  [theme.breakpoints.down('md')]: {
+    padding: theme.spacing(3, 2),
+    marginTop: theme.spacing(2),
+  },
 }));
 
 const CallToActionBox = styled(Box)(({ theme }) => ({
@@ -313,8 +328,8 @@ const CallToActionBox = styled(Box)(({ theme }) => ({
   animation: `${fadeInUp} 0.8s ease-out 1s both`,
   transition: 'all 0.3s ease-in-out',
   [theme.breakpoints.down('md')]: {
-    marginTop: theme.spacing(8),
-    padding: theme.spacing(4),
+    marginTop: theme.spacing(4),
+    padding: theme.spacing(4, 2),
   },
   '&::before': {
     content: '""',
@@ -364,18 +379,18 @@ export function Home() {
       icon: <Security sx={{ fontSize: 48 }} />,
       title: 'Safe & Secure',
       description:
-        'Trusted boosting service with secure methods. Your account safety is our top priority throughout the entire process.',
+        'Trusted coaching service with secure methods and proven safety protocols. Your safety and privacy are our top priority throughout the entire coaching process, with strict confidentiality and professional conduct at all times.',
     },
   ];
 
   return (
     <AnimatedBackground>
-      <Container maxWidth='lg' sx={{ py: { xs: 6, md: 10 } }}>
+      <Container maxWidth='lg' sx={{ py: { xs: 4, md: 8 }, px: 0.5 }}>
         <HeroContainer>
           <HeroTitle variant='h1'>GladiatorGuru</HeroTitle>
           <HeroSubtitle variant='h5'>
-            Connect with the best arena players - Multi-R1 & Tournament
-            Experience
+            Connect with the best WoW Classic arena players - Multi-R1 &
+            Tournament Experience
           </HeroSubtitle>
           <PriceBox>
             <Typography
@@ -384,6 +399,8 @@ export function Home() {
                 fontWeight: 700,
                 color: 'primary.main',
                 mb: 1,
+                fontSize: 'clamp(1.5rem, 4vw + 0.5rem, 2.5rem)',
+                lineHeight: 1.2,
               }}
             >
               Starting at $30/hour
@@ -419,9 +436,9 @@ export function Home() {
         {/* Features Section */}
         <Grid
           container
-          spacing={4}
+          spacing={{ xs: 2, md: 4 }}
           sx={{
-            mt: 2,
+            mt: { xs: 1, md: 2 },
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
@@ -436,7 +453,12 @@ export function Home() {
                   }s both`,
                 }}
               >
-                <CardContent sx={{ flexGrow: 1, p: 4 }}>
+                <CardContent
+                  sx={{
+                    flexGrow: 1,
+                    p: { xs: '16px 12px', md: 4 },
+                  }}
+                >
                   <IconContainer>{feature.icon}</IconContainer>
                   <Typography
                     variant='h5'
@@ -496,8 +518,19 @@ export function Home() {
             size='large'
             endIcon={<ArrowForward />}
             onClick={() => navigate(ROUTE_PATHS.booking)}
+            sx={{
+              '& .button-text-full': {
+                display: { xs: 'none', lg: 'inline' },
+              },
+              '& .button-text-short': {
+                display: { xs: 'inline', lg: 'none' },
+              },
+            }}
           >
-            Get Started - Starting at $30/hour
+            <span className='button-text-short'>Get Started</span>
+            <span className='button-text-full'>
+              Get Started - Starting at $30/hour
+            </span>
           </PrimaryButton>
         </CallToActionBox>
       </Container>

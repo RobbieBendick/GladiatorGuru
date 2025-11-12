@@ -3,7 +3,6 @@ import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
 import IconButton from '@mui/material/IconButton';
-import Typography from '@mui/material/Typography';
 import Menu from '@mui/material/Menu';
 import Container from '@mui/material/Container';
 import Tooltip from '@mui/material/Tooltip';
@@ -102,22 +101,30 @@ function ResponsiveNavBar() {
         >
           <Toolbar sx={{ justifyContent: 'space-between' }} disableGutters>
             <Box display='flex' flexDirection='row' alignItems='center'>
-              <Typography
-                variant='h6'
-                noWrap
+              <Box
                 component={Link}
                 to='/'
                 sx={{
                   display: { xs: 'none', md: 'flex' },
-                  fontWeight: 700,
-                  letterSpacing: '.1rem',
-                  color: 'inherit',
                   textDecoration: 'none',
                   cursor: 'pointer',
+                  height: 40,
+                  '& img': {
+                    height: '100%',
+                    width: 'auto',
+                    objectFit: 'contain',
+                  },
                 }}
               >
-                GladiatorGuru
-              </Typography>
+                <img
+                  src='/gladiator-guru-logo.png'
+                  alt='GladiatorGuru'
+                  style={{
+                    height: '48px',
+                    width: 'auto',
+                  }}
+                />
+              </Box>
             </Box>
 
             <Box sx={{ flexGrow: 1, display: { xs: 'flex', md: 'none' } }}>
@@ -140,23 +147,29 @@ function ResponsiveNavBar() {
                 }}
               ></Menu>
             </Box>
-            <Typography
-              variant='h5'
-              noWrap
+            <Box
               component={Link}
               to='/'
               sx={{
                 display: { xs: 'flex', md: 'none' },
                 flexGrow: 1,
-                fontWeight: 700,
-                letterSpacing: '.1rem',
-                color: 'inherit',
                 textDecoration: 'none',
                 cursor: 'pointer',
+                height: 40,
+                alignItems: 'center',
+                '& img': {
+                  height: '100%',
+                  width: 'auto',
+                  objectFit: 'contain',
+                },
               }}
             >
-              GladiatorGuru
-            </Typography>
+              <img
+                src='/gladiator-guru-logo.png'
+                alt='GladiatorGuru'
+                style={{ height: '40px', width: 'auto' }}
+              />
+            </Box>
             <Box
               sx={{
                 flexGrow: 0,
@@ -214,7 +227,8 @@ function ResponsiveNavBar() {
                       Book a Coach
                     </Button>
                   )}
-                  {authenticated ? (
+                  {/* Temporarily hidden - keeping functionality intact */}
+                  {false && authenticated ? (
                     <Button
                       variant='text'
                       startIcon={<LogoutIcon sx={{ color: 'white' }} />}
@@ -230,19 +244,21 @@ function ResponsiveNavBar() {
                       Logout
                     </Button>
                   ) : (
-                    <Button
-                      variant='text'
-                      onClick={() => navigate(ROUTE_PATHS.login)}
-                      sx={{
-                        color: 'white',
-                        textTransform: 'none',
-                        '&:hover': {
-                          backgroundColor: 'transparent',
-                        },
-                      }}
-                    >
-                      Login/Signup
-                    </Button>
+                    false && (
+                      <Button
+                        variant='text'
+                        onClick={() => navigate(ROUTE_PATHS.login)}
+                        sx={{
+                          color: 'white',
+                          textTransform: 'none',
+                          '&:hover': {
+                            backgroundColor: 'transparent',
+                          },
+                        }}
+                      >
+                        Login/Signup
+                      </Button>
+                    )
                   )}
                   <ToggleColorModeButton color='white' />
                 </Box>
@@ -316,7 +332,8 @@ function ResponsiveNavBar() {
                       </MenuItem>
                     );
                   })}
-                  {authenticated ? (
+                  {/* Temporarily hidden - keeping functionality intact */}
+                  {false && authenticated ? (
                     <MenuItem
                       onClick={() => {
                         handleLogout();
@@ -336,24 +353,26 @@ function ResponsiveNavBar() {
                       Logout
                     </MenuItem>
                   ) : (
-                    <MenuItem
-                      onClick={() => {
-                        handleCloseUserMenu();
-                        navigate(ROUTE_PATHS.login);
-                      }}
-                      sx={{
-                        textDecoration: 'none',
-                        width: '100%',
-                        textAlign: 'center',
-                        justifyContent: 'center',
-                        color: 'text.primary',
-                        '&:hover': {
-                          backgroundColor: 'transparent',
-                        },
-                      }}
-                    >
-                      Login/Signup
-                    </MenuItem>
+                    false && (
+                      <MenuItem
+                        onClick={() => {
+                          handleCloseUserMenu();
+                          navigate(ROUTE_PATHS.login);
+                        }}
+                        sx={{
+                          textDecoration: 'none',
+                          width: '100%',
+                          textAlign: 'center',
+                          justifyContent: 'center',
+                          color: 'text.primary',
+                          '&:hover': {
+                            backgroundColor: 'transparent',
+                          },
+                        }}
+                      >
+                        Login/Signup
+                      </MenuItem>
+                    )
                   )}
 
                   <MenuItem

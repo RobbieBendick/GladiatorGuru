@@ -85,7 +85,6 @@ function App() {
       style={{
         maxWidth: '1280px',
         margin: '0 auto',
-        padding: '2rem',
         minHeight: '90vh',
         backgroundColor: theme.palette.background.default,
       }}
