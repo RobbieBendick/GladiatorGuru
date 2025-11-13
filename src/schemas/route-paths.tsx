@@ -7,6 +7,7 @@ export const ROUTE_PATHS: { [key: string]: string } = {
   booking: '/booking',
   bookingSuccess: '/booking/success',
   howItWorks: '/how-it-works',
+  calendar: '/calendar',
   login: '/login',
   signup: '/signup',
   admin: '/admin',

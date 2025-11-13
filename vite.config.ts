@@ -8,7 +8,14 @@ export default defineConfig({
     alias: [{ find: '@', replacement: path.resolve(__dirname, 'src') }],
   },
   optimizeDeps: {
-    include: ['@emotion/react', '@emotion/styled', '@mui/material/Tooltip'],
+    include: [
+      '@emotion/react',
+      '@emotion/styled',
+      '@mui/material/Tooltip',
+      '@fullcalendar/core',
+      '@fullcalendar/daygrid',
+      '@fullcalendar/timegrid',
+    ],
   },
   plugins: [
     react({

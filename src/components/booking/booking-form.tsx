@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -16,7 +16,7 @@ import {
   FormHelperText,
 } from '@mui/material';
 import { ArrowBack, Send } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { API_BASE_URL } from '../../config/api';
 import {
@@ -135,6 +135,7 @@ const SubmitButton = styled(Button)(({ theme }) => ({
   background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${
     theme.palette.primary.dark || theme.palette.primary.main
   } 100%)`,
+  transition: 'all 0.3s ease-in-out',
   '&:hover': {
     transform: 'translateY(-2px)',
     boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.4)}`,
@@ -156,6 +157,7 @@ interface BookingFormData {
 
 export function BookingForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [formData, setFormData] = useState<BookingFormData>({
     characterName: '',
     characterRealm: '',
@@ -199,6 +201,44 @@ export function BookingForm() {
 
   const minDateTime = getMinDateTime();
   const maxDateTime = getMaxDateTime();
+
+  // Handle date pre-fill from calendar
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      try {
+        // If dateParam is already in YYYY-MM-DDTHH:mm format, use it directly
+        // Otherwise, parse it as a date
+        if (
+          dateParam.includes('T') &&
+          dateParam.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+        ) {
+          // Already in the correct format
+          setFormData(prev => ({
+            ...prev,
+            availabilityDateTime: dateParam,
+          }));
+        } else {
+          // Parse and format the date
+          const date = new Date(dateParam);
+          // Use local date methods to avoid timezone issues
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          const hours = String(date.getHours()).padStart(2, '0');
+          const minutes = String(date.getMinutes()).padStart(2, '0');
+          const formattedDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+
+          setFormData(prev => ({
+            ...prev,
+            availabilityDateTime: formattedDate,
+          }));
+        }
+      } catch (error) {
+        console.error('Error parsing date parameter:', error);
+      }
+    }
+  }, [searchParams]);
 
   const theme = useTheme();
   const versions = getAvailableVersions();
