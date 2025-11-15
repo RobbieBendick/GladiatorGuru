@@ -14,6 +14,8 @@ import {
   useTheme,
   CircularProgress,
   FormHelperText,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import { ArrowBack, Send } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -104,17 +106,19 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
   '& .MuiInputLabel-asterisk': {
     color: theme.palette.error.main,
   },
-  // Style calendar icon for datetime-local inputs to match text.primary color
-  '& input[type="datetime-local"]::-webkit-calendar-picker-indicator': {
-    filter: `brightness(0) saturate(100%) invert(${
-      theme.palette.mode === 'dark' ? '1' : '0'
-    })`,
-    cursor: 'pointer',
-    opacity: 0.7,
-  },
-  '& input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover': {
-    opacity: 1,
-  },
+  // Style calendar/time icons for date, time, and datetime-local inputs to match text.primary color
+  '& input[type="date"]::-webkit-calendar-picker-indicator, & input[type="time"]::-webkit-calendar-picker-indicator, & input[type="datetime-local"]::-webkit-calendar-picker-indicator':
+    {
+      filter: `brightness(0) saturate(100%) invert(${
+        theme.palette.mode === 'dark' ? '1' : '0'
+      })`,
+      cursor: 'pointer',
+      opacity: 0.7,
+    },
+  '& input[type="date"]::-webkit-calendar-picker-indicator:hover, & input[type="time"]::-webkit-calendar-picker-indicator:hover, & input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover':
+    {
+      opacity: 1,
+    },
 }));
 
 const FormTitle = styled(Typography)(({ theme }) => ({
@@ -150,7 +154,9 @@ interface BookingFormData {
   hours: string;
   characterClass: string;
   characterSpec: string;
-  availabilityDateTime: string;
+  availabilityDate: string;
+  availabilityStartTime: string;
+  availabilityEndTime: string;
   discordUsername: string;
   goal: string;
 }
@@ -166,7 +172,9 @@ export function BookingForm() {
     hours: '',
     characterClass: '',
     characterSpec: '',
-    availabilityDateTime: '',
+    availabilityDate: '',
+    availabilityStartTime: '',
+    availabilityEndTime: '',
     discordUsername: '',
     goal: '',
   });
@@ -176,64 +184,66 @@ export function BookingForm() {
   >({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Calculate min and max dates for datetime input
-  const getMinDateTime = (): string => {
+  // Calculate min and max dates for date input
+  const getMinDate = (): string => {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    return `${year}-${month}-${day}`;
   };
 
-  const getMaxDateTime = (): string => {
+  const getMaxDate = (): string => {
     const now = new Date();
     const twoMonthsLater = new Date(now);
     twoMonthsLater.setMonth(now.getMonth() + 2);
     const year = twoMonthsLater.getFullYear();
     const month = String(twoMonthsLater.getMonth() + 1).padStart(2, '0');
     const day = String(twoMonthsLater.getDate()).padStart(2, '0');
-    const hours = String(twoMonthsLater.getHours()).padStart(2, '0');
-    const minutes = String(twoMonthsLater.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    return `${year}-${month}-${day}`;
   };
 
-  const minDateTime = getMinDateTime();
-  const maxDateTime = getMaxDateTime();
+  const minDate = getMinDate();
+  const maxDate = getMaxDate();
 
   // Handle date pre-fill from calendar
   useEffect(() => {
     const dateParam = searchParams.get('date');
     if (dateParam) {
       try {
-        // If dateParam is already in YYYY-MM-DDTHH:mm format, use it directly
-        // Otherwise, parse it as a date
+        let date: Date;
+        // If dateParam is already in YYYY-MM-DDTHH:mm format, parse it
         if (
           dateParam.includes('T') &&
           dateParam.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
         ) {
-          // Already in the correct format
-          setFormData(prev => ({
-            ...prev,
-            availabilityDateTime: dateParam,
-          }));
+          date = new Date(dateParam);
         } else {
-          // Parse and format the date
-          const date = new Date(dateParam);
-          // Use local date methods to avoid timezone issues
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, '0');
-          const day = String(date.getDate()).padStart(2, '0');
-          const hours = String(date.getHours()).padStart(2, '0');
-          const minutes = String(date.getMinutes()).padStart(2, '0');
-          const formattedDate = `${year}-${month}-${day}T${hours}:${minutes}`;
-
-          setFormData(prev => ({
-            ...prev,
-            availabilityDateTime: formattedDate,
-          }));
+          date = new Date(dateParam);
         }
+
+        // Extract date, start time, and calculate end time (2 hours later)
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const formattedDate = `${year}-${month}-${day}`;
+
+        const startHours = String(date.getHours()).padStart(2, '0');
+        const startMinutes = String(date.getMinutes()).padStart(2, '0');
+        const startTime = `${startHours}:${startMinutes}`;
+
+        const endDate = new Date(date);
+        endDate.setHours(endDate.getHours() + 2);
+        const endHours = String(endDate.getHours()).padStart(2, '0');
+        const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
+        const endTime = `${endHours}:${endMinutes}`;
+
+        setFormData(prev => ({
+          ...prev,
+          availabilityDate: formattedDate,
+          availabilityStartTime: startTime,
+          availabilityEndTime: endTime,
+        }));
       } catch (error) {
         console.error('Error parsing date parameter:', error);
       }
@@ -303,6 +313,18 @@ export function BookingForm() {
     return pricePerHour * coaches * hours;
   };
 
+  // Calculate price for a specific number of hours
+  const calculatePriceForHours = (hours: number): number => {
+    // Default to 1 coach if no bracket is selected
+    let coaches = 1;
+    if (formData.bracket) {
+      const coachesMatch = formData.bracket.match(/-(\d+)$/);
+      coaches = coachesMatch ? parseInt(coachesMatch[1], 10) : 1;
+    }
+    const pricePerHour = 30;
+    return pricePerHour * coaches * hours;
+  };
+
   const totalPrice = calculateTotalPrice();
 
   // MenuProps for select dropdowns with grey background in light mode
@@ -328,6 +350,36 @@ export function BookingForm() {
           newData.characterSpec = '';
         } else if (field === 'characterClass') {
           newData.characterSpec = '';
+        }
+
+        // If start time changes and end time is before or equal to start, update end time
+        if (
+          field === 'availabilityStartTime' &&
+          value &&
+          newData.availabilityDate
+        ) {
+          const [startHours, startMinutes] = value.split(':').map(Number);
+          const [endHours, endMinutes] = (
+            newData.availabilityEndTime || '00:00'
+          )
+            .split(':')
+            .map(Number);
+
+          const startTotalMinutes = startHours * 60 + startMinutes;
+          const endTotalMinutes = endHours * 60 + endMinutes;
+
+          if (
+            !newData.availabilityEndTime ||
+            endTotalMinutes <= startTotalMinutes
+          ) {
+            const newEndTotalMinutes = startTotalMinutes + 120; // Add 2 hours
+            const newEndHours = Math.floor(newEndTotalMinutes / 60) % 24;
+            const newEndMins = newEndTotalMinutes % 60;
+            newData.availabilityEndTime = `${String(newEndHours).padStart(
+              2,
+              '0'
+            )}:${String(newEndMins).padStart(2, '0')}`;
+          }
         }
 
         return newData;
@@ -358,20 +410,59 @@ export function BookingForm() {
       newErrors.hours = 'Hours is required';
     }
 
-    if (!formData.availabilityDateTime) {
-      newErrors.availabilityDateTime =
-        'Date and time of availability is required';
+    if (!formData.availabilityDate) {
+      newErrors.availabilityDate = 'Date is required';
     } else {
-      const selectedDate = new Date(formData.availabilityDateTime);
+      const selectedDate = new Date(formData.availabilityDate);
       const now = new Date();
+      now.setHours(0, 0, 0, 0);
       const twoMonthsLater = new Date(now);
       twoMonthsLater.setMonth(now.getMonth() + 2);
 
       if (selectedDate < now) {
-        newErrors.availabilityDateTime = 'Date and time cannot be in the past';
+        newErrors.availabilityDate = 'Date cannot be in the past';
       } else if (selectedDate > twoMonthsLater) {
-        newErrors.availabilityDateTime =
-          'Date and time cannot be more than 2 months in advance';
+        newErrors.availabilityDate =
+          'Date cannot be more than 2 months in advance';
+      } else if (
+        selectedDate.getTime() === now.getTime() &&
+        formData.availabilityStartTime
+      ) {
+        // If date is today, check if start time is in the past
+        const [startHours, startMinutes] = formData.availabilityStartTime
+          .split(':')
+          .map(Number);
+        const currentHours = new Date().getHours();
+        const currentMinutes = new Date().getMinutes();
+        const startTotalMinutes = startHours * 60 + startMinutes;
+        const currentTotalMinutes = currentHours * 60 + currentMinutes;
+
+        if (startTotalMinutes < currentTotalMinutes) {
+          newErrors.availabilityStartTime = 'Start time cannot be in the past';
+        }
+      }
+    }
+
+    if (!formData.availabilityStartTime) {
+      newErrors.availabilityStartTime = 'Start time is required';
+    }
+
+    if (!formData.availabilityEndTime) {
+      newErrors.availabilityEndTime = 'End time is required';
+    } else if (formData.availabilityStartTime) {
+      // Check if end time is after start time
+      const [startHours, startMinutes] = formData.availabilityStartTime
+        .split(':')
+        .map(Number);
+      const [endHours, endMinutes] = formData.availabilityEndTime
+        .split(':')
+        .map(Number);
+
+      const startTotalMinutes = startHours * 60 + startMinutes;
+      const endTotalMinutes = endHours * 60 + endMinutes;
+
+      if (endTotalMinutes <= startTotalMinutes) {
+        newErrors.availabilityEndTime = 'End time must be after start time';
       }
     }
 
@@ -393,12 +484,30 @@ export function BookingForm() {
     setIsSubmitting(true);
 
     try {
+      // Combine date and times into datetime strings
+      const availabilityStartDateTime = `${formData.availabilityDate}T${formData.availabilityStartTime}`;
+      const availabilityEndDateTime = `${formData.availabilityDate}T${formData.availabilityEndTime}`;
+
+      const submitData = {
+        characterName: formData.characterName,
+        characterRealm: formData.characterRealm,
+        version: formData.version,
+        bracket: formData.bracket,
+        hours: formData.hours,
+        characterClass: formData.characterClass,
+        characterSpec: formData.characterSpec,
+        availabilityStartDateTime,
+        availabilityEndDateTime,
+        discordUsername: formData.discordUsername,
+        goal: formData.goal,
+      };
+
       const response = await fetch(`${API_BASE_URL}/api/jobs`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       });
 
       if (!response.ok) {
@@ -432,8 +541,12 @@ export function BookingForm() {
       </Box>
 
       <FormPaper elevation={3}>
-        <FormTitle variant='h2' gutterBottom>
-          Book a Coach
+        <FormTitle
+          variant='h2'
+          gutterBottom
+          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+        >
+          Book your Coaching Session
         </FormTitle>
         <Box sx={{ mb: 2 }}>
           <Typography
@@ -460,15 +573,28 @@ export function BookingForm() {
             </Typography>
           )}
         </Box>
-        <Typography variant='body1' color='text.secondary' sx={{ mb: 4 }}>
-          Fill out the form below to request a boost. We'll contact you via
-          Discord to confirm details.
+        <Typography variant='body1' color='text.secondary' sx={{ mb: 1 }}>
+          Fill out the form below to request a coaching session. We'll contact
+          you via Discord to confirm details.
         </Typography>
 
         <form onSubmit={handleSubmit}>
-          <Grid container spacing={3}>
-            {/* Version */}
+          <Grid container spacing={0.5}>
+            {/* Game Version */}
             <Grid item xs={12}>
+              <Typography
+                variant='h6'
+                sx={{
+                  fontWeight: 700,
+                  fontSize: '1.25rem',
+                  mb: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                🎮 Game Version
+              </Typography>
               <StyledTextField
                 fullWidth
                 select
@@ -523,34 +649,66 @@ export function BookingForm() {
               </StyledTextField>
             </Grid>
 
-            {/* Character Name */}
-            <Grid item xs={12} sm={6}>
-              <StyledTextField
-                fullWidth
-                label='Character Name'
-                value={formData.characterName}
-                onChange={handleChange('characterName')}
-                error={!!errors.characterName}
-                helperText={errors.characterName}
-                required
-              />
+            {/* Character Information */}
+            <Grid item xs={12}>
+              <Typography
+                variant='h6'
+                sx={{
+                  fontWeight: 700,
+                  fontSize: '1.25rem',
+                  mb: 1,
+                  mt: '15px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                ⚔️ Character Information
+              </Typography>
             </Grid>
-
-            {/* Character Realm */}
-            <Grid item xs={12} sm={6}>
-              <StyledTextField
-                fullWidth
-                label='Character Realm'
-                value={formData.characterRealm}
-                onChange={handleChange('characterRealm')}
-                error={!!errors.characterRealm}
-                helperText={errors.characterRealm}
-                required
-              />
+            <Grid item xs={12}>
+              <Grid container spacing={1}>
+                <Grid item xs={12} sm={6}>
+                  <StyledTextField
+                    fullWidth
+                    label='Character Name'
+                    value={formData.characterName}
+                    onChange={handleChange('characterName')}
+                    error={!!errors.characterName}
+                    helperText={errors.characterName}
+                    required
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <StyledTextField
+                    fullWidth
+                    label='Character Realm'
+                    value={formData.characterRealm}
+                    onChange={handleChange('characterRealm')}
+                    error={!!errors.characterRealm}
+                    helperText={errors.characterRealm}
+                    required
+                  />
+                </Grid>
+              </Grid>
             </Grid>
 
             {/* Discord Username */}
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12}>
+              <Typography
+                variant='h6'
+                sx={{
+                  fontWeight: 700,
+                  fontSize: '1.25rem',
+                  mb: 1,
+                  mt: '15px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                💬 Discord Username
+              </Typography>
               <StyledTextField
                 fullWidth
                 label='Discord Username'
@@ -609,55 +767,285 @@ export function BookingForm() {
               )}
             </Grid>
 
-            {/* Hours */}
+            {/* When do you want coaching? */}
+            <Grid item xs={12}>
+              <Box>
+                <Typography
+                  variant='h6'
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '1.25rem',
+                    mb: 1,
+                    mt: '15px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                >
+                  📅 When do you want coaching?
+                </Typography>
+                <Typography
+                  variant='body2'
+                  color='text.secondary'
+                  sx={{ mb: 1 }}
+                >
+                  Pick any day you're available
+                </Typography>
+                <StyledTextField
+                  fullWidth
+                  type='date'
+                  label='Date'
+                  value={formData.availabilityDate}
+                  onChange={handleChange('availabilityDate')}
+                  error={!!errors.availabilityDate}
+                  helperText={
+                    errors.availabilityDate ||
+                    'Choose a date for your coaching session'
+                  }
+                  required
+                  inputProps={{
+                    min: minDate,
+                    max: maxDate,
+                  }}
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                  FormHelperTextProps={{
+                    sx: { marginLeft: 0 },
+                  }}
+                />
+              </Box>
+            </Grid>
+
+            {/* What times are you available that day? */}
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                <Typography
+                  variant='h6'
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '1.25rem',
+                    mb: 1,
+                    mt: '15px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                >
+                  ⏰ What times are you available that day?
+                </Typography>
+                <Typography
+                  variant='body2'
+                  color='text.secondary'
+                  sx={{ mb: 2 }}
+                >
+                  Tell us your general availability - we'll schedule within this
+                  window.
+                </Typography>
+                <Grid container spacing={2} alignItems='center'>
+                  <Grid item xs={12} sm={4}>
+                    <StyledTextField
+                      fullWidth
+                      type='time'
+                      label='From'
+                      value={formData.availabilityStartTime}
+                      onChange={handleChange('availabilityStartTime')}
+                      error={!!errors.availabilityStartTime}
+                      helperText={errors.availabilityStartTime}
+                      required
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm='auto'>
+                    <Typography
+                      variant='body1'
+                      sx={{
+                        textAlign: 'center',
+                        fontWeight: 500,
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        alignItems: 'center',
+                        height: '100%',
+                      }}
+                    >
+                      to
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <StyledTextField
+                      fullWidth
+                      type='time'
+                      label='To'
+                      value={formData.availabilityEndTime}
+                      onChange={handleChange('availabilityEndTime')}
+                      error={!!errors.availabilityEndTime}
+                      helperText={errors.availabilityEndTime}
+                      required
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+                {!errors.availabilityStartTime &&
+                  !errors.availabilityEndTime && (
+                    <FormHelperText sx={{ mt: 1, alignSelf: 'flex-start' }}>
+                      Example: If you're free 12:00 PM - 5:00 PM, enter those
+                      times.
+                    </FormHelperText>
+                  )}
+              </Box>
+            </Grid>
+
+            {/* How many hours do you want? */}
             <Grid item xs={12} sm={6}>
-              <StyledTextField
-                fullWidth
-                select
-                label='Amount of Hours'
-                value={formData.hours}
-                onChange={handleChange('hours')}
-                error={!!errors.hours}
-                helperText={errors.hours}
-                required
-                SelectProps={{
-                  MenuProps: getMenuProps(),
+              <Typography
+                variant='h6'
+                sx={{
+                  fontWeight: 700,
+                  fontSize: '1.25rem',
+                  mb: 1,
+                  mt: '15px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
                 }}
               >
-                <MenuItem value='1'>1 hour</MenuItem>
-                <MenuItem value='2'>2 hours</MenuItem>
-                <MenuItem value='3'>3 hours</MenuItem>
-                <MenuItem value='4'>4 hours</MenuItem>
-                <MenuItem value='5'>5 hours</MenuItem>
-                <MenuItem value='6'>6 hours</MenuItem>
-              </StyledTextField>
-            </Grid>
-
-            {/* Date/Time of Availability */}
-            <Grid item xs={12}>
-              <StyledTextField
+                ⏱️ How many hours do you want?
+              </Typography>
+              <ToggleButtonGroup
+                orientation='vertical'
+                value={formData.hours}
+                exclusive
+                onChange={(_, newValue) => {
+                  if (newValue !== null) {
+                    handleChange('hours')({
+                      target: { value: newValue },
+                    } as React.ChangeEvent<HTMLInputElement>);
+                  }
+                }}
                 fullWidth
-                type='datetime-local'
-                label='Date/Time of Next Availability'
-                value={formData.availabilityDateTime}
-                onChange={handleChange('availabilityDateTime')}
-                error={!!errors.availabilityDateTime}
-                helperText={
-                  errors.availabilityDateTime ||
-                  'Select when you are first available to play.'
-                }
-                required
-                inputProps={{
-                  min: minDateTime,
-                  max: maxDateTime,
+                sx={{
+                  '& .MuiToggleButtonGroup-grouped': {
+                    border: `1px solid ${alpha(
+                      theme.palette.primary.main,
+                      0.3
+                    )}`,
+                    padding: theme.spacing(1.5, 2),
+                    justifyContent: 'space-between',
+                    textTransform: 'none',
+                    '&:not(:first-of-type)': {
+                      marginTop: 1,
+                      borderTop: `1px solid ${alpha(
+                        theme.palette.primary.main,
+                        0.3
+                      )}`,
+                    },
+                    '&.Mui-selected': {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                      borderColor: theme.palette.primary.main,
+                      '&:hover': {
+                        backgroundColor: alpha(theme.palette.primary.main, 0.2),
+                      },
+                    },
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                    },
+                  },
                 }}
-                InputLabelProps={{
-                  shrink: true,
-                }}
-              />
+              >
+                {[1, 2, 3, 4].map(hours => {
+                  const isSelected = formData.hours === String(hours);
+                  const price = calculatePriceForHours(hours);
+                  return (
+                    <ToggleButton
+                      key={hours}
+                      value={String(hours)}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: '50%',
+                          border: `2px solid ${
+                            isSelected
+                              ? theme.palette.primary.main
+                              : alpha(theme.palette.text.secondary, 0.5)
+                          }`,
+                          backgroundColor: isSelected
+                            ? theme.palette.primary.main
+                            : 'transparent',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {isSelected && (
+                          <Box
+                            sx={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              backgroundColor:
+                                theme.palette.primary.contrastText,
+                            }}
+                          />
+                        )}
+                      </Box>
+                      <Typography sx={{ flex: 1, textAlign: 'left' }}>
+                        {hours} Hour Session
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontWeight: 600,
+                          color: theme.palette.primary.main,
+                        }}
+                      >
+                        ${price}
+                      </Typography>
+                    </ToggleButton>
+                  );
+                })}
+              </ToggleButtonGroup>
+              {errors.hours && (
+                <FormHelperText error sx={{ mt: 1 }}>
+                  {errors.hours}
+                </FormHelperText>
+              )}
+              {!errors.hours && (
+                <FormHelperText sx={{ mt: 1 }}>
+                  {formData.bracket
+                    ? 'Choose your session length'
+                    : 'Choose your session length (prices defaulted to 1 coach)'}
+                </FormHelperText>
+              )}
             </Grid>
 
-            {/* Character Class */}
+            {/* Character Class & Spec */}
+            <Grid item xs={12}>
+              <Typography
+                variant='h6'
+                sx={{
+                  fontWeight: 700,
+                  fontSize: '1.25rem',
+                  mb: 1,
+                  mt: '15px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                🛡️ Character Class & Spec (Optional)
+              </Typography>
+            </Grid>
             <Grid item xs={12} sm={6}>
               <StyledTextField
                 fullWidth
@@ -801,6 +1189,20 @@ export function BookingForm() {
 
             {/* Bracket */}
             <Grid item xs={12}>
+              <Typography
+                variant='h6'
+                sx={{
+                  fontWeight: 700,
+                  fontSize: '1.25rem',
+                  mb: 1,
+                  mt: '15px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                🏆 Bracket (Optional)
+              </Typography>
               <StyledTextField
                 fullWidth
                 select
@@ -821,6 +1223,20 @@ export function BookingForm() {
 
             {/* Goal */}
             <Grid item xs={12}>
+              <Typography
+                variant='h6'
+                sx={{
+                  fontWeight: 700,
+                  fontSize: '1.25rem',
+                  mb: 1,
+                  mt: '15px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                🎯 Goal (Optional)
+              </Typography>
               <StyledTextField
                 fullWidth
                 label='Goal (Optional)'

@@ -68,7 +68,8 @@ interface Job {
   version: string;
   bracket: string;
   hours: string;
-  availabilityDateTime: string;
+  availabilityStartDateTime: string;
+  availabilityEndDateTime: string;
   discordUsername: string;
   status?: 'pending' | 'approved' | 'rejected';
   createdAt?: string;
@@ -101,10 +102,8 @@ export function Calendar() {
       const calendarEvents: CalendarEvent[] = jobs
         .filter(job => job.status === 'approved' || !job.status) // Show approved or pending as approved for now
         .map(job => {
-          const startDate = new Date(job.availabilityDateTime);
-          const hours = parseInt(job.hours, 10) || 1;
-          const endDate = new Date(startDate);
-          endDate.setHours(endDate.getHours() + hours);
+          const startDate = new Date(job.availabilityStartDateTime);
+          const endDate = new Date(job.availabilityEndDateTime);
 
           return {
             id: job._id,

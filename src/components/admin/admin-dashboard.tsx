@@ -50,7 +50,8 @@ interface Job {
   hours: string;
   characterClass: string;
   characterSpec: string;
-  availabilityDateTime: string;
+  availabilityStartDateTime: string;
+  availabilityEndDateTime: string;
   discordUsername: string;
   goal?: string;
   status: 'pending' | 'accepted' | 'completed' | 'cancelled';
@@ -276,7 +277,8 @@ export function AdminDashboard() {
                     </TableCell>
                     <TableCell>{job.discordUsername}</TableCell>
                     <TableCell>
-                      {formatDate(job.availabilityDateTime)}
+                      {formatDate(job.availabilityStartDateTime)} -{' '}
+                      {formatDate(job.availabilityEndDateTime)}
                     </TableCell>
                     <TableCell>{job.goal || '-'}</TableCell>
                     <TableCell>
