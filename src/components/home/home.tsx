@@ -411,7 +411,7 @@ export function Home() {
                 color: 'text.secondary',
               }}
             >
-              Competitive rates for elite-level boosting
+              Competitive rates for elite-level coaching
             </Typography>
           </PriceBox>
           <ButtonContainer>

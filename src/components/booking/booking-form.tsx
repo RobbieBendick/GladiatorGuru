@@ -354,20 +354,8 @@ export function BookingForm() {
       newErrors.version = 'Version is required';
     }
 
-    if (!formData.bracket) {
-      newErrors.bracket = 'Bracket is required';
-    }
-
     if (!formData.hours) {
       newErrors.hours = 'Hours is required';
-    }
-
-    if (!formData.characterClass) {
-      newErrors.characterClass = 'Character class is required';
-    }
-
-    if (!formData.characterSpec) {
-      newErrors.characterSpec = 'Character spec is required';
     }
 
     if (!formData.availabilityDateTime) {
@@ -535,51 +523,6 @@ export function BookingForm() {
               </StyledTextField>
             </Grid>
 
-            {/* Bracket */}
-            <Grid item xs={12} sm={6}>
-              <StyledTextField
-                fullWidth
-                select
-                label='Bracket'
-                value={formData.bracket}
-                onChange={handleChange('bracket')}
-                error={!!errors.bracket}
-                helperText={errors.bracket}
-                required
-                SelectProps={{
-                  MenuProps: getMenuProps(),
-                }}
-              >
-                <MenuItem value='2v2-1'>2v2 (1 coach)</MenuItem>
-                <MenuItem value='3v3-1'>3v3 (1 coach)</MenuItem>
-                <MenuItem value='3v3-2'>3v3 (2 coaches)</MenuItem>
-              </StyledTextField>
-            </Grid>
-
-            {/* Hours */}
-            <Grid item xs={12} sm={6}>
-              <StyledTextField
-                fullWidth
-                select
-                label='Amount of Hours'
-                value={formData.hours}
-                onChange={handleChange('hours')}
-                error={!!errors.hours}
-                helperText={errors.hours}
-                required
-                SelectProps={{
-                  MenuProps: getMenuProps(),
-                }}
-              >
-                <MenuItem value='1'>1 hour</MenuItem>
-                <MenuItem value='2'>2 hours</MenuItem>
-                <MenuItem value='3'>3 hours</MenuItem>
-                <MenuItem value='4'>4 hours</MenuItem>
-                <MenuItem value='5'>5 hours</MenuItem>
-                <MenuItem value='6'>6 hours</MenuItem>
-              </StyledTextField>
-            </Grid>
-
             {/* Character Name */}
             <Grid item xs={12} sm={6}>
               <StyledTextField
@@ -606,17 +549,124 @@ export function BookingForm() {
               />
             </Grid>
 
+            {/* Discord Username */}
+            <Grid item xs={12} sm={6}>
+              <StyledTextField
+                fullWidth
+                label='Discord Username'
+                value={formData.discordUsername}
+                onChange={handleChange('discordUsername')}
+                error={!!errors.discordUsername}
+                helperText={errors.discordUsername}
+                required
+                placeholder='Discord username'
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position='start'>
+                      <img
+                        src={DISCORD_LOGO_PATH}
+                        alt='Discord'
+                        style={{
+                          width: 24,
+                          height: 24,
+                          objectFit: 'contain',
+                        }}
+                        onError={e => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              {!errors.discordUsername && (
+                <Box
+                  sx={{
+                    mt: 1,
+                    ml: 0,
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  <img
+                    src={
+                      theme.palette.mode === 'light'
+                        ? '/discord-username-light.png'
+                        : '/discord-username-dark.png'
+                    }
+                    alt='Discord username location guide'
+                    style={{
+                      maxWidth: '100%',
+                      height: 'auto',
+                      maxHeight: 100,
+                      objectFit: 'contain',
+                    }}
+                    onError={e => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                </Box>
+              )}
+            </Grid>
+
+            {/* Hours */}
+            <Grid item xs={12} sm={6}>
+              <StyledTextField
+                fullWidth
+                select
+                label='Amount of Hours'
+                value={formData.hours}
+                onChange={handleChange('hours')}
+                error={!!errors.hours}
+                helperText={errors.hours}
+                required
+                SelectProps={{
+                  MenuProps: getMenuProps(),
+                }}
+              >
+                <MenuItem value='1'>1 hour</MenuItem>
+                <MenuItem value='2'>2 hours</MenuItem>
+                <MenuItem value='3'>3 hours</MenuItem>
+                <MenuItem value='4'>4 hours</MenuItem>
+                <MenuItem value='5'>5 hours</MenuItem>
+                <MenuItem value='6'>6 hours</MenuItem>
+              </StyledTextField>
+            </Grid>
+
+            {/* Date/Time of Availability */}
+            <Grid item xs={12}>
+              <StyledTextField
+                fullWidth
+                type='datetime-local'
+                label='Date/Time of Next Availability'
+                value={formData.availabilityDateTime}
+                onChange={handleChange('availabilityDateTime')}
+                error={!!errors.availabilityDateTime}
+                helperText={
+                  errors.availabilityDateTime ||
+                  'Select when you are first available to play.'
+                }
+                required
+                inputProps={{
+                  min: minDateTime,
+                  max: maxDateTime,
+                }}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+            </Grid>
+
             {/* Character Class */}
             <Grid item xs={12} sm={6}>
               <StyledTextField
                 fullWidth
                 select
-                label='Character Class'
+                label='Character Class (Optional)'
                 value={formData.characterClass}
                 onChange={handleChange('characterClass')}
                 error={!!errors.characterClass}
                 helperText={errors.characterClass}
-                required
                 disabled={!formData.version}
                 SelectProps={{
                   native: false,
@@ -675,7 +725,7 @@ export function BookingForm() {
                 )}
               </StyledTextField>
               {!formData.version && !errors.characterClass && (
-                <FormHelperText error sx={{ pl: '5px' }}>
+                <FormHelperText sx={{ pl: '5px' }}>
                   Select a version first
                 </FormHelperText>
               )}
@@ -686,12 +736,11 @@ export function BookingForm() {
               <StyledTextField
                 fullWidth
                 select
-                label='Character Spec'
+                label='Character Spec (Optional)'
                 value={formData.characterSpec}
                 onChange={handleChange('characterSpec')}
                 error={!!errors.characterSpec}
                 helperText={errors.characterSpec}
-                required
                 disabled={!formData.characterClass}
                 SelectProps={{
                   native: false,
@@ -744,94 +793,30 @@ export function BookingForm() {
                 )}
               </StyledTextField>
               {!formData.characterClass && !errors.characterSpec && (
-                <FormHelperText error sx={{ pl: '5px' }}>
+                <FormHelperText sx={{ pl: '5px' }}>
                   Select a class first
                 </FormHelperText>
               )}
             </Grid>
 
-            {/* Date/Time of Availability */}
+            {/* Bracket */}
             <Grid item xs={12}>
               <StyledTextField
                 fullWidth
-                type='datetime-local'
-                label='Date/Time of Next Availability'
-                value={formData.availabilityDateTime}
-                onChange={handleChange('availabilityDateTime')}
-                error={!!errors.availabilityDateTime}
-                helperText={
-                  errors.availabilityDateTime ||
-                  'Select when you are first available to play.'
-                }
-                required
-                inputProps={{
-                  min: minDateTime,
-                  max: maxDateTime,
+                select
+                label='Bracket (Optional)'
+                value={formData.bracket}
+                onChange={handleChange('bracket')}
+                error={!!errors.bracket}
+                helperText={errors.bracket}
+                SelectProps={{
+                  MenuProps: getMenuProps(),
                 }}
-                InputLabelProps={{
-                  shrink: true,
-                }}
-              />
-            </Grid>
-
-            {/* Discord Username */}
-            <Grid item xs={12}>
-              <StyledTextField
-                fullWidth
-                label='Discord Username'
-                value={formData.discordUsername}
-                onChange={handleChange('discordUsername')}
-                error={!!errors.discordUsername}
-                helperText={errors.discordUsername}
-                required
-                placeholder='Discord username (found in bottom-left corner of Discord)'
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position='start'>
-                      <img
-                        src={DISCORD_LOGO_PATH}
-                        alt='Discord'
-                        style={{
-                          width: 24,
-                          height: 24,
-                          objectFit: 'contain',
-                        }}
-                        onError={e => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              {!errors.discordUsername && (
-                <Box
-                  sx={{
-                    mt: 1,
-                    ml: 0,
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                  }}
-                >
-                  <img
-                    src={
-                      theme.palette.mode === 'light'
-                        ? '/discord-username-light.png'
-                        : '/discord-username-dark.png'
-                    }
-                    alt='Discord username location guide'
-                    style={{
-                      maxWidth: '100%',
-                      height: 'auto',
-                      maxHeight: 100,
-                      objectFit: 'contain',
-                    }}
-                    onError={e => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                </Box>
-              )}
+              >
+                <MenuItem value='2v2-1'>2v2 (1 coach)</MenuItem>
+                <MenuItem value='3v3-1'>3v3 (1 coach)</MenuItem>
+                <MenuItem value='3v3-2'>3v3 (2 coaches)</MenuItem>
+              </StyledTextField>
             </Grid>
 
             {/* Goal */}
