@@ -1,0 +1,689 @@
+import { useEffect, useState } from 'react';
+import {
+  Box,
+  Container,
+  Typography,
+  Paper,
+  alpha,
+  styled,
+  useTheme,
+  CircularProgress,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar,
+  Alert,
+} from '@mui/material';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import {
+  EventClickArg,
+  EventContentArg,
+  DateSelectArg,
+} from '@fullcalendar/core';
+import { ArrowBack } from '@mui/icons-material';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ROUTE_PATHS } from '../../schemas/route-paths';
+import { API_BASE_URL } from '../../config/api';
+
+const SchedulePaper = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(4),
+  borderRadius: theme.shape.borderRadius * 3,
+  backgroundColor:
+    theme.palette.mode === 'light'
+      ? alpha(theme.palette.background.default, 0.8)
+      : alpha(theme.palette.background.default, 0.5),
+  border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+}));
+
+const ScheduleTitle = styled(Typography)(({ theme }) => ({
+  fontSize: '2.5rem',
+  fontWeight: 700,
+  marginBottom: theme.spacing(1),
+  background: theme.palette.text.primary,
+  backgroundClip: 'text',
+  WebkitBackgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+}));
+
+interface CalendarEvent {
+  id: string;
+  title: string;
+  start: string;
+  end?: string;
+  backgroundColor?: string;
+  borderColor?: string;
+  extendedProps?: {
+    characterName?: string;
+    characterRealm?: string;
+    version?: string;
+    bracket?: string;
+    hours?: string;
+    discordUsername?: string;
+    status?: string;
+  };
+}
+
+interface Job {
+  _id: string;
+  characterName: string;
+  characterRealm: string;
+  version: string;
+  bracket: string;
+  hours: string;
+  availabilityStartDateTime: string;
+  availabilityEndDateTime: string;
+  discordUsername: string;
+  status?: 'pending' | 'approved' | 'rejected' | 'completed' | 'cancelled';
+  createdAt?: string;
+  updatedAt?: string;
+  coachId?: string;
+  coachName?: string;
+}
+
+interface CoachInfo {
+  _id: string;
+  username: string;
+  name?: string;
+  role: string;
+}
+
+export function CoachSchedule() {
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const { id } = useParams<{ id: string }>();
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [coachInfo, setCoachInfo] = useState<CoachInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedTimeRange, setSelectedTimeRange] = useState<{
+    start: Date;
+    end: Date;
+  } | null>(null);
+  const [showTimeDialog, setShowTimeDialog] = useState(false);
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+  }>({ open: false, message: '' });
+  const [currentView, setCurrentView] = useState<string>('dayGridMonth');
+
+  useEffect(() => {
+    fetchCoachSchedule();
+  }, [id]);
+
+  const fetchCoachSchedule = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (!id) {
+        setError('Coach ID is required');
+        setLoading(false);
+        return;
+      }
+
+      // Fetch coach info by ID
+      try {
+        const coachResponse = await fetch(
+          `${API_BASE_URL}/api/admin/users/${id}`,
+          {
+            credentials: 'include',
+          }
+        );
+
+        if (coachResponse.ok) {
+          const coachData = await coachResponse.json();
+          const coach = Array.isArray(coachData.data)
+            ? coachData.data[0]
+            : coachData.data;
+          if (coach) {
+            setCoachInfo(coach);
+            // Fetch jobs assigned to this coach
+            await fetchCoachJobs(coach._id || id);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching coach info:', err);
+      }
+
+      // If we couldn't find the coach, try fetching jobs directly
+      await fetchCoachJobs(id);
+    } catch (err: any) {
+      console.error('Error fetching coach schedule:', err);
+      setError(err.message || 'Failed to load schedule');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCoachJobs = async (coachIdentifier: string) => {
+    try {
+      // Try different API endpoints
+      const endpoints = [
+        `${API_BASE_URL}/api/jobs?coachId=${coachIdentifier}`,
+        `${API_BASE_URL}/api/jobs?coach=${coachIdentifier}`,
+        `${API_BASE_URL}/api/admin/jobs?coachId=${coachIdentifier}`,
+        `${API_BASE_URL}/api/admin/jobs?coach=${coachIdentifier}`,
+        // Keep backward compatibility with boosterId
+        `${API_BASE_URL}/api/jobs?boosterId=${coachIdentifier}`,
+        `${API_BASE_URL}/api/jobs?booster=${coachIdentifier}`,
+        `${API_BASE_URL}/api/admin/jobs?boosterId=${coachIdentifier}`,
+        `${API_BASE_URL}/api/admin/jobs?booster=${coachIdentifier}`,
+      ];
+
+      let jobs: Job[] = [];
+
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(endpoint, {
+            credentials: 'include',
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            jobs = data.data || data || [];
+            if (jobs.length > 0) break;
+          }
+        } catch (err) {
+          // Continue to next endpoint
+          continue;
+        }
+      }
+
+      // If no jobs found with coach filter, fetch all jobs and filter client-side
+      if (jobs.length === 0) {
+        const allJobsResponse = await fetch(`${API_BASE_URL}/api/jobs`, {
+          credentials: 'include',
+        });
+
+        if (allJobsResponse.ok) {
+          const allJobsData = await allJobsResponse.json();
+          const allJobs: Job[] = allJobsData.data || allJobsData || [];
+          // Filter jobs by coachId or boosterId (for backward compatibility)
+          jobs = allJobs.filter(
+            (job: Job) =>
+              job.coachId === coachIdentifier ||
+              (job as any).boosterId === coachIdentifier
+          );
+        }
+      }
+
+      // Convert jobs to calendar events
+      const calendarEvents: CalendarEvent[] = jobs
+        .filter(
+          job =>
+            job.status === 'approved' ||
+            job.status === 'completed' ||
+            !job.status
+        )
+        .map(job => {
+          const startDate = new Date(job.availabilityStartDateTime);
+          const endDate = new Date(job.availabilityEndDateTime);
+
+          return {
+            id: job._id,
+            title: `${job.characterName} - ${job.bracket}`,
+            start: startDate.toISOString(),
+            end: endDate.toISOString(),
+            backgroundColor:
+              job.status === 'approved'
+                ? theme.palette.primary.main
+                : job.status === 'completed'
+                ? theme.palette.success?.main || theme.palette.primary.main
+                : alpha(theme.palette.warning.main, 0.7),
+            borderColor:
+              job.status === 'approved'
+                ? theme.palette.primary.dark
+                : job.status === 'completed'
+                ? theme.palette.success?.dark || theme.palette.primary.dark
+                : theme.palette.warning.main,
+            extendedProps: {
+              characterName: job.characterName,
+              characterRealm: job.characterRealm,
+              version: job.version,
+              bracket: job.bracket,
+              hours: job.hours,
+              discordUsername: job.discordUsername,
+              status: job.status || 'pending',
+            },
+          };
+        });
+
+      setEvents(calendarEvents);
+    } catch (err: any) {
+      console.error('Error fetching coach jobs:', err);
+      setError(err.message || 'Failed to load jobs');
+    }
+  };
+
+  const handleDateSelect = (selectInfo: DateSelectArg) => {
+    // Use startStr and endStr to get timezone-aware times
+    // These are in ISO format with timezone, so parse them to get the correct local time
+    const start = selectInfo.startStr
+      ? new Date(selectInfo.startStr)
+      : selectInfo.start;
+
+    // Use endStr to get the correct timezone-aware end time
+    // endStr is in ISO format with timezone, so parse it to get the correct local time
+    const end = selectInfo.endStr
+      ? new Date(selectInfo.endStr)
+      : selectInfo.end;
+
+    // Calculate duration in hours
+    const durationMs = end.getTime() - start.getTime();
+    const durationHours = durationMs / (1000 * 60 * 60);
+
+    // Show warning if duration exceeds 5 hours, but don't show dialog
+    if (durationHours > 5) {
+      setSnackbar({
+        open: true,
+        message:
+          'Maximum selection time is 5 hours. Please select a shorter time range.',
+      });
+      selectInfo.view.calendar.unselect();
+      return;
+    }
+
+    // Use the timezone-aware times
+    setSelectedTimeRange({ start, end });
+    setShowTimeDialog(true);
+    selectInfo.view.calendar.unselect();
+  };
+
+  const handleViewChange = (viewInfo: any) => {
+    setCurrentView(viewInfo.view.type);
+  };
+
+  const handleEventClick = (clickInfo: EventClickArg) => {
+    const event = clickInfo.event;
+    const extendedProps = event.extendedProps as CalendarEvent['extendedProps'];
+
+    // Show event details
+    alert(
+      `Event: ${event.title}\n` +
+        `Character: ${extendedProps?.characterName}\n` +
+        `Realm: ${extendedProps?.characterRealm}\n` +
+        `Bracket: ${extendedProps?.bracket}\n` +
+        `Hours: ${extendedProps?.hours}\n` +
+        `Discord: ${extendedProps?.discordUsername}\n` +
+        `Status: ${extendedProps?.status || 'pending'}`
+    );
+  };
+
+  const formatTime = (date: Date): string => {
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const formatDate = (date: Date): string => {
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  const calculateDuration = (start: Date, end: Date): string => {
+    const durationMs = end.getTime() - start.getTime();
+    const hours = Math.floor(durationMs / (1000 * 60 * 60));
+    const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (hours === 0) {
+      return `${minutes} minutes`;
+    } else if (minutes === 0) {
+      return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+    } else {
+      return `${hours} ${hours === 1 ? 'hour' : 'hours'} ${minutes} minutes`;
+    }
+  };
+
+  const handleCloseTimeDialog = () => {
+    setShowTimeDialog(false);
+    setSelectedTimeRange(null);
+  };
+
+  const renderEventContent = (eventInfo: EventContentArg) => {
+    return (
+      <Box
+        sx={{
+          padding: '2px 4px',
+          fontSize: '0.85rem',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <strong>{eventInfo.timeText}</strong>
+        <br />
+        {eventInfo.event.title}
+      </Box>
+    );
+  };
+
+  if (loading) {
+    return (
+      <Container maxWidth='lg'>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '50vh',
+          }}
+        >
+          <CircularProgress />
+        </Box>
+      </Container>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth='lg'>
+        <Box sx={{ mb: 3 }}>
+          <Button
+            startIcon={<ArrowBack />}
+            onClick={() => navigate(ROUTE_PATHS.home)}
+            sx={{ mb: 2 }}
+          >
+            Back to Home
+          </Button>
+        </Box>
+        <SchedulePaper elevation={3}>
+          <Typography variant='h4' color='error' gutterBottom>
+            Error
+          </Typography>
+          <Typography variant='body1' color='text.secondary'>
+            {error}
+          </Typography>
+        </SchedulePaper>
+      </Container>
+    );
+  }
+
+  const displayName = coachInfo?.name || coachInfo?.username || id || 'Coach';
+
+  return (
+    <Container maxWidth='lg'>
+      <Box sx={{ mb: 3 }}>
+        <Button
+          startIcon={<ArrowBack />}
+          onClick={() => navigate(ROUTE_PATHS.home)}
+          sx={{ mb: 2 }}
+        >
+          Back to Home
+        </Button>
+      </Box>
+
+      <SchedulePaper elevation={3}>
+        <ScheduleTitle variant='h2' gutterBottom>
+          {displayName}'s Schedule
+        </ScheduleTitle>
+        <Typography variant='body1' color='text.secondary' sx={{ mb: 4 }}>
+          View {displayName}'s coaching sessions and availability.
+        </Typography>
+
+        <Box
+          sx={{
+            '& .fc': {
+              fontFamily: theme.typography.fontFamily,
+            },
+            '& .fc-header-toolbar': {
+              marginBottom: theme.spacing(3),
+            },
+            '& .fc-button': {
+              backgroundColor: theme.palette.primary.main,
+              borderColor: theme.palette.primary.main,
+              color: theme.palette.primary.contrastText,
+              '&:hover': {
+                backgroundColor: theme.palette.primary.dark,
+                borderColor: theme.palette.primary.dark,
+              },
+              '&:focus': {
+                boxShadow: `0 0 0 3px ${alpha(
+                  theme.palette.primary.main,
+                  0.3
+                )}`,
+              },
+            },
+            '& .fc-button-active': {
+              backgroundColor: theme.palette.primary.dark,
+              borderColor: theme.palette.primary.dark,
+            },
+            '& .fc-daygrid-day': {
+              backgroundColor:
+                theme.palette.mode === 'light'
+                  ? theme.palette.background.paper
+                  : alpha(theme.palette.background.paper, 0.5),
+            },
+            '& .fc-day-today': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.1),
+            },
+            '& .fc-col-header-cell': {
+              backgroundColor:
+                theme.palette.mode === 'light'
+                  ? alpha(theme.palette.primary.main, 0.1)
+                  : alpha(theme.palette.primary.main, 0.2),
+              color: theme.palette.text.primary,
+              fontWeight: 600,
+            },
+            '& th[role="columnheader"], & th[aria-hidden="true"]': {
+              backgroundColor: theme.palette.primary.main,
+              color:
+                theme.palette.primary.contrastText ||
+                theme.palette.text.primary,
+              fontWeight: 600,
+            },
+            '& .fc-event': {
+              cursor: 'pointer',
+              border: 'none',
+              borderRadius: theme.shape.borderRadius,
+            },
+            '& .fc-event-title': {
+              fontWeight: 500,
+            },
+            '& .fc-daygrid-event': {
+              borderRadius: theme.shape.borderRadius,
+            },
+            '& .fc-timegrid-event': {
+              borderRadius: theme.shape.borderRadius,
+            },
+            '& .fc-timegrid-slot': {
+              height: '2.5em',
+            },
+            '& .fc-select-highlight': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.2),
+              border: `2px solid ${theme.palette.primary.main}`,
+            },
+            '& .fc-highlight': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.15),
+            },
+          }}
+        >
+          <FullCalendar
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView='dayGridMonth'
+            headerToolbar={{
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,timeGridWeek,timeGridDay',
+            }}
+            editable={false}
+            selectable={
+              currentView === 'timeGridDay' || currentView === 'timeGridWeek'
+            }
+            selectMirror={true}
+            selectOverlap={false}
+            selectConstraint={{
+              start: '00:00',
+              end: '24:00',
+            }}
+            dayMaxEvents={true}
+            weekends={true}
+            select={handleDateSelect}
+            eventClick={handleEventClick}
+            events={events}
+            eventContent={renderEventContent}
+            height='auto'
+            slotMinTime='00:00:00'
+            slotMaxTime='24:00:00'
+            slotDuration='01:00:00'
+            snapDuration='01:00:00'
+            slotLabelInterval='01:00:00'
+            allDaySlot={false}
+            selectMinDistance={10}
+            datesSet={handleViewChange}
+          />
+        </Box>
+      </SchedulePaper>
+
+      {/* Time Selection Dialog */}
+      <Dialog
+        open={showTimeDialog}
+        onClose={handleCloseTimeDialog}
+        maxWidth='sm'
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant='h6' sx={{ fontWeight: 600 }}>
+            Selected Time Range
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {selectedTimeRange && (
+            <Box sx={{ py: 2 }}>
+              <Typography variant='body1' sx={{ mb: 2 }}>
+                <strong>Date:</strong> {formatDate(selectedTimeRange.start)}
+              </Typography>
+              <Typography variant='body1' sx={{ mb: 2 }}>
+                <strong>Start Time:</strong>{' '}
+                {formatTime(selectedTimeRange.start)}
+              </Typography>
+              <Typography variant='body1' sx={{ mb: 2 }}>
+                <strong>End Time:</strong> {formatTime(selectedTimeRange.end)}
+              </Typography>
+              <Typography
+                variant='body1'
+                sx={{
+                  mb: 2,
+                  color: 'primary.main',
+                  fontWeight: 600,
+                  fontSize: '1.1rem',
+                }}
+              >
+                <strong>Duration:</strong>{' '}
+                {calculateDuration(
+                  selectedTimeRange.start,
+                  selectedTimeRange.end
+                )}
+              </Typography>
+              <Box
+                sx={{
+                  mt: 3,
+                  p: 2,
+                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                  borderRadius: 2,
+                  border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+                }}
+              >
+                <Typography variant='body2' color='text.secondary'>
+                  💡 <strong>Tip:</strong> This time range has been selected and
+                  will be used to coordinate with the coach.
+                </Typography>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseTimeDialog} variant='outlined'>
+            Close
+          </Button>
+          <Button
+            onClick={() => {
+              if (selectedTimeRange) {
+                const startYear = selectedTimeRange.start.getFullYear();
+                const startMonth = String(
+                  selectedTimeRange.start.getMonth() + 1
+                ).padStart(2, '0');
+                const startDay = String(
+                  selectedTimeRange.start.getDate()
+                ).padStart(2, '0');
+                const startHours = String(
+                  selectedTimeRange.start.getHours()
+                ).padStart(2, '0');
+                const startMinutes = String(
+                  selectedTimeRange.start.getMinutes()
+                ).padStart(2, '0');
+                const formattedStartDate = `${startYear}-${startMonth}-${startDay}T${startHours}:${startMinutes}`;
+
+                const endYear = selectedTimeRange.end.getFullYear();
+                const endMonth = String(
+                  selectedTimeRange.end.getMonth() + 1
+                ).padStart(2, '0');
+                const endDay = String(selectedTimeRange.end.getDate()).padStart(
+                  2,
+                  '0'
+                );
+                const endHours = String(
+                  selectedTimeRange.end.getHours()
+                ).padStart(2, '0');
+                const endMinutes = String(
+                  selectedTimeRange.end.getMinutes()
+                ).padStart(2, '0');
+                const formattedEndDate = `${endYear}-${endMonth}-${endDay}T${endHours}:${endMinutes}`;
+
+                // Calculate duration in hours and round to nearest integer
+                const durationMs =
+                  selectedTimeRange.end.getTime() -
+                  selectedTimeRange.start.getTime();
+                const durationHours = Math.round(durationMs / (1000 * 60 * 60));
+                // Clamp between 1 and 5 hours (form validation limits)
+                const hours = Math.max(1, Math.min(5, durationHours));
+
+                navigate(
+                  `${ROUTE_PATHS.booking}?date=${formattedStartDate}&endDate=${formattedEndDate}&hours=${hours}`
+                );
+              }
+            }}
+            variant='contained'
+            sx={{
+              background: `linear-gradient(135deg, ${
+                theme.palette.primary.main
+              } 0%, ${
+                theme.palette.primary.dark || theme.palette.primary.main
+              } 100%)`,
+            }}
+          >
+            Book This Time
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Error Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ open: false, message: '' })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ open: false, message: '' })}
+          severity='error'
+          variant='filled'
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Container>
+  );
+}

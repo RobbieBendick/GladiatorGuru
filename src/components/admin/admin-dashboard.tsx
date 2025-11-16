@@ -23,6 +23,7 @@ import {
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
   Logout as LogoutIcon,
+  People as PeopleIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
@@ -184,6 +185,37 @@ export function AdminDashboard() {
     return new Date(dateString).toLocaleString();
   };
 
+  const formatAvailabilityRange = (
+    startDateTime: string,
+    endDateTime: string
+  ) => {
+    const startDate = new Date(startDateTime);
+    const endDate = new Date(endDateTime);
+
+    // Check if both dates are on the same day
+    const isSameDay =
+      startDate.getFullYear() === endDate.getFullYear() &&
+      startDate.getMonth() === endDate.getMonth() &&
+      startDate.getDate() === endDate.getDate();
+
+    if (isSameDay) {
+      // Same day: show date once, then time range
+      const dateStr = startDate.toLocaleDateString();
+      const startTime = startDate.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const endTime = endDate.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      return `${dateStr} ${startTime} - ${endTime}`;
+    } else {
+      // Different days: show full date range
+      return `${formatDate(startDateTime)} - ${formatDate(endDateTime)}`;
+    }
+  };
+
   return (
     <Container maxWidth='xl' sx={{ py: 4 }}>
       <Box
@@ -196,6 +228,13 @@ export function AdminDashboard() {
       >
         <DashboardTitle variant='h2'>Admin Dashboard</DashboardTitle>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Button
+            variant='outlined'
+            startIcon={<PeopleIcon />}
+            onClick={() => navigate('/admin/coaches')}
+          >
+            View Coaches
+          </Button>
           <Button
             variant='outlined'
             startIcon={<RefreshIcon />}
@@ -277,8 +316,10 @@ export function AdminDashboard() {
                     </TableCell>
                     <TableCell>{job.discordUsername}</TableCell>
                     <TableCell>
-                      {formatDate(job.availabilityStartDateTime)} -{' '}
-                      {formatDate(job.availabilityEndDateTime)}
+                      {formatAvailabilityRange(
+                        job.availabilityStartDateTime,
+                        job.availabilityEndDateTime
+                      )}
                     </TableCell>
                     <TableCell>{job.goal || '-'}</TableCell>
                     <TableCell>

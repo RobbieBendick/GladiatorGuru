@@ -119,6 +119,48 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
     {
       opacity: 1,
     },
+  // Style date picker dropdown to match select menu style
+  '& input[type="date"]': {
+    '&::-webkit-datetime-edit': {
+      color: theme.palette.text.primary,
+    },
+    '&::-webkit-datetime-edit-fields-wrapper': {
+      color: theme.palette.text.primary,
+    },
+    '&::-webkit-datetime-edit-text': {
+      color: theme.palette.text.secondary,
+    },
+    '&::-webkit-datetime-edit-year-field': {
+      color: theme.palette.text.primary,
+    },
+    '&::-webkit-datetime-edit-month-field': {
+      color: theme.palette.text.primary,
+    },
+    '&::-webkit-datetime-edit-day-field': {
+      color: theme.palette.text.primary,
+    },
+  },
+  // Style time picker dropdown to match select menu style
+  '& input[type="time"]': {
+    '&::-webkit-datetime-edit': {
+      color: theme.palette.text.primary,
+    },
+    '&::-webkit-datetime-edit-fields-wrapper': {
+      color: theme.palette.text.primary,
+    },
+    '&::-webkit-datetime-edit-text': {
+      color: theme.palette.text.secondary,
+    },
+    '&::-webkit-datetime-edit-hour-field': {
+      color: theme.palette.text.primary,
+    },
+    '&::-webkit-datetime-edit-minute-field': {
+      color: theme.palette.text.primary,
+    },
+    '&::-webkit-datetime-edit-ampm-field': {
+      color: theme.palette.text.primary,
+    },
+  },
 }));
 
 const FormTitle = styled(Typography)(({ theme }) => ({
@@ -209,6 +251,9 @@ export function BookingForm() {
   // Handle date pre-fill from calendar
   useEffect(() => {
     const dateParam = searchParams.get('date');
+    const endDateParam = searchParams.get('endDate');
+    const hoursParam = searchParams.get('hours');
+
     if (dateParam) {
       try {
         let date: Date;
@@ -222,7 +267,7 @@ export function BookingForm() {
           date = new Date(dateParam);
         }
 
-        // Extract date, start time, and calculate end time (2 hours later)
+        // Extract date and start time
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
@@ -232,17 +277,48 @@ export function BookingForm() {
         const startMinutes = String(date.getMinutes()).padStart(2, '0');
         const startTime = `${startHours}:${startMinutes}`;
 
-        const endDate = new Date(date);
-        endDate.setHours(endDate.getHours() + 2);
-        const endHours = String(endDate.getHours()).padStart(2, '0');
-        const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
-        const endTime = `${endHours}:${endMinutes}`;
+        // Use endDate from URL if provided, otherwise calculate 2 hours later
+        let endTime: string;
+        if (endDateParam) {
+          let endDate: Date;
+          if (
+            endDateParam.includes('T') &&
+            endDateParam.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+          ) {
+            endDate = new Date(endDateParam);
+          } else {
+            endDate = new Date(endDateParam);
+          }
+          const endHours = String(endDate.getHours()).padStart(2, '0');
+          const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
+          endTime = `${endHours}:${endMinutes}`;
+        } else {
+          // Fallback: calculate end time as 2 hours later
+          const calculatedEndDate = new Date(date);
+          calculatedEndDate.setHours(calculatedEndDate.getHours() + 2);
+          const endHours = String(calculatedEndDate.getHours()).padStart(
+            2,
+            '0'
+          );
+          const endMinutes = String(calculatedEndDate.getMinutes()).padStart(
+            2,
+            '0'
+          );
+          endTime = `${endHours}:${endMinutes}`;
+        }
+
+        // Use hours from URL if provided and valid (1-5), otherwise leave empty
+        const hours =
+          hoursParam && ['1', '2', '3', '4', '5'].includes(hoursParam)
+            ? hoursParam
+            : '';
 
         setFormData(prev => ({
           ...prev,
           availabilityDate: formattedDate,
           availabilityStartTime: startTime,
           availabilityEndTime: endTime,
+          hours: hours,
         }));
       } catch (error) {
         console.error('Error parsing date parameter:', error);
@@ -251,6 +327,179 @@ export function BookingForm() {
   }, [searchParams]);
 
   const theme = useTheme();
+
+  // Inject styles for date and time picker dropdowns to match select menu style
+  useEffect(() => {
+    const styleId = 'date-time-picker-dropdown-styles';
+    let existingStyle = document.getElementById(
+      styleId
+    ) as HTMLStyleElement | null;
+
+    const primaryColor = theme.palette.primary.main;
+
+    if (existingStyle) {
+      // Update existing styles if theme changed
+      existingStyle.textContent = `
+        /* Global accent color for all form controls including date and time pickers */
+        :root {
+          accent-color: ${primaryColor};
+        }
+        
+        /* Style date picker dropdown to match select menu */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+          background-color: transparent;
+          cursor: pointer;
+        }
+        
+        /* Style the date picker popup/dropdown */
+        input[type="date"]::-webkit-datetime-edit {
+          color: ${theme.palette.text.primary};
+        }
+        
+        input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+          background-color: transparent;
+        }
+        
+        input[type="date"]::-webkit-datetime-edit-year-field:focus,
+        input[type="date"]::-webkit-datetime-edit-month-field:focus,
+        input[type="date"]::-webkit-datetime-edit-day-field:focus {
+          background-color: ${alpha(primaryColor, 0.1)};
+          color: ${primaryColor};
+        }
+        
+        /* Set color scheme and accent color for date picker popup - affects native popup background and selected items */
+        input[type="date"],
+        input[type="date"]:focus,
+        input[type="date"]:active {
+          color-scheme: ${theme.palette.mode};
+          accent-color: ${primaryColor};
+        }
+        
+        /* Style time picker dropdown to match select menu */
+        input[type="time"]::-webkit-calendar-picker-indicator {
+          background-color: transparent;
+          cursor: pointer;
+        }
+        
+        /* Style the time picker popup/dropdown */
+        input[type="time"]::-webkit-datetime-edit {
+          color: ${theme.palette.text.primary};
+        }
+        
+        input[type="time"]::-webkit-datetime-edit-fields-wrapper {
+          background-color: transparent;
+        }
+        
+        input[type="time"]::-webkit-datetime-edit-hour-field:focus,
+        input[type="time"]::-webkit-datetime-edit-minute-field:focus {
+          background-color: ${alpha(primaryColor, 0.1)};
+          color: ${primaryColor};
+        }
+        
+        /* Set color scheme and accent color for time picker popup - affects native popup background and selected items */
+        input[type="time"],
+        input[type="time"]:focus,
+        input[type="time"]:active {
+          color-scheme: ${theme.palette.mode};
+          accent-color: ${primaryColor};
+        }
+        
+        /* Apply accent color to body and html for global propagation */
+        html, body {
+          accent-color: ${primaryColor};
+        }
+      `;
+      return;
+    }
+
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      /* Global accent color for all form controls including date and time pickers */
+      :root {
+        accent-color: ${primaryColor};
+      }
+      
+      /* Style date picker dropdown to match select menu */
+      input[type="date"]::-webkit-calendar-picker-indicator {
+        background-color: transparent;
+        cursor: pointer;
+      }
+      
+      /* Style the date picker popup/dropdown */
+      input[type="date"]::-webkit-datetime-edit {
+        color: ${theme.palette.text.primary};
+      }
+      
+      input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+        background-color: transparent;
+      }
+      
+      input[type="date"]::-webkit-datetime-edit-year-field:focus,
+      input[type="date"]::-webkit-datetime-edit-month-field:focus,
+      input[type="date"]::-webkit-datetime-edit-day-field:focus {
+        background-color: ${alpha(primaryColor, 0.1)};
+        color: ${primaryColor};
+      }
+      
+      /* Set color scheme and accent color for date picker popup - affects native popup background and selected items */
+      input[type="date"],
+      input[type="date"]:focus,
+      input[type="date"]:active {
+        color-scheme: ${theme.palette.mode};
+        accent-color: ${primaryColor};
+      }
+      
+      /* Style time picker dropdown to match select menu */
+      input[type="time"]::-webkit-calendar-picker-indicator {
+        background-color: transparent;
+        cursor: pointer;
+      }
+      
+      /* Style the time picker popup/dropdown */
+      input[type="time"]::-webkit-datetime-edit {
+        color: ${theme.palette.text.primary};
+      }
+      
+      input[type="time"]::-webkit-datetime-edit-fields-wrapper {
+        background-color: transparent;
+      }
+      
+      input[type="time"]::-webkit-datetime-edit-hour-field:focus,
+      input[type="time"]::-webkit-datetime-edit-minute-field:focus {
+        background-color: ${alpha(primaryColor, 0.1)};
+        color: ${primaryColor};
+      }
+      
+      /* Set color scheme and accent color for time picker popup - affects native popup background and selected items */
+      input[type="time"],
+      input[type="time"]:focus,
+      input[type="time"]:active {
+        color-scheme: ${theme.palette.mode};
+        accent-color: ${primaryColor};
+      }
+      
+      /* Apply accent color to body and html for global propagation */
+      html, body {
+        accent-color: ${primaryColor};
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Also set accent-color directly on document elements
+    document.documentElement.style.setProperty('accent-color', primaryColor);
+    document.body.style.setProperty('accent-color', primaryColor);
+
+    return () => {
+      const styleToRemove = document.getElementById(styleId);
+      if (styleToRemove) {
+        styleToRemove.remove();
+      }
+      // Clean up inline styles
+      document.documentElement.style.removeProperty('accent-color');
+      document.body.style.removeProperty('accent-color');
+    };
+  }, [theme]);
   const versions = getAvailableVersions();
   const availableClasses = formData.version
     ? getClassesForVersion(formData.version)
@@ -573,13 +822,21 @@ export function BookingForm() {
             </Typography>
           )}
         </Box>
-        <Typography variant='body1' color='text.secondary' sx={{ mb: 1 }}>
+        <Typography variant='body1' color='text.secondary' sx={{ mb: 3 }}>
           Fill out the form below to request a coaching session. We'll contact
           you via Discord to confirm details.
         </Typography>
 
         <form onSubmit={handleSubmit}>
-          <Grid container spacing={0.5}>
+          <Grid
+            container
+            spacing={2}
+            sx={{
+              '& > .MuiGrid-item': {
+                paddingTop: 0,
+              },
+            }}
+          >
             {/* Game Version */}
             <Grid item xs={12}>
               <Typography
@@ -657,7 +914,7 @@ export function BookingForm() {
                   fontWeight: 700,
                   fontSize: '1.25rem',
                   mb: 1,
-                  mt: '15px',
+                  mt: 2,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1,
@@ -667,7 +924,7 @@ export function BookingForm() {
               </Typography>
             </Grid>
             <Grid item xs={12}>
-              <Grid container spacing={1}>
+              <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <StyledTextField
                     fullWidth
@@ -700,8 +957,8 @@ export function BookingForm() {
                 sx={{
                   fontWeight: 700,
                   fontSize: '1.25rem',
-                  mb: 1,
-                  mt: '15px',
+                  mb: 2,
+                  mt: 2,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1,
@@ -787,7 +1044,7 @@ export function BookingForm() {
                 <Typography
                   variant='body2'
                   color='text.secondary'
-                  sx={{ mb: 1 }}
+                  sx={{ mb: 2 }}
                 >
                   Pick any day you're available
                 </Typography>
@@ -907,7 +1164,7 @@ export function BookingForm() {
                   fontWeight: 700,
                   fontSize: '1.25rem',
                   mb: 1,
-                  mt: '15px',
+                  mt: 2,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1,
@@ -956,7 +1213,7 @@ export function BookingForm() {
                   },
                 }}
               >
-                {[1, 2, 3, 4].map(hours => {
+                {[1, 2, 3, 4, 5].map(hours => {
                   const isSelected = formData.hours === String(hours);
                   const price = calculatePriceForHours(hours);
                   return (
@@ -1037,7 +1294,7 @@ export function BookingForm() {
                   fontWeight: 700,
                   fontSize: '1.25rem',
                   mb: 1,
-                  mt: '15px',
+                  mt: 2,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1,
@@ -1195,7 +1452,7 @@ export function BookingForm() {
                   fontWeight: 700,
                   fontSize: '1.25rem',
                   mb: 1,
-                  mt: '15px',
+                  mt: 2,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1,
@@ -1229,7 +1486,7 @@ export function BookingForm() {
                   fontWeight: 700,
                   fontSize: '1.25rem',
                   mb: 1,
-                  mt: '15px',
+                  mt: 2,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1,
@@ -1250,6 +1507,9 @@ export function BookingForm() {
                 placeholder='e.g., Gladiator, 2200 elite set, etc.'
                 multiline
                 rows={3}
+                FormHelperTextProps={{
+                  sx: { marginLeft: 0 },
+                }}
               />
             </Grid>
 

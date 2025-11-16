@@ -43,26 +43,31 @@ const ContentPaper = styled(Paper)(({ theme }) => ({
 
 const steps = [
   {
+    icon: '📝',
     label: 'Book Your Session',
     description:
       'Fill out our booking form with your character details, preferred game version, bracket, and availability. Select the number of coaches and hours you need.',
   },
   {
+    icon: '💬',
     label: 'We Contact You',
     description:
-      "Within 24 hours, we'll reach out to you via Discord to confirm your booking details, discuss your goals, and answer any questions you may have.",
+      "Within 24 hours, we'll reach out to you via Discord to confirm your booking details, discuss your goals, and answer any questions you may have. We'll start with a consultation to understand your goals and needs.",
   },
   {
+    icon: '📅',
     label: 'Schedule Your Session',
     description:
       "We'll coordinate with you to find the best time for your coaching session. Once scheduled, you'll receive a confirmation with all the details.",
   },
   {
+    icon: '🎮',
     label: 'Attend Your Coaching Session',
     description:
       "Join your coaching session with our elite players. We'll be playing in your desired bracket, playing along with you and coaching you along the way. Learn advanced strategies, positioning, communication, and game sense.",
   },
   {
+    icon: '📈',
     label: 'Improve & Practice',
     description:
       "Apply what you've learned in your own games. Our coaches will provide feedback and tips to help you continue improving your arena skills.",
@@ -135,12 +140,20 @@ export function HowItWorks() {
               <StepLabel
                 sx={{
                   '& .MuiStepLabel-label': {
-                    fontSize: { xs: '1rem', md: '1.1rem' },
-                    fontWeight: 600,
+                    fontSize: '1.25rem',
+                    fontWeight: 700,
                   },
                 }}
               >
-                {step.label}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                >
+                  {step.icon} {step.label}
+                </Box>
               </StepLabel>
               <Box
                 sx={{

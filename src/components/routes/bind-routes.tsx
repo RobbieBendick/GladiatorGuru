@@ -8,7 +8,9 @@ import { Login } from '../auth/login';
 import { Signup } from '../auth/signup';
 import { AdminLogin } from '../admin/admin-login';
 import { AdminDashboard } from '../admin/admin-dashboard';
+import { CoachList } from '../admin/coach-list';
 import { ProtectedRoute } from '../admin/protected-route';
+import { CoachSchedule } from '../schedule/coach-schedule';
 import ResponsiveNavBar from '../nav/navbar';
 import { IRoute, ROUTE_PATHS } from '../../schemas/route-paths';
 
@@ -45,6 +47,15 @@ export function BindRoutes(props: { children?: React.ReactNode }): JSX.Element {
             </ProtectedRoute>
           }
         />
+        <Route
+          path='/admin/coaches'
+          element={
+            <ProtectedRoute>
+              <CoachList />
+            </ProtectedRoute>
+          }
+        />
+        <Route path={ROUTE_PATHS.coachSchedule} element={<CoachSchedule />} />
         {props.children}
       </Routes>
     </>

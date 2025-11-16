@@ -373,7 +373,7 @@ export function Home() {
       icon: <Speed sx={{ fontSize: 48 }} />,
       title: 'Fast & Efficient',
       description:
-        'Quick and reliable boosting services. Get your arena rating up fast with professional gameplay and optimal strategies from elite players.',
+        'Accelerate your improvement with streamlined coaching sessions designed for maximum impact. Our efficient approach ensures you see rapid progress through focused, high-quality instruction from elite players.',
     },
     {
       icon: <Security sx={{ fontSize: 48 }} />,
