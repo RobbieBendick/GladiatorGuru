@@ -389,8 +389,9 @@ export function Home() {
         <HeroContainer>
           <HeroTitle variant='h1'>GladiatorGuru</HeroTitle>
           <HeroSubtitle variant='h5'>
-            Connect with the best WoW Classic arena players - Multi-R1 &
-            Tournament Experience
+            Tired of searching through LFG for players to play with? Connect
+            with the best WoW Classic arena players - Multi-R1 & Tournament
+            Experience
           </HeroSubtitle>
           <PriceBox>
             <Typography
@@ -508,10 +509,12 @@ export function Home() {
               mx: 'auto',
             }}
           >
+            Stop wasting time searching through LFG for unreliable teammates.
             Connect with elite players who have multiple Rank 1 Gladiator titles
             and extensive tournament experience. Our network of the best players
             in World of Warcraft Classic will help you achieve your arena goals.
-            Book your boost today and experience elite-level gameplay.
+            Book your coaching session today and experience elite-level
+            gameplay.
           </Typography>
           <PrimaryButton
             variant='contained'
