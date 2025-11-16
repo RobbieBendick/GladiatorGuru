@@ -13,4 +13,5 @@ export const ROUTE_PATHS: { [key: string]: string } = {
   admin: '/admin',
   adminLogin: '/admin/login',
   coachSchedule: '/:id/schedule',
+  jobDetails: '/job/:id',
 };

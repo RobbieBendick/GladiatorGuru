@@ -11,6 +11,7 @@ import { AdminDashboard } from '../admin/admin-dashboard';
 import { CoachList } from '../admin/coach-list';
 import { ProtectedRoute } from '../admin/protected-route';
 import { CoachSchedule } from '../schedule/coach-schedule';
+import { JobDetails } from '../job/job-details';
 import ResponsiveNavBar from '../nav/navbar';
 import { IRoute, ROUTE_PATHS } from '../../schemas/route-paths';
 
@@ -56,6 +57,7 @@ export function BindRoutes(props: { children?: React.ReactNode }): JSX.Element {
           }
         />
         <Route path={ROUTE_PATHS.coachSchedule} element={<CoachSchedule />} />
+        <Route path={ROUTE_PATHS.jobDetails} element={<JobDetails />} />
         {props.children}
       </Routes>
     </>

@@ -93,6 +93,7 @@ const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
 
 const FormPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4),
+  paddingBottom: '10px',
   borderRadius: theme.shape.borderRadius * 3,
   backgroundColor:
     theme.palette.mode === 'light'
@@ -228,10 +229,14 @@ export function BookingForm() {
 
   // Calculate min and max dates for date input
   const getMinDate = (): string => {
+    // Create a date at local midnight to ensure we get today's date correctly
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
+    // Create a new date at local midnight (00:00:00) to avoid any timezone issues
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    // Return in YYYY-MM-DD format which the date input expects
     return `${year}-${month}-${day}`;
   };
 
@@ -245,8 +250,24 @@ export function BookingForm() {
     return `${year}-${month}-${day}`;
   };
 
-  const minDate = getMinDate();
+  // Use state to ensure minDate is always current
+  const [minDate, setMinDate] = useState(getMinDate());
   const maxDate = getMaxDate();
+
+  // Update minDate if the date changes (e.g., at midnight)
+  useEffect(() => {
+    const updateMinDate = () => {
+      setMinDate(getMinDate());
+    };
+
+    // Update immediately
+    updateMinDate();
+
+    // Set up interval to check every minute (in case date changes)
+    const interval = setInterval(updateMinDate, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Handle date pre-fill from calendar
   useEffect(() => {
@@ -662,19 +683,27 @@ export function BookingForm() {
     if (!formData.availabilityDate) {
       newErrors.availabilityDate = 'Date is required';
     } else {
-      const selectedDate = new Date(formData.availabilityDate);
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-      const twoMonthsLater = new Date(now);
-      twoMonthsLater.setMonth(now.getMonth() + 2);
+      // Parse date string (YYYY-MM-DD) in local timezone to avoid UTC conversion issues
+      const [year, month, day] = formData.availabilityDate
+        .split('-')
+        .map(Number);
+      const selectedDate = new Date(year, month - 1, day);
 
-      if (selectedDate < now) {
+      // Get today's date at local midnight
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      // Calculate two months from today
+      const twoMonthsLater = new Date(today);
+      twoMonthsLater.setMonth(today.getMonth() + 2);
+
+      if (selectedDate < today) {
         newErrors.availabilityDate = 'Date cannot be in the past';
       } else if (selectedDate > twoMonthsLater) {
         newErrors.availabilityDate =
           'Date cannot be more than 2 months in advance';
       } else if (
-        selectedDate.getTime() === now.getTime() &&
+        selectedDate.getTime() === today.getTime() &&
         formData.availabilityStartTime
       ) {
         // If date is today, check if start time is in the past
@@ -734,12 +763,21 @@ export function BookingForm() {
 
     try {
       // Combine date and times into datetime strings
-      const availabilityStartDateTime = `${formData.availabilityDate}T${formData.availabilityStartTime}`;
-      const availabilityEndDateTime = `${formData.availabilityDate}T${formData.availabilityEndTime}`;
+      // Format: YYYY-MM-DDTHH:mm (ISO 8601 format without seconds/timezone)
+      // Add :00 for seconds if time doesn't include them
+      const startTime = formData.availabilityStartTime.includes(':')
+        ? formData.availabilityStartTime
+        : `${formData.availabilityStartTime}:00`;
+      const endTime = formData.availabilityEndTime.includes(':')
+        ? formData.availabilityEndTime
+        : `${formData.availabilityEndTime}:00`;
+
+      const availabilityStartDateTime = `${formData.availabilityDate}T${startTime}`;
+      const availabilityEndDateTime = `${formData.availabilityDate}T${endTime}`;
 
       const submitData = {
-        characterName: formData.characterName,
-        characterRealm: formData.characterRealm,
+        characterName: formData.characterName.trim(),
+        characterRealm: formData.characterRealm.trim(),
         version: formData.version,
         bracket: formData.bracket,
         hours: formData.hours,
@@ -747,9 +785,11 @@ export function BookingForm() {
         characterSpec: formData.characterSpec,
         availabilityStartDateTime,
         availabilityEndDateTime,
-        discordUsername: formData.discordUsername,
-        goal: formData.goal,
+        discordUsername: formData.discordUsername.trim(),
+        goal: formData.goal?.trim() || '',
       };
+
+      console.log('Submitting data:', submitData);
 
       const response = await fetch(`${API_BASE_URL}/api/jobs`, {
         method: 'POST',
@@ -760,18 +800,30 @@ export function BookingForm() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to submit booking request');
+        // Try to get error message from response
+        let errorMessage = 'Failed to submit booking request';
+        try {
+          const errorData = await response.json();
+          errorMessage =
+            errorData.errorMessage || errorData.message || errorMessage;
+          console.error('API Error:', errorData);
+        } catch (e) {
+          console.error(
+            'Response status:',
+            response.status,
+            response.statusText
+          );
+        }
+        throw new Error(errorMessage);
       }
 
       // Navigate to success page
       navigate(ROUTE_PATHS.bookingSuccess);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting booking:', error);
-      setErrors({
-        ...errors,
-        // Set a general error message
-      });
-      alert('Failed to submit booking request. Please try again.');
+      const errorMessage =
+        error.message || 'Failed to submit booking request. Please try again.';
+      alert(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

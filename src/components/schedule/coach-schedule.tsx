@@ -78,10 +78,17 @@ interface Job {
   availabilityStartDateTime: string;
   availabilityEndDateTime: string;
   discordUsername: string;
-  status?: 'pending' | 'approved' | 'rejected' | 'completed' | 'cancelled';
+  status?:
+    | 'pending'
+    | 'accepted'
+    | 'approved'
+    | 'rejected'
+    | 'completed'
+    | 'cancelled';
   createdAt?: string;
   updatedAt?: string;
   coachId?: string;
+  coachIds?: string[];
   coachName?: string;
 }
 
@@ -186,7 +193,23 @@ export function CoachSchedule() {
 
           if (response.ok) {
             const data = await response.json();
-            jobs = data.data || data || [];
+            const fetchedJobs: Job[] = data.data || data || [];
+            // Filter to ensure coach is in coachIds array (handle both string and object IDs)
+            jobs = fetchedJobs.filter((job: Job) => {
+              // Check if coach is in coachIds array
+              if (job.coachIds && job.coachIds.length > 0) {
+                const isInCoachIds = job.coachIds.some((id: any) => {
+                  const idStr = typeof id === 'string' ? id : id.toString();
+                  return idStr === coachIdentifier;
+                });
+                if (isInCoachIds) return true;
+              }
+              // Backward compatibility checks
+              return (
+                job.coachId === coachIdentifier ||
+                (job as any).boosterId === coachIdentifier
+              );
+            });
             if (jobs.length > 0) break;
           }
         } catch (err) {
@@ -204,22 +227,36 @@ export function CoachSchedule() {
         if (allJobsResponse.ok) {
           const allJobsData = await allJobsResponse.json();
           const allJobs: Job[] = allJobsData.data || allJobsData || [];
-          // Filter jobs by coachId or boosterId (for backward compatibility)
-          jobs = allJobs.filter(
-            (job: Job) =>
+          // Filter jobs by coachIds array, coachId, or boosterId (for backward compatibility)
+          // Handle both string IDs and ObjectId objects
+          jobs = allJobs.filter((job: Job) => {
+            // Check if coach is in coachIds array (handle both string and object IDs)
+            if (job.coachIds && job.coachIds.length > 0) {
+              const isInCoachIds = job.coachIds.some((id: any) => {
+                const idStr = typeof id === 'string' ? id : id.toString();
+                return idStr === coachIdentifier;
+              });
+              if (isInCoachIds) return true;
+            }
+            // Backward compatibility checks
+            return (
               job.coachId === coachIdentifier ||
               (job as any).boosterId === coachIdentifier
-          );
+            );
+          });
         }
       }
 
       // Convert jobs to calendar events
+      // Show jobs with status: accepted, approved, completed, or pending
       const calendarEvents: CalendarEvent[] = jobs
         .filter(
           job =>
+            job.status === 'accepted' ||
             job.status === 'approved' ||
             job.status === 'completed' ||
-            !job.status
+            !job.status ||
+            job.status === 'pending'
         )
         .map(job => {
           const startDate = new Date(job.availabilityStartDateTime);
@@ -231,13 +268,13 @@ export function CoachSchedule() {
             start: startDate.toISOString(),
             end: endDate.toISOString(),
             backgroundColor:
-              job.status === 'approved'
+              job.status === 'accepted' || job.status === 'approved'
                 ? theme.palette.primary.main
                 : job.status === 'completed'
                 ? theme.palette.success?.main || theme.palette.primary.main
                 : alpha(theme.palette.warning.main, 0.7),
             borderColor:
-              job.status === 'approved'
+              job.status === 'accepted' || job.status === 'approved'
                 ? theme.palette.primary.dark
                 : job.status === 'completed'
                 ? theme.palette.success?.dark || theme.palette.primary.dark
@@ -301,18 +338,8 @@ export function CoachSchedule() {
 
   const handleEventClick = (clickInfo: EventClickArg) => {
     const event = clickInfo.event;
-    const extendedProps = event.extendedProps as CalendarEvent['extendedProps'];
-
-    // Show event details
-    alert(
-      `Event: ${event.title}\n` +
-        `Character: ${extendedProps?.characterName}\n` +
-        `Realm: ${extendedProps?.characterRealm}\n` +
-        `Bracket: ${extendedProps?.bracket}\n` +
-        `Hours: ${extendedProps?.hours}\n` +
-        `Discord: ${extendedProps?.discordUsername}\n` +
-        `Status: ${extendedProps?.status || 'pending'}`
-    );
+    // Navigate to job details page
+    navigate(`/job/${event.id}`);
   };
 
   const formatTime = (date: Date): string => {

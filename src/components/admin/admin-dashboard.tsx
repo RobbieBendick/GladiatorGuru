@@ -18,12 +18,19 @@ import {
   IconButton,
   styled,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Chip,
+  OutlinedInput,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
   Logout as LogoutIcon,
   People as PeopleIcon,
+  PersonAdd as PersonAddIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
@@ -56,16 +63,28 @@ interface Job {
   discordUsername: string;
   goal?: string;
   status: 'pending' | 'accepted' | 'completed' | 'cancelled';
+  coachIds?: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+interface Coach {
+  _id: string;
+  username: string;
+  name?: string;
+  role: string;
 }
 
 export function AdminDashboard() {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [coaches, setCoaches] = useState<Coach[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [updating, setUpdating] = useState<string | null>(null);
+  const [assignCoachDialogOpen, setAssignCoachDialogOpen] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [selectedCoachIds, setSelectedCoachIds] = useState<string[]>([]);
 
   const fetchJobs = async () => {
     try {
@@ -106,7 +125,51 @@ export function AdminDashboard() {
 
   useEffect(() => {
     fetchJobs();
+    fetchCoaches();
   }, [statusFilter]);
+
+  const fetchCoaches = async () => {
+    try {
+      const token = getAuthToken();
+      // Fetch both coaches and admins
+      const [coachesResponse, adminsResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/admin/users?role=coach`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        }),
+        fetch(`${API_BASE_URL}/api/admin/users?role=admin`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        }),
+      ]);
+
+      const allUsers: Coach[] = [];
+
+      if (coachesResponse.ok) {
+        const coachesData = await coachesResponse.json();
+        if (coachesData.data) {
+          allUsers.push(...coachesData.data);
+        }
+      }
+
+      if (adminsResponse.ok) {
+        const adminsData = await adminsResponse.json();
+        if (adminsData.data) {
+          allUsers.push(...adminsData.data);
+        }
+      }
+
+      setCoaches(allUsers);
+    } catch (error) {
+      console.error('Error fetching coaches and admins:', error);
+    }
+  };
 
   const handleStatusChange = async (jobId: string, newStatus: string) => {
     try {
@@ -179,6 +242,55 @@ export function AdminDashboard() {
   const handleLogout = () => {
     removeAuthToken();
     navigate(ROUTE_PATHS.adminLogin);
+  };
+
+  const handleOpenAssignCoachDialog = (job: Job) => {
+    setSelectedJob(job);
+    setSelectedCoachIds(job.coachIds || []);
+    setAssignCoachDialogOpen(true);
+  };
+
+  const handleCloseAssignCoachDialog = () => {
+    setAssignCoachDialogOpen(false);
+    setSelectedJob(null);
+    setSelectedCoachIds([]);
+  };
+
+  const handleAssignCoaches = async () => {
+    if (!selectedJob) return;
+
+    try {
+      setUpdating(selectedJob._id);
+      const token = getAuthToken();
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/jobs/${selectedJob._id}/coaches`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ coachIds: selectedCoachIds }),
+        }
+      );
+
+      if (response.status === 401 || response.status === 403) {
+        removeAuthToken();
+        navigate(ROUTE_PATHS.adminLogin);
+        return;
+      }
+
+      if (response.ok) {
+        await fetchJobs();
+        handleCloseAssignCoachDialog();
+      }
+    } catch (error) {
+      console.error('Error assigning coaches:', error);
+    } finally {
+      setUpdating(null);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -299,7 +411,7 @@ export function AdminDashboard() {
                   <TableCell>Availability</TableCell>
                   <TableCell>Goal</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell>Created</TableCell>
+                  <TableCell>Coaches/Admins</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -337,16 +449,60 @@ export function AdminDashboard() {
                         <MenuItem value='cancelled'>Cancelled</MenuItem>
                       </Select>
                     </TableCell>
-                    <TableCell>{formatDate(job.createdAt)}</TableCell>
                     <TableCell>
-                      <IconButton
-                        color='error'
-                        onClick={() => handleDelete(job._id)}
-                        disabled={updating === job._id}
-                        size='small'
-                      >
-                        <DeleteIcon />
-                      </IconButton>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        {job.coachIds && job.coachIds.length > 0 ? (
+                          job.coachIds.map((coachId: string) => {
+                            const coach = coaches.find(c => c._id === coachId);
+                            return (
+                              <Chip
+                                key={coachId}
+                                label={
+                                  coach
+                                    ? `${coach.username}${
+                                        coach.role === 'admin' ? ' (Admin)' : ''
+                                      }`
+                                    : coachId
+                                }
+                                size='small'
+                                variant='outlined'
+                                color={
+                                  coach?.role === 'admin'
+                                    ? 'secondary'
+                                    : 'default'
+                                }
+                              />
+                            );
+                          })
+                        ) : (
+                          <Typography variant='body2' color='text.secondary'>
+                            No coaches/admins
+                          </Typography>
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button
+                          variant='outlined'
+                          color='primary'
+                          onClick={() => handleOpenAssignCoachDialog(job)}
+                          disabled={updating === job._id}
+                          size='small'
+                          startIcon={<PersonAddIcon />}
+                          sx={{ textTransform: 'none' }}
+                        >
+                          Assign
+                        </Button>
+                        <IconButton
+                          color='error'
+                          onClick={() => handleDelete(job._id)}
+                          disabled={updating === job._id}
+                          size='small'
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -355,6 +511,71 @@ export function AdminDashboard() {
           </TableContainer>
         )}
       </DashboardPaper>
+
+      {/* Assign Coaches Dialog */}
+      <Dialog
+        open={assignCoachDialogOpen}
+        onClose={handleCloseAssignCoachDialog}
+        maxWidth='sm'
+        fullWidth
+      >
+        <DialogTitle>Assign Coaches/Admins to Job</DialogTitle>
+        <DialogContent>
+          <Typography variant='body2' sx={{ mb: 2, color: 'text.secondary' }}>
+            Select coaches or admins for this job. Multiple people can be
+            assigned (e.g., for 3v3 games requiring 2 coaches).
+          </Typography>
+          <FormControl fullWidth>
+            <InputLabel>Coaches/Admins</InputLabel>
+            <Select
+              multiple
+              value={selectedCoachIds}
+              onChange={e => setSelectedCoachIds(e.target.value as string[])}
+              input={<OutlinedInput label='Coaches/Admins' />}
+              renderValue={selected => (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {(selected as string[]).map(coachId => {
+                    const coach = coaches.find(c => c._id === coachId);
+                    return (
+                      <Chip
+                        key={coachId}
+                        label={
+                          coach
+                            ? `${coach.username}${
+                                coach.role === 'admin' ? ' (Admin)' : ''
+                              }`
+                            : coachId
+                        }
+                        size='small'
+                        color={
+                          coach?.role === 'admin' ? 'secondary' : 'default'
+                        }
+                      />
+                    );
+                  })}
+                </Box>
+              )}
+            >
+              {coaches.map(coach => (
+                <MenuItem key={coach._id} value={coach._id}>
+                  {coach.username} {coach.name && `(${coach.name})`}{' '}
+                  {coach.role === 'admin' && '- Admin'}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseAssignCoachDialog}>Cancel</Button>
+          <Button
+            onClick={handleAssignCoaches}
+            variant='contained'
+            disabled={updating === selectedJob?._id}
+          >
+            Assign
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
