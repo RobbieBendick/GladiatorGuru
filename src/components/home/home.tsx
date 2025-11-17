@@ -396,10 +396,10 @@ export function Home() {
         <HeroContainer>
           <HeroTitle variant='h1'>GladiatorGuru</HeroTitle>
           <HeroSubtitle variant='h5'>
-            Tired of searching through LFG for players to play with? Connect
-            with the best WoW Classic arena players - Multi-R1 & Tournament
-            Experience
+            Skip the LFG grind. Connect with the best arena players WoW Classic
+            has to offer.
           </HeroSubtitle>
+
           <PriceBox>
             <Typography
               variant='h3'
