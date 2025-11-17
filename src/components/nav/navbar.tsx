@@ -190,24 +190,28 @@ function ResponsiveNavBar() {
                   {Object.keys(routes).map((routeKey: string) => {
                     if (routes[routeKey] === currentPath) return;
                     return (
-                      <Tooltip
+                      <Button
                         key={routeKey}
-                        title={routeKey}
-                        placement='bottom'
+                        component={Link}
+                        to={routes[routeKey]}
+                        variant='text'
+                        sx={{
+                          color: 'white',
+                          textTransform: 'none',
+                          fontSize: '1rem',
+                          fontWeight: 400,
+                          fontFamily: 'inherit',
+                          minWidth: 'auto',
+                          padding: '6px 12px',
+                          marginRight: '8px',
+                          '&:hover': {
+                            backgroundColor: 'transparent',
+                            opacity: 0.8,
+                          },
+                        }}
                       >
-                        <Link
-                          key={routeKey}
-                          to={routes[routeKey]}
-                          style={{
-                            marginRight: '20px',
-                            textDecoration: 'none',
-                            fontWeight: '500',
-                            color: 'inherit',
-                          }}
-                        >
-                          {routeKey}
-                        </Link>
-                      </Tooltip>
+                        {routeKey}
+                      </Button>
                     );
                   })}
                   {!isBookingPage && (

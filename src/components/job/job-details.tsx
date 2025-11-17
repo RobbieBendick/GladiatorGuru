@@ -10,33 +10,19 @@ import {
   Button,
   Chip,
   Divider,
-  Avatar,
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   Snackbar,
   Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  OutlinedInput,
 } from '@mui/material';
 import {
   ArrowBack,
   CalendarToday,
   AccessTime,
-  Edit,
-  Save,
-  Cancel,
-  PersonAdd,
+  Person,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { API_BASE_URL } from '../../config/api';
-import { isAdmin, getAuthToken } from '../../config/auth';
+import { getAuthToken, isAdmin } from '../../config/auth';
 
 const DetailsPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4),
@@ -71,6 +57,7 @@ interface Job {
   availabilityEndDateTime: string;
   discordUsername: string;
   goal?: string;
+  adminNotes?: string;
   status?:
     | 'pending'
     | 'accepted'
@@ -94,19 +81,19 @@ export function JobDetails() {
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [coaches, setCoaches] = useState<Coach[]>([]);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [formData, setFormData] = useState<Partial<Job>>({});
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
+  const [_coaches, setCoaches] = useState<Coach[]>([]);
+  const [_availableCoaches, setAvailableCoaches] = useState<Coach[]>([]);
+  const [_selectedCoachIds, setSelectedCoachIds] = useState<string[]>([]);
+  const [_assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [_assigning, setAssigning] = useState(false);
+  const [formData, setFormData] = useState<Job | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
-    severity?: 'success' | 'error';
+    severity: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, message: '', severity: 'success' });
-  const [isUserAdmin, setIsUserAdmin] = useState(false);
-  const [availableCoaches, setAvailableCoaches] = useState<Coach[]>([]);
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [selectedCoachIds, setSelectedCoachIds] = useState<string[]>([]);
-  const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
     fetchJobDetails();
@@ -172,9 +159,7 @@ export function JobDetails() {
 
       if (response.ok) {
         const data = await response.json();
-        const jobData = data.data || data;
-        setJob(jobData);
-        setFormData(jobData);
+        setJob(data.data || data);
       } else if (response.status === 404) {
         setError('Job not found');
       } else {
@@ -270,18 +255,22 @@ export function JobDetails() {
     }
   };
 
-  const handleOpenAssignDialog = () => {
+  // Intentionally unused - reserved for future admin coach assignment feature
+  // @ts-ignore - intentionally unused for future feature
+  const _handleOpenAssignDialog = () => {
     if (!job) return;
     setSelectedCoachIds(job.coachIds || []);
     setAssignDialogOpen(true);
   };
 
-  const handleCloseAssignDialog = () => {
+  // @ts-ignore - intentionally unused for future feature
+  const _handleCloseAssignDialog = () => {
     setAssignDialogOpen(false);
     setSelectedCoachIds([]);
   };
 
-  const handleAssignCoaches = async () => {
+  // @ts-ignore - intentionally unused for future feature
+  const _handleAssignCoaches = async () => {
     if (!job || !id) return;
 
     try {
@@ -297,7 +286,7 @@ export function JobDetails() {
             'Content-Type': 'application/json',
           },
           credentials: 'include',
-          body: JSON.stringify({ coachIds: selectedCoachIds }),
+          body: JSON.stringify({ coachIds: _selectedCoachIds }),
         }
       );
 
@@ -317,7 +306,7 @@ export function JobDetails() {
           message: 'Coaches assigned successfully',
           severity: 'success',
         });
-        handleCloseAssignDialog();
+        _handleCloseAssignDialog();
       } else {
         const errorData = await response.json().catch(() => ({}));
         setSnackbar({
@@ -335,6 +324,52 @@ export function JobDetails() {
       });
     } finally {
       setAssigning(false);
+    }
+  };
+
+  const handleUpdateJob = async () => {
+    if (!job || !id || !formData) return;
+
+    try {
+      setIsSubmitting(true);
+      const token = getAuthToken();
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/jobs/${id}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const updatedJob = data.data || data;
+        setJob(updatedJob);
+        setSnackbar({
+          open: true,
+          message: 'Job updated successfully',
+          severity: 'success',
+        });
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setSnackbar({
+          open: true,
+          message: errorData.message || 'Failed to update job',
+          severity: 'error',
+        });
+      }
+    } catch (err: any) {
+      console.error('Error updating job:', err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to update job',
+        severity: 'error',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -381,87 +416,6 @@ export function JobDetails() {
       default:
         return 'Pending';
     }
-  };
-
-  const handleEdit = () => {
-    if (!isUserAdmin) {
-      return;
-    }
-    setIsEditMode(true);
-    setFormData(job ? { ...job } : {});
-  };
-
-  const handleCancel = () => {
-    setIsEditMode(false);
-    setFormData(job ? { ...job } : {});
-  };
-
-  const handleInputChange = (
-    field: keyof Job,
-    value: string | string[] | undefined
-  ) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handleSave = async () => {
-    if (!id || !formData) return;
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/jobs/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const updatedJob = data.data || data;
-        setJob(updatedJob);
-        setFormData(updatedJob);
-        setIsEditMode(false);
-        setSnackbar({
-          open: true,
-          message: 'Job updated successfully',
-          severity: 'success',
-        });
-        // Refresh coaches if coachIds changed
-        if (updatedJob.coachIds && updatedJob.coachIds.length > 0) {
-          fetchCoachesForJob(updatedJob);
-        } else {
-          setCoaches([]);
-        }
-      } else {
-        const errorData = await response.json();
-        setSnackbar({
-          open: true,
-          message: errorData.message || 'Failed to update job',
-          severity: 'error',
-        });
-      }
-    } catch (err: any) {
-      console.error('Error updating job:', err);
-      setSnackbar({
-        open: true,
-        message: 'Failed to update job',
-        severity: 'error',
-      });
-    }
-  };
-
-  const formatDateTimeForInput = (dateString: string) => {
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
   if (loading) {
@@ -531,109 +485,11 @@ export function JobDetails() {
           <Typography variant='h3' sx={{ fontWeight: 700 }}>
             Job Details
           </Typography>
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              flexWrap: 'wrap',
-            }}
-          >
-            {coaches.length > 0 && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography
-                  variant='body2'
-                  color='text.secondary'
-                  sx={{ mr: 0.5 }}
-                >
-                  Assigned Coaches:
-                </Typography>
-                {coaches.map(coach => (
-                  <Chip
-                    key={coach._id}
-                    avatar={
-                      <Avatar
-                        sx={{ bgcolor: 'primary.main', width: 24, height: 24 }}
-                      >
-                        {coach.username.charAt(0).toUpperCase()}
-                      </Avatar>
-                    }
-                    label={coach.name || coach.username}
-                    size='small'
-                    sx={{
-                      fontSize: '0.85rem',
-                      '& .MuiChip-label': {
-                        px: 1,
-                      },
-                    }}
-                  />
-                ))}
-              </Box>
-            )}
-            {isEditMode ? (
-              <FormControl size='small' sx={{ minWidth: 120 }}>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={formData.status || 'pending'}
-                  label='Status'
-                  onChange={e => handleInputChange('status', e.target.value)}
-                >
-                  <MenuItem value='pending'>Pending</MenuItem>
-                  <MenuItem value='accepted'>Accepted</MenuItem>
-                  <MenuItem value='approved'>Approved</MenuItem>
-                  <MenuItem value='rejected'>Rejected</MenuItem>
-                  <MenuItem value='completed'>Completed</MenuItem>
-                  <MenuItem value='cancelled'>Cancelled</MenuItem>
-                </Select>
-              </FormControl>
-            ) : (
-              <Chip
-                label={getStatusLabel(job.status)}
-                color={getStatusColor(job.status) as any}
-                sx={{ fontSize: '0.9rem', padding: '4px 8px' }}
-              />
-            )}
-            {isUserAdmin && !isEditMode && (
-              <>
-                <Button
-                  startIcon={<PersonAdd />}
-                  onClick={handleOpenAssignDialog}
-                  variant='outlined'
-                  color='primary'
-                >
-                  Assign
-                </Button>
-                <Button
-                  startIcon={<Edit />}
-                  onClick={handleEdit}
-                  variant='outlined'
-                  color='primary'
-                >
-                  Edit
-                </Button>
-              </>
-            )}
-            {isUserAdmin && isEditMode && (
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button
-                  startIcon={<Save />}
-                  onClick={handleSave}
-                  variant='contained'
-                  color='primary'
-                >
-                  Save
-                </Button>
-                <Button
-                  startIcon={<Cancel />}
-                  onClick={handleCancel}
-                  variant='outlined'
-                  color='secondary'
-                >
-                  Cancel
-                </Button>
-              </Box>
-            )}
-          </Box>
+          <Chip
+            label={getStatusLabel(job.status)}
+            color={getStatusColor(job.status) as any}
+            sx={{ fontSize: '0.9rem', padding: '4px 8px' }}
+          />
         </Box>
 
         <Divider
@@ -651,28 +507,14 @@ export function JobDetails() {
             Character Information
           </Typography>
 
-          <DetailRow sx={{ gap: 1 }}>
-            <Typography
-              variant='body2'
-              color='text.secondary'
-              sx={{ minWidth: 10 }}
-            >
-              Name:
-            </Typography>
-            {isEditMode ? (
-              <TextField
-                size='small'
-                value={formData.characterName || ''}
-                onChange={e =>
-                  handleInputChange('characterName', e.target.value)
-                }
-                sx={{ flex: 1 }}
-              />
-            ) : (
-              <Typography variant='h6' sx={{ fontWeight: 500 }}>
-                {job.characterName}
+          <DetailRow>
+            <Person sx={{ color: 'text.primary' }} />
+            <Box>
+              <Typography variant='body2' color='text.secondary'>
+                Character Name
               </Typography>
-            )}
+              <Typography variant='h6'>{job.characterName}</Typography>
+            </Box>
           </DetailRow>
 
           <DetailRow sx={{ gap: 1 }}>
@@ -683,23 +525,12 @@ export function JobDetails() {
             >
               Realm:
             </Typography>
-            {isEditMode ? (
-              <TextField
-                size='small'
-                value={formData.characterRealm || ''}
-                onChange={e =>
-                  handleInputChange('characterRealm', e.target.value)
-                }
-                sx={{ flex: 1 }}
-              />
-            ) : (
-              <Typography variant='body1' sx={{ fontWeight: 500 }}>
-                {job.characterRealm}
-              </Typography>
-            )}
+            <Typography variant='body1' sx={{ fontWeight: 500 }}>
+              {job.characterRealm}
+            </Typography>
           </DetailRow>
 
-          {(job.characterClass || isEditMode) && (
+          {job.characterClass && (
             <DetailRow sx={{ gap: 1 }}>
               <Typography
                 variant='body2'
@@ -708,25 +539,14 @@ export function JobDetails() {
               >
                 Class:
               </Typography>
-              {isEditMode ? (
-                <TextField
-                  size='small'
-                  value={formData.characterClass || ''}
-                  onChange={e =>
-                    handleInputChange('characterClass', e.target.value)
-                  }
-                  sx={{ flex: 1 }}
-                />
-              ) : (
-                <Typography variant='body1' sx={{ fontWeight: 500 }}>
-                  {job.characterClass}
-                </Typography>
-              )}
+              <Typography variant='body1' sx={{ fontWeight: 500 }}>
+                {job.characterClass}
+              </Typography>
             </DetailRow>
           )}
 
-          {(job.characterSpec || isEditMode) && (
-            <DetailRow sx={{ gap: 1 }}>
+          {job.characterSpec && (
+            <DetailRow>
               <Typography
                 variant='body2'
                 color='text.secondary'
@@ -734,20 +554,9 @@ export function JobDetails() {
               >
                 Spec:
               </Typography>
-              {isEditMode ? (
-                <TextField
-                  size='small'
-                  value={formData.characterSpec || ''}
-                  onChange={e =>
-                    handleInputChange('characterSpec', e.target.value)
-                  }
-                  sx={{ flex: 1 }}
-                />
-              ) : (
-                <Typography variant='body1' sx={{ fontWeight: 500 }}>
-                  {job.characterSpec}
-                </Typography>
-              )}
+              <Typography variant='body1' sx={{ fontWeight: 500 }}>
+                {job.characterSpec}
+              </Typography>
             </DetailRow>
           )}
         </Box>
@@ -769,75 +578,25 @@ export function JobDetails() {
 
           <DetailRow>
             <CalendarToday sx={{ color: 'text.primary' }} />
-            <Box sx={{ flex: 1 }}>
-              <Typography
-                variant='body2'
-                color='text.secondary'
-                sx={{ mb: 0.5 }}
-              >
+            <Box>
+              <Typography variant='body2' color='text.secondary'>
                 Start Time
               </Typography>
-              {isEditMode ? (
-                <TextField
-                  fullWidth
-                  type='datetime-local'
-                  size='small'
-                  value={
-                    formData.availabilityStartDateTime
-                      ? formatDateTimeForInput(
-                          formData.availabilityStartDateTime
-                        )
-                      : ''
-                  }
-                  onChange={e => {
-                    const date = new Date(e.target.value);
-                    handleInputChange(
-                      'availabilityStartDateTime',
-                      date.toISOString()
-                    );
-                  }}
-                />
-              ) : (
-                <Typography variant='body1' sx={{ fontWeight: 500 }}>
-                  {formatDateTime(job.availabilityStartDateTime)}
-                </Typography>
-              )}
+              <Typography variant='body1' sx={{ fontWeight: 500 }}>
+                {formatDateTime(job.availabilityStartDateTime)}
+              </Typography>
             </Box>
           </DetailRow>
 
           <DetailRow>
             <AccessTime sx={{ color: 'text.primary' }} />
-            <Box sx={{ flex: 1 }}>
-              <Typography
-                variant='body2'
-                color='text.secondary'
-                sx={{ mb: 0.5 }}
-              >
+            <Box>
+              <Typography variant='body2' color='text.secondary'>
                 End Time
               </Typography>
-              {isEditMode ? (
-                <TextField
-                  fullWidth
-                  type='datetime-local'
-                  size='small'
-                  value={
-                    formData.availabilityEndDateTime
-                      ? formatDateTimeForInput(formData.availabilityEndDateTime)
-                      : ''
-                  }
-                  onChange={e => {
-                    const date = new Date(e.target.value);
-                    handleInputChange(
-                      'availabilityEndDateTime',
-                      date.toISOString()
-                    );
-                  }}
-                />
-              ) : (
-                <Typography variant='body1' sx={{ fontWeight: 500 }}>
-                  {formatDateTime(job.availabilityEndDateTime)}
-                </Typography>
-              )}
+              <Typography variant='body1' sx={{ fontWeight: 500 }}>
+                {formatDateTime(job.availabilityEndDateTime)}
+              </Typography>
             </Box>
           </DetailRow>
 
@@ -849,21 +608,12 @@ export function JobDetails() {
             >
               Version:
             </Typography>
-            {isEditMode ? (
-              <TextField
-                size='small'
-                value={formData.version || ''}
-                onChange={e => handleInputChange('version', e.target.value)}
-                sx={{ flex: 1 }}
-              />
-            ) : (
-              <Typography variant='body1' sx={{ fontWeight: 500 }}>
-                {job.version}
-              </Typography>
-            )}
+            <Typography variant='body1' sx={{ fontWeight: 500 }}>
+              {job.version}
+            </Typography>
           </DetailRow>
 
-          {(job.bracket || isEditMode) && (
+          {job.bracket && (
             <DetailRow sx={{ gap: 1 }}>
               <Typography
                 variant='body2'
@@ -872,18 +622,9 @@ export function JobDetails() {
               >
                 Bracket:
               </Typography>
-              {isEditMode ? (
-                <TextField
-                  size='small'
-                  value={formData.bracket || ''}
-                  onChange={e => handleInputChange('bracket', e.target.value)}
-                  sx={{ flex: 1 }}
-                />
-              ) : (
-                <Typography variant='body1' sx={{ fontWeight: 500 }}>
-                  {job.bracket}
-                </Typography>
-              )}
+              <Typography variant='body1' sx={{ fontWeight: 500 }}>
+                {job.bracket}
+              </Typography>
             </DetailRow>
           )}
 
@@ -895,20 +636,9 @@ export function JobDetails() {
             >
               Hours:
             </Typography>
-            {isEditMode ? (
-              <TextField
-                size='small'
-                type='number'
-                inputProps={{ step: 0.5, min: 0.5, max: 5 }}
-                value={formData.hours || ''}
-                onChange={e => handleInputChange('hours', e.target.value)}
-                sx={{ flex: 1 }}
-              />
-            ) : (
-              <Typography variant='body1' sx={{ fontWeight: 500 }}>
-                {job.hours}
-              </Typography>
-            )}
+            <Typography variant='body1' sx={{ fontWeight: 500 }}>
+              {job.hours}
+            </Typography>
           </DetailRow>
         </Box>
 
@@ -935,24 +665,13 @@ export function JobDetails() {
             >
               Discord:
             </Typography>
-            {isEditMode ? (
-              <TextField
-                size='small'
-                value={formData.discordUsername || ''}
-                onChange={e =>
-                  handleInputChange('discordUsername', e.target.value)
-                }
-                sx={{ flex: 1 }}
-              />
-            ) : (
-              <Typography variant='body1' sx={{ fontWeight: 500 }}>
-                {job.discordUsername}
-              </Typography>
-            )}
+            <Typography variant='body1' sx={{ fontWeight: 500 }}>
+              {job.discordUsername}
+            </Typography>
           </DetailRow>
         </Box>
 
-        {(job.goal || isEditMode) && (
+        {job.goal && (
           <>
             <Divider
               sx={{
@@ -965,93 +684,38 @@ export function JobDetails() {
                 variant='h5'
                 sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}
               >
-                Goal
+                Admin Notes (Admin)
               </Typography>
-              {isEditMode ? (
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={4}
-                  value={formData.goal || ''}
-                  onChange={e => handleInputChange('goal', e.target.value)}
-                />
-              ) : (
-                <Typography variant='body1' sx={{ lineHeight: 1.8 }}>
-                  {job.goal}
-                </Typography>
-              )}
+              <Typography variant='body1' sx={{ lineHeight: 1.8 }}>
+                {job.goal}
+              </Typography>
             </Box>
           </>
         )}
+
+        {isUserAdmin && (
+          <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              variant='contained'
+              onClick={handleUpdateJob}
+              disabled={isSubmitting}
+              sx={{
+                minWidth: 150,
+                background: theme =>
+                  `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${
+                    theme.palette.primary.dark || theme.palette.primary.main
+                  } 100%)`,
+              }}
+            >
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </Box>
+        )}
       </DetailsPaper>
 
-      {/* Assign Coaches Dialog */}
-      <Dialog
-        open={assignDialogOpen}
-        onClose={handleCloseAssignDialog}
-        maxWidth='sm'
-        fullWidth
-      >
-        <DialogTitle>Assign Coaches/Admins to Job</DialogTitle>
-        <DialogContent>
-          <Typography variant='body2' sx={{ mb: 2, color: 'text.secondary' }}>
-            Select coaches or admins for this job. Multiple people can be
-            assigned (e.g., for 3v3 games requiring 2 coaches).
-          </Typography>
-          <FormControl fullWidth>
-            <InputLabel>Coaches/Admins</InputLabel>
-            <Select
-              multiple
-              value={selectedCoachIds}
-              onChange={e => setSelectedCoachIds(e.target.value as string[])}
-              input={<OutlinedInput label='Coaches/Admins' />}
-              renderValue={selected => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {(selected as string[]).map(coachId => {
-                    const coach = availableCoaches.find(c => c._id === coachId);
-                    return (
-                      <Chip
-                        key={coachId}
-                        label={
-                          coach
-                            ? `${coach.username}${
-                                coach.role === 'admin' ? ' (Admin)' : ''
-                              }`
-                            : coachId
-                        }
-                        size='small'
-                        color={
-                          coach?.role === 'admin' ? 'secondary' : 'default'
-                        }
-                      />
-                    );
-                  })}
-                </Box>
-              )}
-            >
-              {availableCoaches.map(coach => (
-                <MenuItem key={coach._id} value={coach._id}>
-                  {coach.username} {coach.name && `(${coach.name})`}{' '}
-                  {coach.role === 'admin' && '- Admin'}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseAssignDialog}>Cancel</Button>
-          <Button
-            onClick={handleAssignCoaches}
-            variant='contained'
-            disabled={assigning}
-          >
-            Assign
-          </Button>
-        </DialogActions>
-      </Dialog>
-
+      {/* Snackbar */}
       <Snackbar
-        open={snackbar.open}
+        open={snackbar.open && !!snackbar.message && snackbar.message.trim() !== ''}
         autoHideDuration={6000}
         onClose={() =>
           setSnackbar({ open: false, message: '', severity: 'success' })

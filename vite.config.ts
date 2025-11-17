@@ -11,6 +11,8 @@ export default defineConfig({
     include: [
       '@emotion/react',
       '@emotion/styled',
+      '@mui/material',
+      '@mui/material/styles',
       '@mui/material/Tooltip',
       '@fullcalendar/core',
       '@fullcalendar/daygrid',
