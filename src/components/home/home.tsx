@@ -386,7 +386,7 @@ export function Home() {
       icon: <School sx={{ fontSize: 48 }} />,
       title: 'Personalized Experience',
       description:
-        "Looking to improve and climb the ranks? Or just want a chill, skilled player to queue with? Either way, you're in the right place. We're building connections, not just offering a service. Our coaches are real people who want to help you have a great time, whatever your goals may be.",
+        "This isn't just a service - we're building real connections. Our coaches are actual people who work with your playstyle and what you want to achieve. Grinding rating, trying out new comps, or just looking for solid games? We'll pair you with someone who understands and keeps things enjoyable.",
     },
   ];
 
@@ -397,7 +397,8 @@ export function Home() {
           <HeroTitle variant='h1'>GladiatorGuru</HeroTitle>
           <HeroSubtitle variant='h5'>
             Skip the LFG grind. Connect with the best arena players WoW Classic
-            has to offer.
+            has to offer - Whether you want to improve your game or just queue
+            with skilled, chill players, we've got you covered.
           </HeroSubtitle>
 
           <PriceBox>
