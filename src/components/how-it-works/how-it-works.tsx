@@ -62,7 +62,7 @@ const steps = [
   },
   {
     icon: '🎮',
-    label: 'Attend Your Coaching Session',
+    label: 'Pay & Attend Your Coaching Session',
     description:
       "Join your coaching session with our elite players. We'll be playing in your desired bracket, playing along with you and coaching you along the way. Learn advanced strategies, positioning, communication, and game sense.",
   },

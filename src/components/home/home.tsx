@@ -419,7 +419,7 @@ export function Home() {
                 color: 'text.secondary',
               }}
             >
-              Competitive rates for elite-level coaching
+              Competitive rates for an elite-level arena friend.
             </Typography>
           </PriceBox>
           <ButtonContainer>
