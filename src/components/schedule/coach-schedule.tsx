@@ -15,6 +15,8 @@ import {
   DialogActions,
   Snackbar,
   Alert,
+  TextField,
+  Divider,
 } from '@mui/material';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -119,6 +121,13 @@ export function CoachSchedule() {
     message: string;
     severity?: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, message: '', severity: 'error' });
+  const [isAdminMode, setIsAdminMode] = useState(false);
+  const [adminFormData, setAdminFormData] = useState<{
+    characterName: string;
+    characterRealm: string;
+    discordUsername: string;
+  }>({ characterName: '', characterRealm: '', discordUsername: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   // Initialize currentView from localStorage or default to 'dayGridMonth'
   const [currentView, setCurrentView] = useState<string>(() => {
     const cachedView = localStorage.getItem('coachScheduleView');
@@ -135,6 +144,8 @@ export function CoachSchedule() {
 
   useEffect(() => {
     fetchCoachSchedule();
+    // Check if user is admin and enable admin mode
+    setIsAdminMode(isAdmin());
   }, [id]);
 
   // Cache currentView to localStorage whenever it changes
@@ -703,6 +714,78 @@ export function CoachSchedule() {
   const handleCloseTimeDialog = () => {
     setShowTimeDialog(false);
     setSelectedTimeRange(null);
+    setAdminFormData({ characterName: '', characterRealm: '', discordUsername: '' });
+  };
+
+  const handleAdminSubmit = async () => {
+    if (!selectedTimeRange || !id) return;
+
+    if (!adminFormData.characterName || !adminFormData.characterRealm || !adminFormData.discordUsername) {
+      setSnackbar({
+        open: true,
+        message: 'Please fill in all required fields',
+        severity: 'error',
+      });
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const token = getAuthToken();
+
+      const startISO = selectedTimeRange.start.toISOString();
+      const endISO = selectedTimeRange.end.toISOString();
+      const durationMs = selectedTimeRange.end.getTime() - selectedTimeRange.start.getTime();
+      const durationHours = Math.round(durationMs / (1000 * 60 * 60));
+      const hours = Math.max(1, Math.min(5, durationHours));
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/jobs`, {
+        method: 'POST',
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          characterName: adminFormData.characterName,
+          characterRealm: adminFormData.characterRealm,
+          discordUsername: adminFormData.discordUsername,
+          availabilityStartDateTime: startISO,
+          availabilityEndDateTime: endISO,
+          hours: hours.toString(),
+          coachIds: [id],
+          status: 'accepted',
+        }),
+      });
+
+      if (response.ok) {
+        await response.json();
+        setSnackbar({
+          open: true,
+          message: 'Booking created successfully',
+          severity: 'success',
+        });
+        handleCloseTimeDialog();
+        // Refresh the calendar
+        await fetchCoachSchedule();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setSnackbar({
+          open: true,
+          message: errorData.message || 'Failed to create booking',
+          severity: 'error',
+        });
+      }
+    } catch (err: any) {
+      console.error('Error creating booking:', err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to create booking',
+        severity: 'error',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const renderEventContent = (eventInfo: EventContentArg) => {
@@ -1032,85 +1115,179 @@ export function CoachSchedule() {
                   selectedTimeRange.end
                 )}
               </Typography>
-              <Box
-                sx={{
-                  mt: 3,
-                  p: 2,
-                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                  borderRadius: 2,
-                  border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
-                }}
-              >
-                <Typography variant='body2' color='text.secondary'>
-                  💡 <strong>Tip:</strong> This time range has been selected and
-                  will be used to coordinate with the coach.
-                </Typography>
-              </Box>
+              {!isAdminMode && (
+                <Box
+                  sx={{
+                    mt: 3,
+                    p: 2,
+                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                    borderRadius: 2,
+                    border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+                  }}
+                >
+                  <Typography variant='body2' color='text.secondary'>
+                    💡 <strong>Tip:</strong> This time range has been selected and
+                    will be used to coordinate with the coach.
+                  </Typography>
+                </Box>
+              )}
+
+              {isAdminMode && (
+                <>
+                  <Divider sx={{ my: 3 }} />
+                  <Typography variant='h6' sx={{ mb: 2, fontWeight: 600 }}>
+                    Quick Add (Admin)
+                  </Typography>
+                  <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
+                    Fill in the essential information to quickly create a booking.
+                        </Typography>
+                  <TextField
+                    fullWidth
+                    label='Character Name'
+                    value={adminFormData.characterName}
+                    onChange={(e) =>
+                      setAdminFormData({
+                        ...adminFormData,
+                        characterName: e.target.value,
+                      })
+                    }
+                    sx={{ mb: 2 }}
+                    required
+                    InputLabelProps={{
+                      required: true,
+                      sx: {
+                        '& .MuiInputLabel-asterisk': {
+                          color: 'error.main',
+                        },
+                      },
+                    }}
+                  />
+                  <TextField
+                    fullWidth
+                    label='Character Realm'
+                    value={adminFormData.characterRealm}
+                    onChange={(e) =>
+                      setAdminFormData({
+                        ...adminFormData,
+                        characterRealm: e.target.value,
+                      })
+                    }
+                    sx={{ mb: 2 }}
+                    required
+                    InputLabelProps={{
+                      required: true,
+                      sx: {
+                        '& .MuiInputLabel-asterisk': {
+                          color: 'error.main',
+                        },
+                      },
+                    }}
+                  />
+                  <TextField
+                    fullWidth
+                    label='Discord Username'
+                    value={adminFormData.discordUsername}
+                    onChange={(e) =>
+                      setAdminFormData({
+                        ...adminFormData,
+                        discordUsername: e.target.value,
+                      })
+                    }
+                    sx={{ mb: 2 }}
+                    required
+                    InputLabelProps={{
+                      required: true,
+                      sx: {
+                        '& .MuiInputLabel-asterisk': {
+                          color: 'error.main',
+                        },
+                      },
+                    }}
+                  />
+                </>
+              )}
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseTimeDialog} variant='outlined'>
+          <Button onClick={handleCloseTimeDialog} variant='outlined' disabled={isSubmitting}>
             Close
           </Button>
-          <Button
-            onClick={() => {
-              if (selectedTimeRange) {
-                const startYear = selectedTimeRange.start.getFullYear();
-                const startMonth = String(
-                  selectedTimeRange.start.getMonth() + 1
-                ).padStart(2, '0');
-                const startDay = String(
-                  selectedTimeRange.start.getDate()
-                ).padStart(2, '0');
-                const startHours = String(
-                  selectedTimeRange.start.getHours()
-                ).padStart(2, '0');
-                const startMinutes = String(
-                  selectedTimeRange.start.getMinutes()
-                ).padStart(2, '0');
-                const formattedStartDate = `${startYear}-${startMonth}-${startDay}T${startHours}:${startMinutes}`;
+          {isAdminMode ? (
+            <Button
+              onClick={handleAdminSubmit}
+              variant='contained'
+              disabled={isSubmitting}
+              sx={{
+                background: `linear-gradient(135deg, ${
+                  theme.palette.primary.main
+                } 0%, ${
+                  theme.palette.primary.dark || theme.palette.primary.main
+                } 100%)`,
+              }}
+            >
+              {isSubmitting ? 'Creating...' : 'Quick Add Booking'}
+            </Button>
+          ) : (
+            <Button
+              onClick={() => {
+                if (selectedTimeRange) {
+                  const startYear = selectedTimeRange.start.getFullYear();
+                  const startMonth = String(
+                    selectedTimeRange.start.getMonth() + 1
+                  ).padStart(2, '0');
+                  const startDay = String(
+                    selectedTimeRange.start.getDate()
+                  ).padStart(2, '0');
+                  const startHours = String(
+                    selectedTimeRange.start.getHours()
+                  ).padStart(2, '0');
+                  const startMinutes = String(
+                    selectedTimeRange.start.getMinutes()
+                  ).padStart(2, '0');
+                  const formattedStartDate = `${startYear}-${startMonth}-${startDay}T${startHours}:${startMinutes}`;
 
-                const endYear = selectedTimeRange.end.getFullYear();
-                const endMonth = String(
-                  selectedTimeRange.end.getMonth() + 1
-                ).padStart(2, '0');
-                const endDay = String(selectedTimeRange.end.getDate()).padStart(
-                  2,
-                  '0'
-                );
-                const endHours = String(
-                  selectedTimeRange.end.getHours()
-                ).padStart(2, '0');
-                const endMinutes = String(
-                  selectedTimeRange.end.getMinutes()
-                ).padStart(2, '0');
-                const formattedEndDate = `${endYear}-${endMonth}-${endDay}T${endHours}:${endMinutes}`;
+                  const endYear = selectedTimeRange.end.getFullYear();
+                  const endMonth = String(
+                    selectedTimeRange.end.getMonth() + 1
+                  ).padStart(2, '0');
+                  const endDay = String(selectedTimeRange.end.getDate()).padStart(
+                    2,
+                    '0'
+                  );
+                  const endHours = String(
+                    selectedTimeRange.end.getHours()
+                  ).padStart(2, '0');
+                  const endMinutes = String(
+                    selectedTimeRange.end.getMinutes()
+                  ).padStart(2, '0');
+                  const formattedEndDate = `${endYear}-${endMonth}-${endDay}T${endHours}:${endMinutes}`;
 
-                // Calculate duration in hours and round to nearest integer
-                const durationMs =
-                  selectedTimeRange.end.getTime() -
-                  selectedTimeRange.start.getTime();
-                const durationHours = Math.round(durationMs / (1000 * 60 * 60));
-                // Clamp between 1 and 5 hours (form validation limits)
-                const hours = Math.max(1, Math.min(5, durationHours));
+                  // Calculate duration in hours and round to nearest integer
+                  const durationMs =
+                    selectedTimeRange.end.getTime() -
+                    selectedTimeRange.start.getTime();
+                  const durationHours = Math.round(durationMs / (1000 * 60 * 60));
+                  // Clamp between 1 and 5 hours (form validation limits)
+                  const hours = Math.max(1, Math.min(5, durationHours));
 
-                navigate(
-                  `${ROUTE_PATHS.booking}?date=${formattedStartDate}&endDate=${formattedEndDate}&hours=${hours}`
-                );
-              }
-            }}
-            variant='contained'
-            sx={{
-              background: `linear-gradient(135deg, ${
-                theme.palette.primary.main
-              } 0%, ${
-                theme.palette.primary.dark || theme.palette.primary.main
-              } 100%)`,
-            }}
-          >
-            Book This Time
-          </Button>
+                  navigate(
+                    `${ROUTE_PATHS.booking}?date=${formattedStartDate}&endDate=${formattedEndDate}&hours=${hours}`
+                  );
+                }
+              }}
+              variant='contained'
+              sx={{
+                background: `linear-gradient(135deg, ${
+                  theme.palette.primary.main
+                } 0%, ${
+                  theme.palette.primary.dark || theme.palette.primary.main
+                } 100%)`,
+              }}
+            >
+              Book This Time
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 
