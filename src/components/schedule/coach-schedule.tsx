@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   Box,
   Container,
@@ -24,6 +24,7 @@ import {
   EventClickArg,
   EventContentArg,
   DateSelectArg,
+  EventDropArg,
 } from '@fullcalendar/core';
 import { ArrowBack } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -115,12 +116,25 @@ export function CoachSchedule() {
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
-  }>({ open: false, message: '' });
-  const [currentView, setCurrentView] = useState<string>('dayGridMonth');
+    severity?: 'success' | 'error' | 'warning' | 'info';
+  }>({ open: false, message: '', severity: 'error' });
+  // Initialize currentView from localStorage or default to 'dayGridMonth'
+  const [currentView, setCurrentView] = useState<string>(() => {
+    const cachedView = localStorage.getItem('coachScheduleView');
+    return cachedView || 'dayGridMonth';
+  });
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     fetchCoachSchedule();
   }, [id]);
+
+  // Cache currentView to localStorage whenever it changes
+  useEffect(() => {
+    if (currentView) {
+      localStorage.setItem('coachScheduleView', currentView);
+    }
+  }, [currentView]);
 
   const fetchCoachSchedule = async () => {
     try {
@@ -321,6 +335,7 @@ export function CoachSchedule() {
         open: true,
         message:
           'Maximum selection time is 5 hours. Please select a shorter time range.',
+        severity: 'error',
       });
       selectInfo.view.calendar.unselect();
       return;
@@ -340,6 +355,246 @@ export function CoachSchedule() {
     const event = clickInfo.event;
     // Navigate to job details page
     navigate(`/job/${event.id}`);
+  };
+
+  const handleEventDrop = async (dropInfo: EventDropArg) => {
+    const event = dropInfo.event;
+    const newStart = event.start;
+    if (!newStart) {
+      dropInfo.revert();
+      return;
+    }
+    const newEnd =
+      event.end || new Date(newStart.getTime() + 2 * 60 * 60 * 1000); // Default 2 hours if no end
+
+    // Calculate hours from duration (rounded to 30-minute increments)
+    const durationMs = newEnd.getTime() - newStart.getTime();
+    const durationMinutes = durationMs / (1000 * 60);
+    const roundedMinutes = Math.round(durationMinutes / 30) * 30;
+    const durationHours = roundedMinutes / 60;
+    const hours = Math.max(0.5, Math.min(5, durationHours)).toFixed(1);
+
+    // Cancel any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new abort controller for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/jobs/${event.id}/availability`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          signal: abortController.signal,
+          body: JSON.stringify({
+            availabilityStartDateTime: newStart.toISOString(),
+            availabilityEndDateTime: newEnd.toISOString(),
+            hours: hours,
+          }),
+        }
+      );
+
+      // Check if request was aborted
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      if (!response.ok) {
+        // Revert the event position on error
+        dropInfo.revert();
+        let errorMessage = 'Failed to update job availability';
+        try {
+          const errorData = await response.json();
+          errorMessage =
+            errorData.message || errorData.errorMessage || errorMessage;
+        } catch (e) {
+          // If response is not JSON, use status text or default message
+          errorMessage = response.statusText || errorMessage;
+        }
+        if (
+          errorMessage &&
+          errorMessage.trim() &&
+          !abortController.signal.aborted
+        ) {
+          setSnackbar({
+            open: true,
+            message: errorMessage,
+            severity: 'error',
+          });
+        }
+        return;
+      }
+
+      // Check if request was aborted before updating state
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      // Update the local events state with the new times (without refetching)
+      setEvents(prevEvents =>
+        prevEvents.map(e =>
+          e.id === event.id
+            ? {
+                ...e,
+                start: newStart.toISOString(),
+                end: newEnd.toISOString(),
+              }
+            : e
+        )
+      );
+
+      if (!abortController.signal.aborted) {
+        setSnackbar({
+          open: true,
+          message: 'Job availability updated successfully',
+          severity: 'success',
+        });
+      }
+    } catch (error: any) {
+      // Don't show error if request was aborted
+      if (error.name === 'AbortError' || abortController.signal.aborted) {
+        return;
+      }
+      // Revert the event position on error
+      dropInfo.revert();
+      console.error('Error updating job availability:', error);
+      const errorMessage =
+        error?.message || 'Failed to update job availability';
+      if (errorMessage && errorMessage.trim()) {
+        setSnackbar({
+          open: true,
+          message: errorMessage,
+          severity: 'error',
+        });
+      }
+    }
+  };
+
+  const handleEventResize = async (resizeInfo: any) => {
+    const event = resizeInfo.event;
+    const newStart = event.start;
+    if (!newStart) {
+      resizeInfo.revert();
+      return;
+    }
+    const newEnd =
+      event.end || new Date(newStart.getTime() + 2 * 60 * 60 * 1000); // Default 2 hours if no end
+
+    // Calculate hours from duration (rounded to 30-minute increments)
+    const durationMs = newEnd.getTime() - newStart.getTime();
+    const durationMinutes = durationMs / (1000 * 60);
+    const roundedMinutes = Math.round(durationMinutes / 30) * 30;
+    const durationHours = roundedMinutes / 60;
+    const hours = Math.max(0.5, Math.min(5, durationHours)).toFixed(1);
+
+    // Cancel any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new abort controller for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/jobs/${event.id}/availability`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          signal: abortController.signal,
+          body: JSON.stringify({
+            availabilityStartDateTime: newStart.toISOString(),
+            availabilityEndDateTime: newEnd.toISOString(),
+            hours: hours,
+          }),
+        }
+      );
+
+      // Check if request was aborted
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      if (!response.ok) {
+        // Revert the event size on error
+        resizeInfo.revert();
+        let errorMessage = 'Failed to update job availability';
+        try {
+          const errorData = await response.json();
+          errorMessage =
+            errorData.message || errorData.errorMessage || errorMessage;
+        } catch (e) {
+          // If response is not JSON, use status text or default message
+          errorMessage = response.statusText || errorMessage;
+        }
+        if (
+          errorMessage &&
+          errorMessage.trim() &&
+          !abortController.signal.aborted
+        ) {
+          setSnackbar({
+            open: true,
+            message: errorMessage,
+            severity: 'error',
+          });
+        }
+        return;
+      }
+
+      // Check if request was aborted before updating state
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      // Update the local events state with the new times (without refetching)
+      setEvents(prevEvents =>
+        prevEvents.map(e =>
+          e.id === event.id
+            ? {
+                ...e,
+                start: newStart.toISOString(),
+                end: newEnd.toISOString(),
+              }
+            : e
+        )
+      );
+
+      if (!abortController.signal.aborted) {
+        setSnackbar({
+          open: true,
+          message: 'Job availability updated successfully',
+          severity: 'success',
+        });
+      }
+    } catch (error: any) {
+      // Don't show error if request was aborted
+      if (error.name === 'AbortError' || abortController.signal.aborted) {
+        return;
+      }
+      // Revert the event size on error
+      resizeInfo.revert();
+      console.error('Error updating job availability:', error);
+      const errorMessage =
+        error?.message || 'Failed to update job availability';
+      if (errorMessage && errorMessage.trim()) {
+        setSnackbar({
+          open: true,
+          message: errorMessage,
+          severity: 'error',
+        });
+      }
+    }
   };
 
   const formatTime = (date: Date): string => {
@@ -455,9 +710,54 @@ export function CoachSchedule() {
         <ScheduleTitle variant='h2' gutterBottom>
           {displayName}'s Schedule
         </ScheduleTitle>
-        <Typography variant='body1' color='text.secondary' sx={{ mb: 4 }}>
+        <Typography variant='body1' color='text.secondary' sx={{ mb: 3 }}>
           View {displayName}'s coaching sessions and availability.
         </Typography>
+
+        {/* Instruction Box */}
+        {currentView === 'dayGridMonth' ? (
+          <Alert
+            severity='info'
+            sx={{
+              mb: 3,
+              backgroundColor: alpha(theme.palette.info.main, 0.1),
+              border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
+              '& .MuiAlert-icon': {
+                color: theme.palette.info.main,
+              },
+            }}
+          >
+            <Typography variant='body1' sx={{ fontWeight: 600, mb: 0.5 }}>
+              📅 How to Book a Time
+            </Typography>
+            <Typography variant='body2'>
+              Switch to <strong>Day</strong> or <strong>Week</strong> view using
+              the buttons above, then <strong>click and drag</strong> on the
+              calendar to select your desired time slot.
+            </Typography>
+          </Alert>
+        ) : (
+          <Alert
+            severity='info'
+            sx={{
+              mb: 3,
+              backgroundColor: alpha(theme.palette.info.main, 0.1),
+              border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
+              '& .MuiAlert-icon': {
+                color: theme.palette.info.main,
+              },
+            }}
+          >
+            <Typography variant='body1' sx={{ fontWeight: 600, mb: 0.5 }}>
+              🖱️ Click and Drag to Book
+            </Typography>
+            <Typography variant='body2'>
+              <strong>Click and drag</strong> on the calendar below to select
+              your desired time range. A dialog will appear to confirm your
+              selection and proceed to booking.
+            </Typography>
+          </Alert>
+        )}
 
         <Box
           sx={{
@@ -528,23 +828,41 @@ export function CoachSchedule() {
               height: '2.5em',
             },
             '& .fc-select-highlight': {
-              backgroundColor: alpha(theme.palette.primary.main, 0.2),
-              border: `2px solid ${theme.palette.primary.main}`,
+              backgroundColor: alpha(
+                theme.palette.success?.main || '#4caf50',
+                0.2
+              ),
+              border: `2px solid ${alpha(
+                theme.palette.success?.main || '#4caf50',
+                0.5
+              )}`,
             },
             '& .fc-highlight': {
-              backgroundColor: alpha(theme.palette.primary.main, 0.15),
+              backgroundColor: alpha(
+                theme.palette.success?.main || '#4caf50',
+                0.15
+              ),
             },
           }}
         >
           <FullCalendar
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-            initialView='dayGridMonth'
+            initialView={currentView}
             headerToolbar={{
               left: 'prev,next today',
               center: 'title',
               right: 'dayGridMonth,timeGridWeek,timeGridDay',
             }}
-            editable={false}
+            editable={
+              currentView === 'timeGridDay' || currentView === 'timeGridWeek'
+            }
+            eventStartEditable={
+              currentView === 'timeGridDay' || currentView === 'timeGridWeek'
+            }
+            eventDurationEditable={
+              currentView === 'timeGridDay' || currentView === 'timeGridWeek'
+            }
+            eventResizableFromStart={true}
             selectable={
               currentView === 'timeGridDay' || currentView === 'timeGridWeek'
             }
@@ -558,13 +876,15 @@ export function CoachSchedule() {
             weekends={true}
             select={handleDateSelect}
             eventClick={handleEventClick}
+            eventDrop={handleEventDrop}
+            eventResize={handleEventResize}
             events={events}
             eventContent={renderEventContent}
             height='auto'
             slotMinTime='00:00:00'
             slotMaxTime='24:00:00'
-            slotDuration='01:00:00'
-            snapDuration='01:00:00'
+            slotDuration='00:30:00'
+            snapDuration='00:30:00'
             slotLabelInterval='01:00:00'
             allDaySlot={false}
             selectMinDistance={10}
@@ -695,18 +1015,24 @@ export function CoachSchedule() {
         </DialogActions>
       </Dialog>
 
-      {/* Error Snackbar */}
+      {/* Snackbar */}
       <Snackbar
-        open={snackbar.open}
+        open={
+          snackbar.open && !!snackbar.message && snackbar.message.trim() !== ''
+        }
         autoHideDuration={6000}
-        onClose={() => setSnackbar({ open: false, message: '' })}
+        onClose={() =>
+          setSnackbar({ open: false, message: '', severity: 'success' })
+        }
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert
-          onClose={() => setSnackbar({ open: false, message: '' })}
-          severity='error'
+          onClose={() =>
+            setSnackbar({ open: false, message: '', severity: 'success' })
+          }
+          severity={snackbar.severity || 'success'}
           variant='filled'
-          sx={{ width: '100%' }}
+          sx={{ width: '100%', color: 'white' }}
         >
           {snackbar.message}
         </Alert>

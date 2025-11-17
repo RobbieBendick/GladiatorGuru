@@ -411,7 +411,7 @@ export function AdminDashboard() {
                   <TableCell>Availability</TableCell>
                   <TableCell>Goal</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell>Coaches/Admins</TableCell>
+                  <TableCell>Coaches</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
