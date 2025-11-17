@@ -128,10 +128,10 @@ export function CoachSchedule() {
     discordUsername: string;
   }>({ characterName: '', characterRealm: '', discordUsername: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Initialize currentView from localStorage or default to 'dayGridMonth'
+  // Initialize currentView from localStorage or default to 'timeGridWeek'
   const [currentView, setCurrentView] = useState<string>(() => {
     const cachedView = localStorage.getItem('coachScheduleView');
-    return cachedView || 'dayGridMonth';
+    return cachedView || 'timeGridWeek';
   });
   // Track abort controllers per event
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
@@ -178,7 +178,6 @@ export function CoachSchedule() {
             ? coachData.data[0]
             : coachData.data;
           if (coach) {
-            console.log('Coach data received:', coach);
             setCoachInfo(coach);
             // Fetch jobs assigned to this coach
             await fetchCoachJobs(coach._id || id);
