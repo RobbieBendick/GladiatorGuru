@@ -1019,7 +1019,7 @@ export function BookingForm() {
   };
 
   return (
-    <Container maxWidth='md'>
+    <Container maxWidth='md' sx={{ pb: 4 }}>
       <Box sx={{ mb: 3 }}>
         <Button
           startIcon={<ArrowBack />}
