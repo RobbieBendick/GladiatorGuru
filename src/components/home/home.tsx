@@ -17,6 +17,7 @@ import {
   Security,
   Star,
   Groups,
+  School,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/schemas/route-paths';
@@ -257,7 +258,7 @@ const SecondaryButton = styled(Button)(({ theme }) => ({
 
 const FeatureCard = styled(Card)(({ theme }) => ({
   height: '100%',
-  minHeight: '250px',
+  minHeight: '300px',
   display: 'flex',
   flexDirection: 'column',
   transition: 'all 0.3s ease-in-out',
@@ -266,10 +267,10 @@ const FeatureCard = styled(Card)(({ theme }) => ({
   position: 'relative',
   overflow: 'hidden',
   [theme.breakpoints.up('sm')]: {
-    minHeight: '290px',
+    minHeight: '320px',
   },
   [theme.breakpoints.up('md')]: {
-    minHeight: '330px',
+    minHeight: '360px',
   },
   '&::before': {
     content: '""',
@@ -355,19 +356,19 @@ export function Home() {
       icon: <EmojiEvents sx={{ fontSize: 48 }} />,
       title: 'Multi-R1 Players',
       description:
-        'Access to elite players with multiple Rank 1 Gladiator titles. Our network includes some of the most accomplished arena competitors in World of Warcraft Classic.',
+        'Learn from players who have achieved multiple Rank 1 Gladiator titles. Our network features some of the most accomplished and decorated arena competitors in World of Warcraft Classic, giving you access to truly elite-level expertise.',
     },
     {
       icon: <Star sx={{ fontSize: 48 }} />,
       title: 'Tournament Experience',
       description:
-        'Connect with players who have extensive tournament experience. Learn from competitors who have proven themselves on the biggest stages in competitive arena play.',
+        'Gain insights from players who have competed in high-stakes tournament environments. Learn advanced team coordination and how to maintain peak performance under pressure.',
     },
     {
       icon: <Groups sx={{ fontSize: 48 }} />,
       title: 'Elite Player Network',
       description:
-        'Access to the best players across all classes and specializations. Our network includes top-tier competitors from the highest ranks of the arena ladder.',
+        'Connect with a diverse community of elite players covering every class and specialization. Whether you need a specific comp partner or want to learn from different playstyles, our network has the variety and depth to match you with the right player.',
     },
     {
       icon: <Speed sx={{ fontSize: 48 }} />,
@@ -380,6 +381,12 @@ export function Home() {
       title: 'Safe & Secure',
       description:
         'Trusted coaching service with secure methods and proven safety protocols. Your safety and privacy are our top priority throughout the entire coaching process, with strict confidentiality and professional conduct at all times.',
+    },
+    {
+      icon: <School sx={{ fontSize: 48 }} />,
+      title: 'Personalized Mentorship',
+      description:
+        "Looking to improve and climb the ranks? Or just want a chill, skilled player to queue with? Either way, you're in the right place. We're building connections, not just offering a service. Our coaches are real people who want to help you have a great time, whatever your goals may be.",
     },
   ];
 
@@ -442,7 +449,7 @@ export function Home() {
             mt: { xs: 1, md: 2 },
             display: 'flex',
             justifyContent: 'center',
-            alignItems: 'center',
+            alignItems: 'stretch',
           }}
         >
           {features.map((feature, index) => (
@@ -498,7 +505,7 @@ export function Home() {
               color: 'text.primary',
             }}
           >
-            Ready to climb the arena ladder?
+            Looking for someone to game with?
           </Typography>
           <Typography
             variant='body1'
@@ -509,12 +516,10 @@ export function Home() {
               mx: 'auto',
             }}
           >
-            Stop wasting time searching through LFG for unreliable teammates.
-            Connect with elite players who have multiple Rank 1 Gladiator titles
-            and extensive tournament experience. Our network of the best players
-            in World of Warcraft Classic will help you achieve your arena goals.
-            Book your coaching session today and experience elite-level
-            gameplay.
+            Book a session with elite players who have proven themselves at the
+            highest levels of competitive play. Our coaches are ready to help
+            you reach your goals, whether that's climbing the ladder or just
+            enjoying quality games with skilled teammates.
           </Typography>
           <PrimaryButton
             variant='contained'

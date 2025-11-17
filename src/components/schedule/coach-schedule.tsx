@@ -30,6 +30,7 @@ import { ArrowBack } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { API_BASE_URL } from '../../config/api';
+import { isAdmin, getAuthToken } from '../../config/auth';
 
 const SchedulePaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4),
@@ -123,7 +124,14 @@ export function CoachSchedule() {
     const cachedView = localStorage.getItem('coachScheduleView');
     return cachedView || 'dayGridMonth';
   });
-  const abortControllerRef = useRef<AbortController | null>(null);
+  // Track abort controllers per event
+  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  // Track the latest event positions to prevent stale updates
+  const latestEventPositionsRef = useRef<
+    Map<string, { start: string; end: string }>
+  >(new Map());
+  // Track pending update IDs per event to prevent stale updates
+  const pendingUpdateIdsRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     fetchCoachSchedule();
@@ -149,9 +157,14 @@ export function CoachSchedule() {
 
       // Fetch coach info by ID
       try {
+        const token = getAuthToken();
         const coachResponse = await fetch(
           `${API_BASE_URL}/api/admin/users/${id}`,
           {
+            headers: {
+              Authorization: token ? `Bearer ${token}` : '',
+              'Content-Type': 'application/json',
+            },
             credentials: 'include',
           }
         );
@@ -162,11 +175,20 @@ export function CoachSchedule() {
             ? coachData.data[0]
             : coachData.data;
           if (coach) {
+            console.log('Coach data received:', coach);
             setCoachInfo(coach);
             // Fetch jobs assigned to this coach
             await fetchCoachJobs(coach._id || id);
             return;
           }
+        } else {
+          console.error(
+            'Failed to fetch coach info:',
+            coachResponse.status,
+            coachResponse.statusText
+          );
+          const errorData = await coachResponse.json().catch(() => ({}));
+          console.error('Error data:', errorData);
         }
       } catch (err) {
         console.error('Error fetching coach info:', err);
@@ -262,16 +284,9 @@ export function CoachSchedule() {
       }
 
       // Convert jobs to calendar events
-      // Show jobs with status: accepted, approved, completed, or pending
+      // Only show jobs with status: accepted
       const calendarEvents: CalendarEvent[] = jobs
-        .filter(
-          job =>
-            job.status === 'accepted' ||
-            job.status === 'approved' ||
-            job.status === 'completed' ||
-            !job.status ||
-            job.status === 'pending'
-        )
+        .filter(job => job.status === 'accepted')
         .map(job => {
           const startDate = new Date(job.availabilityStartDateTime);
           const endDate = new Date(job.availabilityEndDateTime);
@@ -283,9 +298,12 @@ export function CoachSchedule() {
             end: endDate.toISOString(),
             backgroundColor:
               job.status === 'accepted' || job.status === 'approved'
-                ? theme.palette.primary.main
+                ? alpha(theme.palette.primary.main, 0.7)
                 : job.status === 'completed'
-                ? theme.palette.success?.main || theme.palette.primary.main
+                ? alpha(
+                    theme.palette.success?.main || theme.palette.primary.main,
+                    0.7
+                  )
                 : alpha(theme.palette.warning.main, 0.7),
             borderColor:
               job.status === 'accepted' || job.status === 'approved'
@@ -367,6 +385,26 @@ export function CoachSchedule() {
     const newEnd =
       event.end || new Date(newStart.getTime() + 2 * 60 * 60 * 1000); // Default 2 hours if no end
 
+    const newStartISO = newStart.toISOString();
+    const newEndISO = newEnd.toISOString();
+
+    // Cancel any pending API call for this event
+    const existingAbortController = abortControllersRef.current.get(event.id);
+    if (existingAbortController) {
+      existingAbortController.abort();
+      abortControllersRef.current.delete(event.id);
+    }
+
+    // Generate a unique update ID for this move
+    const updateId = Date.now();
+    pendingUpdateIdsRef.current.set(event.id, updateId);
+
+    // Store the latest position for this event
+    latestEventPositionsRef.current.set(event.id, {
+      start: newStartISO,
+      end: newEndISO,
+    });
+
     // Calculate hours from duration (rounded to 30-minute increments)
     const durationMs = newEnd.getTime() - newStart.getTime();
     const durationMinutes = durationMs / (1000 * 60);
@@ -374,14 +412,9 @@ export function CoachSchedule() {
     const durationHours = roundedMinutes / 60;
     const hours = Math.max(0.5, Math.min(5, durationHours)).toFixed(1);
 
-    // Cancel any pending request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
     // Create new abort controller for this request
     const abortController = new AbortController();
-    abortControllerRef.current = abortController;
+    abortControllersRef.current.set(event.id, abortController);
 
     try {
       const response = await fetch(
@@ -394,15 +427,22 @@ export function CoachSchedule() {
           credentials: 'include',
           signal: abortController.signal,
           body: JSON.stringify({
-            availabilityStartDateTime: newStart.toISOString(),
-            availabilityEndDateTime: newEnd.toISOString(),
+            availabilityStartDateTime: newStartISO,
+            availabilityEndDateTime: newEndISO,
             hours: hours,
           }),
         }
       );
 
-      // Check if request was aborted
+      // Check if request was aborted or if a newer update started
       if (abortController.signal.aborted) {
+        return;
+      }
+
+      // Verify this update is still current
+      const stillCurrentUpdateId = pendingUpdateIdsRef.current.get(event.id);
+      if (stillCurrentUpdateId !== updateId) {
+        // A newer update has started, ignore this response
         return;
       }
 
@@ -429,37 +469,41 @@ export function CoachSchedule() {
             severity: 'error',
           });
         }
+        abortControllersRef.current.delete(event.id);
         return;
       }
 
-      // Check if request was aborted before updating state
-      if (abortController.signal.aborted) {
+      // Verify this update is still current
+      const finalUpdateId = pendingUpdateIdsRef.current.get(event.id);
+      if (finalUpdateId !== updateId) {
+        // A newer update has started, ignore this response
+        abortControllersRef.current.delete(event.id);
         return;
       }
 
-      // Update the local events state with the new times (without refetching)
-      setEvents(prevEvents =>
-        prevEvents.map(e =>
-          e.id === event.id
-            ? {
-                ...e,
-                start: newStart.toISOString(),
-                end: newEnd.toISOString(),
-              }
-            : e
-        )
+      // Verify this is still the latest position before showing success
+      const currentLatestPosition = latestEventPositionsRef.current.get(
+        event.id
       );
-
-      if (!abortController.signal.aborted) {
+      if (
+        currentLatestPosition &&
+        currentLatestPosition.start === newStartISO &&
+        currentLatestPosition.end === newEndISO &&
+        !abortController.signal.aborted
+      ) {
+        // Don't update state - FullCalendar already has the event in the correct position
+        // Only show success message
         setSnackbar({
           open: true,
           message: 'Job availability updated successfully',
           severity: 'success',
         });
       }
+      abortControllersRef.current.delete(event.id);
     } catch (error: any) {
       // Don't show error if request was aborted
       if (error.name === 'AbortError' || abortController.signal.aborted) {
+        abortControllersRef.current.delete(event.id);
         return;
       }
       // Revert the event position on error
@@ -474,6 +518,7 @@ export function CoachSchedule() {
           severity: 'error',
         });
       }
+      abortControllersRef.current.delete(event.id);
     }
   };
 
@@ -487,6 +532,26 @@ export function CoachSchedule() {
     const newEnd =
       event.end || new Date(newStart.getTime() + 2 * 60 * 60 * 1000); // Default 2 hours if no end
 
+    const newStartISO = newStart.toISOString();
+    const newEndISO = newEnd.toISOString();
+
+    // Cancel any pending API call for this event
+    const existingAbortController = abortControllersRef.current.get(event.id);
+    if (existingAbortController) {
+      existingAbortController.abort();
+      abortControllersRef.current.delete(event.id);
+    }
+
+    // Generate a unique update ID for this resize
+    const updateId = Date.now();
+    pendingUpdateIdsRef.current.set(event.id, updateId);
+
+    // Store the latest position for this event
+    latestEventPositionsRef.current.set(event.id, {
+      start: newStartISO,
+      end: newEndISO,
+    });
+
     // Calculate hours from duration (rounded to 30-minute increments)
     const durationMs = newEnd.getTime() - newStart.getTime();
     const durationMinutes = durationMs / (1000 * 60);
@@ -494,14 +559,9 @@ export function CoachSchedule() {
     const durationHours = roundedMinutes / 60;
     const hours = Math.max(0.5, Math.min(5, durationHours)).toFixed(1);
 
-    // Cancel any pending request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
     // Create new abort controller for this request
     const abortController = new AbortController();
-    abortControllerRef.current = abortController;
+    abortControllersRef.current.set(event.id, abortController);
 
     try {
       const response = await fetch(
@@ -514,15 +574,22 @@ export function CoachSchedule() {
           credentials: 'include',
           signal: abortController.signal,
           body: JSON.stringify({
-            availabilityStartDateTime: newStart.toISOString(),
-            availabilityEndDateTime: newEnd.toISOString(),
+            availabilityStartDateTime: newStartISO,
+            availabilityEndDateTime: newEndISO,
             hours: hours,
           }),
         }
       );
 
-      // Check if request was aborted
+      // Check if request was aborted or if a newer update started
       if (abortController.signal.aborted) {
+        return;
+      }
+
+      // Verify this update is still current
+      const stillCurrentUpdateId = pendingUpdateIdsRef.current.get(event.id);
+      if (stillCurrentUpdateId !== updateId) {
+        // A newer update has started, ignore this response
         return;
       }
 
@@ -549,37 +616,41 @@ export function CoachSchedule() {
             severity: 'error',
           });
         }
+        abortControllersRef.current.delete(event.id);
         return;
       }
 
-      // Check if request was aborted before updating state
-      if (abortController.signal.aborted) {
+      // Verify this update is still current
+      const finalUpdateId = pendingUpdateIdsRef.current.get(event.id);
+      if (finalUpdateId !== updateId) {
+        // A newer update has started, ignore this response
+        abortControllersRef.current.delete(event.id);
         return;
       }
 
-      // Update the local events state with the new times (without refetching)
-      setEvents(prevEvents =>
-        prevEvents.map(e =>
-          e.id === event.id
-            ? {
-                ...e,
-                start: newStart.toISOString(),
-                end: newEnd.toISOString(),
-              }
-            : e
-        )
+      // Verify this is still the latest position before showing success
+      const currentLatestPosition = latestEventPositionsRef.current.get(
+        event.id
       );
-
-      if (!abortController.signal.aborted) {
+      if (
+        currentLatestPosition &&
+        currentLatestPosition.start === newStartISO &&
+        currentLatestPosition.end === newEndISO &&
+        !abortController.signal.aborted
+      ) {
+        // Don't update state - FullCalendar already has the event in the correct position
+        // Only show success message
         setSnackbar({
           open: true,
           message: 'Job availability updated successfully',
           severity: 'success',
         });
       }
+      abortControllersRef.current.delete(event.id);
     } catch (error: any) {
       // Don't show error if request was aborted
       if (error.name === 'AbortError' || abortController.signal.aborted) {
+        abortControllersRef.current.delete(event.id);
         return;
       }
       // Revert the event size on error
@@ -594,6 +665,7 @@ export function CoachSchedule() {
           severity: 'error',
         });
       }
+      abortControllersRef.current.delete(event.id);
     }
   };
 
@@ -634,6 +706,12 @@ export function CoachSchedule() {
   };
 
   const renderEventContent = (eventInfo: EventContentArg) => {
+    const userIsAdmin = isAdmin();
+    // Extract character name from title (format: "CharacterName - Bracket")
+    const characterName =
+      eventInfo.event.extendedProps?.characterName ||
+      (eventInfo.event.title ? eventInfo.event.title.split(' - ')[0] : '');
+
     return (
       <Box
         sx={{
@@ -642,11 +720,16 @@ export function CoachSchedule() {
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
+          backgroundColor: eventInfo.backgroundColor,
         }}
       >
         <strong>{eventInfo.timeText}</strong>
-        <br />
-        {eventInfo.event.title}
+        {userIsAdmin && characterName && (
+          <>
+            <br />
+            {characterName}
+          </>
+        )}
       </Box>
     );
   };
@@ -692,7 +775,17 @@ export function CoachSchedule() {
     );
   }
 
-  const displayName = coachInfo?.name || coachInfo?.username || id || 'Coach';
+  // Helper function to capitalize first letter
+  const capitalizeFirstLetter = (str: string | null | undefined): string => {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  };
+
+  const displayName = coachInfo?.name
+    ? capitalizeFirstLetter(coachInfo.name)
+    : coachInfo?.username
+    ? capitalizeFirstLetter(coachInfo.username)
+    : id || 'Coach';
 
   return (
     <Container maxWidth='lg'>
@@ -811,7 +904,10 @@ export function CoachSchedule() {
               fontWeight: 600,
             },
             '& .fc-event': {
-              cursor: 'pointer',
+              cursor:
+                isAdmin() && currentView !== 'dayGridMonth'
+                  ? 'move'
+                  : 'pointer',
               border: 'none',
               borderRadius: theme.shape.borderRadius,
             },
@@ -854,15 +950,18 @@ export function CoachSchedule() {
               right: 'dayGridMonth,timeGridWeek,timeGridDay',
             }}
             editable={
-              currentView === 'timeGridDay' || currentView === 'timeGridWeek'
+              isAdmin() &&
+              (currentView === 'timeGridDay' || currentView === 'timeGridWeek')
             }
             eventStartEditable={
-              currentView === 'timeGridDay' || currentView === 'timeGridWeek'
+              isAdmin() &&
+              (currentView === 'timeGridDay' || currentView === 'timeGridWeek')
             }
             eventDurationEditable={
-              currentView === 'timeGridDay' || currentView === 'timeGridWeek'
+              isAdmin() &&
+              (currentView === 'timeGridDay' || currentView === 'timeGridWeek')
             }
-            eventResizableFromStart={true}
+            eventResizableFromStart={isAdmin()}
             selectable={
               currentView === 'timeGridDay' || currentView === 'timeGridWeek'
             }

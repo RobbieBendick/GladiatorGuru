@@ -194,6 +194,7 @@ interface BookingFormData {
   characterRealm: string;
   version: WowVersion | '';
   bracket: string;
+  coaches: string;
   hours: string;
   characterClass: string;
   characterSpec: string;
@@ -212,6 +213,7 @@ export function BookingForm() {
     characterRealm: '',
     version: '',
     bracket: '',
+    coaches: '1',
     hours: '',
     characterClass: '',
     characterSpec: '',
@@ -572,11 +574,9 @@ export function BookingForm() {
 
   // Calculate total price
   const calculateTotalPrice = (): number => {
-    if (!formData.bracket || !formData.hours) return 0;
+    if (!formData.hours) return 0;
 
-    // Extract number of coaches from bracket (e.g., "2v2-1" = 1 coach, "3v3-2" = 2 coaches)
-    const coachesMatch = formData.bracket.match(/-(\d+)$/);
-    const coaches = coachesMatch ? parseInt(coachesMatch[1], 10) : 0;
+    const coaches = parseInt(formData.coaches, 10) || 1;
     const hours = parseInt(formData.hours, 10) || 0;
 
     const pricePerHour = 30;
@@ -585,12 +585,7 @@ export function BookingForm() {
 
   // Calculate price for a specific number of hours
   const calculatePriceForHours = (hours: number): number => {
-    // Default to 1 coach if no bracket is selected
-    let coaches = 1;
-    if (formData.bracket) {
-      const coachesMatch = formData.bracket.match(/-(\d+)$/);
-      coaches = coachesMatch ? parseInt(coachesMatch[1], 10) : 1;
-    }
+    const coaches = parseInt(formData.coaches, 10) || 1;
     const pricePerHour = 30;
     return pricePerHour * coaches * hours;
   };
@@ -620,6 +615,11 @@ export function BookingForm() {
           newData.characterSpec = '';
         } else if (field === 'characterClass') {
           newData.characterSpec = '';
+        } else if (field === 'bracket') {
+          // If bracket is 2v2, limit coaches to 1
+          if (value === '2v2' && newData.coaches === '2') {
+            newData.coaches = '1';
+          }
         }
 
         // If start time changes and end time is before or equal to start, update end time
@@ -775,11 +775,17 @@ export function BookingForm() {
       const availabilityStartDateTime = `${formData.availabilityDate}T${startTime}`;
       const availabilityEndDateTime = `${formData.availabilityDate}T${endTime}`;
 
+      // Combine bracket and coaches into the format the backend expects (e.g., "3v3-2")
+      const bracketValue =
+        formData.bracket && formData.coaches
+          ? `${formData.bracket}-${formData.coaches}`
+          : formData.bracket || '';
+
       const submitData = {
         characterName: formData.characterName.trim(),
         characterRealm: formData.characterRealm.trim(),
         version: formData.version,
-        bracket: formData.bracket,
+        bracket: bracketValue,
         hours: formData.hours,
         characterClass: formData.characterClass,
         characterSpec: formData.characterSpec,
@@ -1331,9 +1337,7 @@ export function BookingForm() {
               )}
               {!errors.hours && (
                 <FormHelperText sx={{ mt: 1 }}>
-                  {formData.bracket
-                    ? 'Choose your session length'
-                    : 'Choose your session length (prices defaulted to 1 coach)'}
+                  Choose your session length
                 </FormHelperText>
               )}
             </Grid>
@@ -1497,7 +1501,7 @@ export function BookingForm() {
             </Grid>
 
             {/* Bracket */}
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <Typography
                 variant='h6'
                 sx={{
@@ -1524,10 +1528,49 @@ export function BookingForm() {
                   MenuProps: getMenuProps(),
                 }}
               >
-                <MenuItem value='2v2-1'>2v2 (1 coach)</MenuItem>
-                <MenuItem value='3v3-1'>3v3 (1 coach)</MenuItem>
-                <MenuItem value='3v3-2'>3v3 (2 coaches)</MenuItem>
+                <MenuItem value='2v2'>2v2</MenuItem>
+                <MenuItem value='3v3'>3v3</MenuItem>
               </StyledTextField>
+            </Grid>
+
+            {/* Number of Coaches */}
+            <Grid item xs={12} sm={6}>
+              <Typography
+                variant='h6'
+                sx={{
+                  fontWeight: 700,
+                  fontSize: '1.25rem',
+                  mb: 1,
+                  mt: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                👥 Number of Coaches (Optional)
+              </Typography>
+              <StyledTextField
+                fullWidth
+                select
+                label='Number of Coaches (Optional)'
+                value={formData.coaches}
+                onChange={handleChange('coaches')}
+                error={!!errors.coaches}
+                helperText={errors.coaches}
+                SelectProps={{
+                  MenuProps: getMenuProps(),
+                }}
+              >
+                <MenuItem value='1'>1 Coach</MenuItem>
+                <MenuItem value='2' disabled={formData.bracket === '2v2'}>
+                  2 Coaches{' '}
+                  {formData.bracket === '2v2' && '(Not available for 2v2)'}
+                </MenuItem>
+              </StyledTextField>
+              <FormHelperText sx={{ mt: 1, color: 'text.secondary' }}>
+                E.g., 2 coaches means 2 rank one players will play alongside you
+                and mentor you in 3v3
+              </FormHelperText>
             </Grid>
 
             {/* Goal */}

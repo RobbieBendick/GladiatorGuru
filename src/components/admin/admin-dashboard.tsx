@@ -417,7 +417,16 @@ export function AdminDashboard() {
               </TableHead>
               <TableBody>
                 {jobs.map(job => (
-                  <TableRow key={job._id}>
+                  <TableRow
+                    key={job._id}
+                    onClick={() => navigate(`/job/${job._id}`)}
+                    sx={{
+                      cursor: 'pointer',
+                      '&:hover': {
+                        backgroundColor: 'action.hover',
+                      },
+                    }}
+                  >
                     <TableCell>{job.characterName}</TableCell>
                     <TableCell>{job.characterRealm}</TableCell>
                     <TableCell>{job.version}</TableCell>
@@ -434,7 +443,10 @@ export function AdminDashboard() {
                       )}
                     </TableCell>
                     <TableCell>{job.goal || '-'}</TableCell>
-                    <TableCell>
+                    <TableCell
+                      onClick={e => e.stopPropagation()}
+                      sx={{ cursor: 'default' }}
+                    >
                       <Select
                         value={job.status}
                         onChange={e =>
@@ -449,7 +461,10 @@ export function AdminDashboard() {
                         <MenuItem value='cancelled'>Cancelled</MenuItem>
                       </Select>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      onClick={e => e.stopPropagation()}
+                      sx={{ cursor: 'default' }}
+                    >
                       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                         {job.coachIds && job.coachIds.length > 0 ? (
                           job.coachIds.map((coachId: string) => {
@@ -481,7 +496,10 @@ export function AdminDashboard() {
                         )}
                       </Box>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      onClick={e => e.stopPropagation()}
+                      sx={{ cursor: 'default' }}
+                    >
                       <Box sx={{ display: 'flex', gap: 1 }}>
                         <Button
                           variant='outlined'
