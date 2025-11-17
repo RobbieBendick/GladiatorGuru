@@ -436,6 +436,10 @@ export function JobDetails() {
       setIsSubmitting(true);
       const token = getAuthToken();
 
+      // Prepare job update data (excluding coachIds)
+      const { coachIds, _id, ...jobUpdateData } = formData;
+
+      // Update the job (excluding coachIds)
       const response = await fetch(`${API_BASE_URL}/api/admin/jobs/${id}`, {
         method: 'PATCH',
         headers: {
@@ -443,11 +447,52 @@ export function JobDetails() {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify(formData),
+        body: JSON.stringify(jobUpdateData),
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        setSnackbar({
+          open: true,
+          message: errorData.message || 'Failed to update job',
+          severity: 'error',
+        });
+        return;
+      }
+
+      // Update coaches separately if coachIds are provided
+      if (coachIds !== undefined) {
+        const coachesResponse = await fetch(
+          `${API_BASE_URL}/api/admin/jobs/${id}/coaches`,
+          {
+            method: 'PATCH',
+            headers: {
+              Authorization: token ? `Bearer ${token}` : '',
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ coachIds: coachIds || [] }),
+          }
+        );
+
+        if (!coachesResponse.ok) {
+          const errorData = await coachesResponse.json().catch(() => ({}));
+          setSnackbar({
+            open: true,
+            message: errorData.message || 'Failed to update coaches',
+            severity: 'error',
+          });
+          return;
+        }
+      }
+
+      // Fetch updated job data
+      const updatedResponse = await fetch(`${API_BASE_URL}/api/jobs/${id}`, {
+        credentials: 'include',
+      });
+
+      if (updatedResponse.ok) {
+        const data = await updatedResponse.json();
         const updatedJob = data.data || data;
         setJob(updatedJob);
         setFormData(updatedJob);
@@ -464,11 +509,10 @@ export function JobDetails() {
           severity: 'success',
         });
       } else {
-        const errorData = await response.json().catch(() => ({}));
         setSnackbar({
           open: true,
-          message: errorData.message || 'Failed to update job',
-          severity: 'error',
+          message: 'Job updated but failed to refresh data',
+          severity: 'warning',
         });
       }
     } catch (err: any) {

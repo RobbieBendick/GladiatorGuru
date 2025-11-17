@@ -166,19 +166,11 @@ export function CoachSchedule() {
         return;
       }
 
-      // Fetch coach info by ID
+      // Fetch coach info by ID (public endpoint)
       try {
-        const token = getAuthToken();
-        const coachResponse = await fetch(
-          `${API_BASE_URL}/api/admin/users/${id}`,
-          {
-            headers: {
-              Authorization: token ? `Bearer ${token}` : '',
-              'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-          }
-        );
+        const coachResponse = await fetch(`${API_BASE_URL}/api/users/${id}`, {
+          credentials: 'include',
+        });
 
         if (coachResponse.ok) {
           const coachData = await coachResponse.json();
@@ -714,13 +706,21 @@ export function CoachSchedule() {
   const handleCloseTimeDialog = () => {
     setShowTimeDialog(false);
     setSelectedTimeRange(null);
-    setAdminFormData({ characterName: '', characterRealm: '', discordUsername: '' });
+    setAdminFormData({
+      characterName: '',
+      characterRealm: '',
+      discordUsername: '',
+    });
   };
 
   const handleAdminSubmit = async () => {
     if (!selectedTimeRange || !id) return;
 
-    if (!adminFormData.characterName || !adminFormData.characterRealm || !adminFormData.discordUsername) {
+    if (
+      !adminFormData.characterName ||
+      !adminFormData.characterRealm ||
+      !adminFormData.discordUsername
+    ) {
       setSnackbar({
         open: true,
         message: 'Please fill in all required fields',
@@ -735,7 +735,8 @@ export function CoachSchedule() {
 
       const startISO = selectedTimeRange.start.toISOString();
       const endISO = selectedTimeRange.end.toISOString();
-      const durationMs = selectedTimeRange.end.getTime() - selectedTimeRange.start.getTime();
+      const durationMs =
+        selectedTimeRange.end.getTime() - selectedTimeRange.start.getTime();
       const durationHours = Math.round(durationMs / (1000 * 60 * 60));
       const hours = Math.max(1, Math.min(5, durationHours));
 
@@ -1122,12 +1123,15 @@ export function CoachSchedule() {
                     p: 2,
                     backgroundColor: alpha(theme.palette.primary.main, 0.1),
                     borderRadius: 2,
-                    border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+                    border: `1px solid ${alpha(
+                      theme.palette.primary.main,
+                      0.3
+                    )}`,
                   }}
                 >
                   <Typography variant='body2' color='text.secondary'>
-                    💡 <strong>Tip:</strong> This time range has been selected and
-                    will be used to coordinate with the coach.
+                    💡 <strong>Tip:</strong> This time range has been selected
+                    and will be used to coordinate with the coach.
                   </Typography>
                 </Box>
               )}
@@ -1138,14 +1142,19 @@ export function CoachSchedule() {
                   <Typography variant='h6' sx={{ mb: 2, fontWeight: 600 }}>
                     Quick Add (Admin)
                   </Typography>
-                  <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
-                    Fill in the essential information to quickly create a booking.
-                        </Typography>
+                  <Typography
+                    variant='body2'
+                    color='text.secondary'
+                    sx={{ mb: 2 }}
+                  >
+                    Fill in the essential information to quickly create a
+                    booking.
+                  </Typography>
                   <TextField
                     fullWidth
                     label='Character Name'
                     value={adminFormData.characterName}
-                    onChange={(e) =>
+                    onChange={e =>
                       setAdminFormData({
                         ...adminFormData,
                         characterName: e.target.value,
@@ -1166,7 +1175,7 @@ export function CoachSchedule() {
                     fullWidth
                     label='Character Realm'
                     value={adminFormData.characterRealm}
-                    onChange={(e) =>
+                    onChange={e =>
                       setAdminFormData({
                         ...adminFormData,
                         characterRealm: e.target.value,
@@ -1187,7 +1196,7 @@ export function CoachSchedule() {
                     fullWidth
                     label='Discord Username'
                     value={adminFormData.discordUsername}
-                    onChange={(e) =>
+                    onChange={e =>
                       setAdminFormData({
                         ...adminFormData,
                         discordUsername: e.target.value,
@@ -1210,7 +1219,11 @@ export function CoachSchedule() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseTimeDialog} variant='outlined' disabled={isSubmitting}>
+          <Button
+            onClick={handleCloseTimeDialog}
+            variant='outlined'
+            disabled={isSubmitting}
+          >
             Close
           </Button>
           {isAdminMode ? (
@@ -1251,10 +1264,9 @@ export function CoachSchedule() {
                   const endMonth = String(
                     selectedTimeRange.end.getMonth() + 1
                   ).padStart(2, '0');
-                  const endDay = String(selectedTimeRange.end.getDate()).padStart(
-                    2,
-                    '0'
-                  );
+                  const endDay = String(
+                    selectedTimeRange.end.getDate()
+                  ).padStart(2, '0');
                   const endHours = String(
                     selectedTimeRange.end.getHours()
                   ).padStart(2, '0');
@@ -1267,7 +1279,9 @@ export function CoachSchedule() {
                   const durationMs =
                     selectedTimeRange.end.getTime() -
                     selectedTimeRange.start.getTime();
-                  const durationHours = Math.round(durationMs / (1000 * 60 * 60));
+                  const durationHours = Math.round(
+                    durationMs / (1000 * 60 * 60)
+                  );
                   // Clamp between 1 and 5 hours (form validation limits)
                   const hours = Math.max(1, Math.min(5, durationHours));
 
