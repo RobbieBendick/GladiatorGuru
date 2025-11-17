@@ -384,7 +384,7 @@ export function Home() {
     },
     {
       icon: <School sx={{ fontSize: 48 }} />,
-      title: 'Personalized Mentorship',
+      title: 'Personalized Experience',
       description:
         "Looking to improve and climb the ranks? Or just want a chill, skilled player to queue with? Either way, you're in the right place. We're building connections, not just offering a service. Our coaches are real people who want to help you have a great time, whatever your goals may be.",
     },
