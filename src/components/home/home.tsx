@@ -362,7 +362,7 @@ export function Home() {
       icon: <Star sx={{ fontSize: 48 }} />,
       title: 'Tournament Experience',
       description:
-        'Gain insights from players who have competed in high-stakes tournament environments. Learn advanced team coordination and how to maintain peak performance under pressure.',
+        'Gain insights from players who have competed in high-stakes tournament environments. Learn advanced team coordination and how to maintain peak performance under pressure from coaches with real competitive experience.',
     },
     {
       icon: <Groups sx={{ fontSize: 48 }} />,

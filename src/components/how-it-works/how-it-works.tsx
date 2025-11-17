@@ -12,7 +12,7 @@ import {
   Button,
   Divider,
 } from '@mui/material';
-import { ArrowBack } from '@mui/icons-material';
+import { ArrowBack, Info } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 
@@ -62,7 +62,7 @@ const steps = [
   },
   {
     icon: '🎮',
-    label: 'Pay & Attend Your Coaching Session',
+    label: 'Pay For & Attend Your Coaching Session',
     description:
       "Join your coaching session with our elite players. We'll be playing in your desired bracket, playing along with you and coaching you along the way. Learn advanced strategies, positioning, communication, and game sense.",
   },
@@ -90,20 +90,34 @@ export function HowItWorks() {
       </Box>
 
       <ContentPaper elevation={3} sx={{ paddingBlock: 4 }}>
-        <Typography
-          variant='h2'
+        <Box
           sx={{
-            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
             mb: 1,
-            background: theme => theme.palette.text.primary,
-            backgroundClip: 'text',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            fontSize: { xs: '2rem', md: '3rem' },
           }}
         >
-          How It Works
-        </Typography>
+          <Info
+            sx={{
+              fontSize: { xs: '1.5rem', md: '2rem' },
+              color: 'text.primary',
+            }}
+          />
+          <Typography
+            variant='h2'
+            sx={{
+              fontWeight: 700,
+              background: theme => theme.palette.text.primary,
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              fontSize: { xs: '2rem', md: '3rem' },
+            }}
+          >
+            How It Works
+          </Typography>
+        </Box>
         <Typography
           variant='body1'
           color='text.secondary'
