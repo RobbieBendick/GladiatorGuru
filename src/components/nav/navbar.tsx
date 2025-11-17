@@ -86,9 +86,7 @@ function ResponsiveNavBar() {
     [key: string]: string;
   }
 
-  const routes: Routes = {
-    Home: ROUTE_PATHS.home,
-  };
+  const routes: Routes = {};
 
   return (
     <>

@@ -12,17 +12,35 @@ import {
   Divider,
   Snackbar,
   Alert,
+  TextField,
+  MenuItem,
+  Grid,
+  ToggleButtonGroup,
+  ToggleButton,
+  useTheme,
+  InputAdornment,
 } from '@mui/material';
 import {
   ArrowBack,
   CalendarToday,
   AccessTime,
   Person,
+  Edit,
+  Save,
+  Close,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { API_BASE_URL } from '../../config/api';
 import { getAuthToken, isAdmin } from '../../config/auth';
+import {
+  Class,
+  getAvailableVersions,
+  getClassesForVersion,
+  getSpecsForClass,
+  getClassColor,
+  WowVersion,
+} from '../../constants/wow-classes';
 
 const DetailsPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4),
@@ -43,6 +61,67 @@ const DetailRow = styled(Box)(({ theme }) => ({
   borderRadius: theme.shape.borderRadius,
   backgroundColor: alpha(theme.palette.background.default, 0.6),
 }));
+
+// Styled TextField with red required asterisk (matching booking form)
+const StyledTextField = styled(TextField)(({ theme }) => ({
+  '& .MuiInputLabel-asterisk': {
+    color: theme.palette.error.main,
+  },
+}));
+
+// Styled MenuItem with image (matching booking form)
+const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(1.5),
+  padding: theme.spacing(1.5, 2),
+  '& img': {
+    width: 32,
+    height: 32,
+    objectFit: 'contain',
+  },
+}));
+
+// Helper functions for images (matching booking form)
+const normalizeClassName = (className: string): string => {
+  return className.toLowerCase().replace(/\s+/g, '');
+};
+
+const normalizeSpecName = (specName: string): string => {
+  const normalized = specName.toLowerCase().replace(/\s+/g, '');
+  const specNameMap: Record<string, string> = {
+    marksmanship: 'marksman',
+    beastmastery: 'beastmastery',
+    feralcombat: 'feral',
+  };
+  return specNameMap[normalized] || normalized;
+};
+
+const getClassImagePath = (className: string): string => {
+  const normalized = normalizeClassName(className);
+  return `/class/64/${normalized}.png`;
+};
+
+const getSpecImagePath = (className: string, specName: string): string => {
+  const normalizedClass = normalizeClassName(className);
+  const normalizedSpec = normalizeSpecName(specName);
+  return `/spec/${normalizedClass}/${normalizedSpec}.png`;
+};
+
+const getVersionImagePath = (version: WowVersion): string => {
+  const normalized = version.toLowerCase();
+  return `/wow-versions/${normalized}.png`;
+};
+
+const getVersionDisplayName = (version: WowVersion): string => {
+  const versionNames: Record<WowVersion, string> = {
+    TBC: 'Burning Crusade',
+    MOP: 'Mists of Pandaria',
+  };
+  return versionNames[version] || version;
+};
+
+const DISCORD_LOGO_PATH = '/discord.png';
 
 interface Job {
   _id: string;
@@ -82,13 +161,12 @@ export function JobDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isUserAdmin, setIsUserAdmin] = useState(false);
-  const [_coaches, setCoaches] = useState<Coach[]>([]);
-  const [_availableCoaches, setAvailableCoaches] = useState<Coach[]>([]);
-  const [_selectedCoachIds, setSelectedCoachIds] = useState<string[]>([]);
-  const [_assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [_assigning, setAssigning] = useState(false);
+  const [coaches, setCoaches] = useState<Coach[]>([]);
+  const [availableCoaches, setAvailableCoaches] = useState<Coach[]>([]);
   const [formData, setFormData] = useState<Job | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const theme = useTheme();
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -105,6 +183,12 @@ export function JobDetails() {
       fetchAvailableCoaches();
     }
   }, [isUserAdmin]);
+
+  useEffect(() => {
+    if (isEditMode && isUserAdmin) {
+      fetchAvailableCoaches();
+    }
+  }, [isEditMode, isUserAdmin]);
 
   const checkAdminStatus = async () => {
     try {
@@ -139,6 +223,10 @@ export function JobDetails() {
       fetchCoachesForJob(job);
     } else {
       setCoaches([]);
+    }
+    // Initialize formData when job loads
+    if (job) {
+      setFormData({ ...job });
     }
   }, [job]);
 
@@ -255,77 +343,91 @@ export function JobDetails() {
     }
   };
 
-  // Intentionally unused - reserved for future admin coach assignment feature
-  // @ts-ignore - intentionally unused for future feature
-  const _handleOpenAssignDialog = () => {
-    if (!job) return;
-    setSelectedCoachIds(job.coachIds || []);
-    setAssignDialogOpen(true);
+  // Helper functions for date/time parsing
+  const parseDateTime = (dateTimeString: string) => {
+    const date = new Date(dateTimeString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return {
+      date: `${year}-${month}-${day}`,
+      time: `${hours}:${minutes}`,
+    };
   };
 
-  // @ts-ignore - intentionally unused for future feature
-  const _handleCloseAssignDialog = () => {
-    setAssignDialogOpen(false);
-    setSelectedCoachIds([]);
-  };
-
-  // @ts-ignore - intentionally unused for future feature
-  const _handleAssignCoaches = async () => {
-    if (!job || !id) return;
-
-    try {
-      setAssigning(true);
-      const token = getAuthToken();
-
-      const response = await fetch(
-        `${API_BASE_URL}/api/admin/jobs/${id}/coaches`,
-        {
-          method: 'PATCH',
-          headers: {
-            Authorization: token ? `Bearer ${token}` : '',
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({ coachIds: _selectedCoachIds }),
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        const updatedJob = data.data || data;
-        setJob(updatedJob);
-        setFormData(updatedJob);
-        // Refresh coaches display
-        if (updatedJob.coachIds && updatedJob.coachIds.length > 0) {
-          fetchCoachesForJob(updatedJob);
-        } else {
-          setCoaches([]);
-        }
-        setSnackbar({
-          open: true,
-          message: 'Coaches assigned successfully',
-          severity: 'success',
-        });
-        _handleCloseAssignDialog();
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        setSnackbar({
-          open: true,
-          message: errorData.message || 'Failed to assign coaches',
-          severity: 'error',
-        });
-      }
-    } catch (err: any) {
-      console.error('Error assigning coaches:', err);
-      setSnackbar({
-        open: true,
-        message: 'Failed to assign coaches',
-        severity: 'error',
-      });
-    } finally {
-      setAssigning(false);
+  const handleEdit = () => {
+    if (job) {
+      setFormData({ ...job });
+      setIsEditMode(true);
     }
   };
+
+  const handleCancel = () => {
+    if (job) {
+      setFormData({ ...job });
+      setIsEditMode(false);
+    }
+  };
+
+  const handleFieldChange =
+    (field: keyof Job) =>
+    (event: React.ChangeEvent<HTMLInputElement | { value: unknown }>) => {
+      const value =
+        typeof event.target.value === 'string'
+          ? event.target.value
+          : String(event.target.value);
+      setFormData(prev => {
+        if (!prev) return null;
+        const newData = { ...prev, [field]: value };
+
+        // Reset dependent fields when version or class changes
+        if (field === 'version') {
+          newData.characterClass = '';
+          newData.characterSpec = '';
+        } else if (field === 'characterClass') {
+          newData.characterSpec = '';
+        }
+
+        return newData;
+      });
+    };
+
+  const handleCoachSelection = (event: any) => {
+    const value = event.target.value;
+    setFormData(prev => {
+      if (!prev) return null;
+      // Multi-select returns an array
+      const selectedIds = typeof value === 'string' ? value.split(',') : value;
+      return {
+        ...prev,
+        coachIds: Array.isArray(selectedIds) ? selectedIds : [],
+      };
+    });
+  };
+
+  const handleDateTimeChange =
+    (field: 'availabilityStartDateTime' | 'availabilityEndDateTime') =>
+    (dateField: 'date' | 'time') =>
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      if (!formData) return;
+
+      const currentDateTime = formData[field] || new Date().toISOString();
+      const { date: currentDate, time: currentTime } =
+        parseDateTime(currentDateTime);
+
+      const newValue = event.target.value;
+      const newDate = dateField === 'date' ? newValue : currentDate;
+      const newTime = dateField === 'time' ? newValue : currentTime;
+
+      const newDateTime = `${newDate}T${newTime}`;
+
+      setFormData(prev => {
+        if (!prev) return null;
+        return { ...prev, [field]: newDateTime };
+      });
+    };
 
   const handleUpdateJob = async () => {
     if (!job || !id || !formData) return;
@@ -348,6 +450,14 @@ export function JobDetails() {
         const data = await response.json();
         const updatedJob = data.data || data;
         setJob(updatedJob);
+        setFormData(updatedJob);
+        setIsEditMode(false);
+        // Refresh coaches display
+        if (updatedJob.coachIds && updatedJob.coachIds.length > 0) {
+          fetchCoachesForJob(updatedJob);
+        } else {
+          setCoaches([]);
+        }
         setSnackbar({
           open: true,
           message: 'Job updated successfully',
@@ -418,6 +528,17 @@ export function JobDetails() {
     }
   };
 
+  // MenuProps for select dropdowns (matching booking form)
+  const getMenuProps = () => ({
+    PaperProps: {
+      sx: {
+        backgroundColor: theme.palette.mode === 'light' ? '#f5f5f5' : undefined,
+      },
+    },
+  });
+
+  const versions = getAvailableVersions();
+
   if (loading) {
     return (
       <Container maxWidth='lg'>
@@ -485,11 +606,139 @@ export function JobDetails() {
           <Typography variant='h3' sx={{ fontWeight: 700 }}>
             Job Details
           </Typography>
-          <Chip
-            label={getStatusLabel(job.status)}
-            color={getStatusColor(job.status) as any}
-            sx={{ fontSize: '0.9rem', padding: '4px 8px' }}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {isEditMode && formData ? (
+              <StyledTextField
+                select
+                label='Status'
+                value={formData.status || 'pending'}
+                onChange={handleFieldChange('status')}
+                sx={{ minWidth: 150 }}
+                SelectProps={{
+                  MenuProps: getMenuProps(),
+                  renderValue: (value: unknown) => {
+                    const status = value as string;
+                    return (
+                      <Chip
+                        label={getStatusLabel(status)}
+                        color={getStatusColor(status) as any}
+                        size='small'
+                        sx={{ fontSize: '0.875rem' }}
+                      />
+                    );
+                  },
+                }}
+              >
+                <MenuItem value='pending'>
+                  <Chip
+                    label='Pending'
+                    color='warning'
+                    size='small'
+                    sx={{ fontSize: '0.875rem' }}
+                  />
+                </MenuItem>
+                <MenuItem value='accepted'>
+                  <Chip
+                    label='Accepted'
+                    color='success'
+                    size='small'
+                    sx={{ fontSize: '0.875rem' }}
+                  />
+                </MenuItem>
+                <MenuItem value='approved'>
+                  <Chip
+                    label='Approved'
+                    color='success'
+                    size='small'
+                    sx={{ fontSize: '0.875rem' }}
+                  />
+                </MenuItem>
+                <MenuItem value='completed'>
+                  <Chip
+                    label='Completed'
+                    color='info'
+                    size='small'
+                    sx={{ fontSize: '0.875rem' }}
+                  />
+                </MenuItem>
+                <MenuItem value='rejected'>
+                  <Chip
+                    label='Rejected'
+                    color='error'
+                    size='small'
+                    sx={{ fontSize: '0.875rem' }}
+                  />
+                </MenuItem>
+                <MenuItem value='cancelled'>
+                  <Chip
+                    label='Cancelled'
+                    color='error'
+                    size='small'
+                    sx={{ fontSize: '0.875rem' }}
+                  />
+                </MenuItem>
+              </StyledTextField>
+            ) : (
+              <Chip
+                label={getStatusLabel(job.status)}
+                color={getStatusColor(job.status) as any}
+                sx={{ fontSize: '0.9rem', padding: '4px 8px' }}
+              />
+            )}
+            {isUserAdmin && !isEditMode && (
+              <Button
+                variant='outlined'
+                startIcon={<Edit />}
+                onClick={handleEdit}
+                sx={{ textTransform: 'none' }}
+              >
+                Edit
+              </Button>
+            )}
+            {isUserAdmin && isEditMode && (
+              <>
+                <Button
+                  variant='outlined'
+                  color='error'
+                  startIcon={<Close />}
+                  onClick={handleCancel}
+                  disabled={isSubmitting}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Discard Changes
+                </Button>
+                <Button
+                  variant='contained'
+                  startIcon={
+                    isSubmitting ? (
+                      <CircularProgress size={20} color='inherit' />
+                    ) : (
+                      <Save />
+                    )
+                  }
+                  onClick={handleUpdateJob}
+                  disabled={isSubmitting}
+                  sx={{
+                    textTransform: 'none',
+                    background: theme =>
+                      `linear-gradient(135deg, ${
+                        theme.palette.primary.main
+                      } 0%, ${
+                        theme.palette.primary.dark || theme.palette.primary.main
+                      } 100%)`,
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      boxShadow: theme =>
+                        `0 8px 24px ${alpha(theme.palette.primary.main, 0.4)}`,
+                    },
+                    transition: 'all 0.3s ease-in-out',
+                  }}
+                >
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </>
+            )}
+          </Box>
         </Box>
 
         <Divider
@@ -507,57 +756,213 @@ export function JobDetails() {
             Character Information
           </Typography>
 
-          <DetailRow>
-            <Person sx={{ color: 'text.primary' }} />
-            <Box>
-              <Typography variant='body2' color='text.secondary'>
-                Character Name
-              </Typography>
-              <Typography variant='h6'>{job.characterName}</Typography>
-            </Box>
-          </DetailRow>
+          {isEditMode && formData ? (
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <StyledTextField
+                  fullWidth
+                  label='Character Name'
+                  value={formData.characterName || ''}
+                  onChange={handleFieldChange('characterName')}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <StyledTextField
+                  fullWidth
+                  label='Character Realm'
+                  value={formData.characterRealm || ''}
+                  onChange={handleFieldChange('characterRealm')}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <StyledTextField
+                  fullWidth
+                  select
+                  label='Character Class (Optional)'
+                  value={formData.characterClass || ''}
+                  onChange={handleFieldChange('characterClass')}
+                  disabled={!formData.version}
+                  SelectProps={{
+                    native: false,
+                    renderValue: (value: unknown) => {
+                      if (!value || typeof value !== 'string') return '';
+                      return (
+                        <Box
+                          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                        >
+                          <img
+                            src={getClassImagePath(value)}
+                            alt={value}
+                            style={{
+                              width: 24,
+                              height: 24,
+                              objectFit: 'contain',
+                            }}
+                            onError={e => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                          <Typography sx={{ color: getClassColor(value) }}>
+                            {value}
+                          </Typography>
+                        </Box>
+                      );
+                    },
+                  }}
+                >
+                  {formData.version
+                    ? getClassesForVersion(formData.version as WowVersion).map(
+                        (classData: Class) => (
+                          <StyledMenuItem
+                            key={classData.name}
+                            value={classData.name}
+                          >
+                            <img
+                              src={getClassImagePath(classData.name)}
+                              alt={classData.name}
+                              onError={e => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                            <Typography
+                              sx={{ color: getClassColor(classData.name) }}
+                            >
+                              {classData.name}
+                            </Typography>
+                          </StyledMenuItem>
+                        )
+                      )
+                    : [
+                        <MenuItem key='none' value='' disabled>
+                          Select a version first
+                        </MenuItem>,
+                      ]}
+                </StyledTextField>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <StyledTextField
+                  fullWidth
+                  select
+                  label='Character Spec (Optional)'
+                  value={formData.characterSpec || ''}
+                  onChange={handleFieldChange('characterSpec')}
+                  disabled={!formData.characterClass}
+                  SelectProps={{
+                    native: false,
+                    renderValue: (value: unknown) => {
+                      if (
+                        !value ||
+                        typeof value !== 'string' ||
+                        !formData.characterClass
+                      )
+                        return '';
+                      return (
+                        <Box
+                          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                        >
+                          <img
+                            src={getSpecImagePath(
+                              formData.characterClass,
+                              value
+                            )}
+                            alt={value}
+                            style={{
+                              width: 24,
+                              height: 24,
+                              objectFit: 'contain',
+                            }}
+                            onError={e => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                          <Typography>{value}</Typography>
+                        </Box>
+                      );
+                    },
+                  }}
+                >
+                  {formData.characterClass
+                    ? getSpecsForClass(
+                        formData.version as WowVersion,
+                        formData.characterClass
+                      ).map((spec: string) => (
+                        <StyledMenuItem key={spec} value={spec}>
+                          <img
+                            src={getSpecImagePath(
+                              formData.characterClass,
+                              spec
+                            )}
+                            alt={spec}
+                            onError={e => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                          <Typography>{spec}</Typography>
+                        </StyledMenuItem>
+                      ))
+                    : [
+                        <MenuItem key='none' value='' disabled>
+                          Select a class first
+                        </MenuItem>,
+                      ]}
+                </StyledTextField>
+              </Grid>
+            </Grid>
+          ) : (
+            <>
+              <DetailRow>
+                <Person sx={{ color: 'text.primary' }} />
+                <Box>
+                  <Typography variant='body2' color='text.secondary'>
+                    Character Name
+                  </Typography>
+                  <Typography variant='h6'>{job.characterName}</Typography>
+                </Box>
+              </DetailRow>
 
-          <DetailRow sx={{ gap: 1 }}>
-            <Typography
-              variant='body2'
-              color='text.secondary'
-              sx={{ minWidth: 10 }}
-            >
-              Realm:
-            </Typography>
-            <Typography variant='body1' sx={{ fontWeight: 500 }}>
-              {job.characterRealm}
-            </Typography>
-          </DetailRow>
+              <DetailRow sx={{ gap: 1 }}>
+                <Typography
+                  variant='body2'
+                  color='text.secondary'
+                  sx={{ minWidth: 10 }}
+                >
+                  Realm:
+                </Typography>
+                <Typography variant='body1' sx={{ fontWeight: 500 }}>
+                  {job.characterRealm}
+                </Typography>
+              </DetailRow>
 
-          {job.characterClass && (
-            <DetailRow sx={{ gap: 1 }}>
-              <Typography
-                variant='body2'
-                color='text.secondary'
-                sx={{ minWidth: 10 }}
-              >
-                Class:
-              </Typography>
-              <Typography variant='body1' sx={{ fontWeight: 500 }}>
-                {job.characterClass}
-              </Typography>
-            </DetailRow>
-          )}
+              {job.characterClass && (
+                <DetailRow sx={{ gap: 1 }}>
+                  <Typography
+                    variant='body2'
+                    color='text.secondary'
+                    sx={{ minWidth: 10 }}
+                  >
+                    Class:
+                  </Typography>
+                  <Typography variant='body1' sx={{ fontWeight: 500 }}>
+                    {job.characterClass}
+                  </Typography>
+                </DetailRow>
+              )}
 
-          {job.characterSpec && (
-            <DetailRow>
-              <Typography
-                variant='body2'
-                color='text.secondary'
-                sx={{ minWidth: 10 }}
-              >
-                Spec:
-              </Typography>
-              <Typography variant='body1' sx={{ fontWeight: 500 }}>
-                {job.characterSpec}
-              </Typography>
-            </DetailRow>
+              {job.characterSpec && (
+                <DetailRow>
+                  <Typography
+                    variant='body2'
+                    color='text.secondary'
+                    sx={{ minWidth: 10 }}
+                  >
+                    Spec:
+                  </Typography>
+                  <Typography variant='body1' sx={{ fontWeight: 500 }}>
+                    {job.characterSpec}
+                  </Typography>
+                </DetailRow>
+              )}
+            </>
           )}
         </Box>
 
@@ -576,70 +981,232 @@ export function JobDetails() {
             Session Details
           </Typography>
 
-          <DetailRow>
-            <CalendarToday sx={{ color: 'text.primary' }} />
-            <Box>
-              <Typography variant='body2' color='text.secondary'>
-                Start Time
-              </Typography>
-              <Typography variant='body1' sx={{ fontWeight: 500 }}>
-                {formatDateTime(job.availabilityStartDateTime)}
-              </Typography>
-            </Box>
-          </DetailRow>
+          {isEditMode && formData ? (
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <StyledTextField
+                  fullWidth
+                  select
+                  label='Game Version'
+                  value={formData.version || ''}
+                  onChange={handleFieldChange('version')}
+                  SelectProps={{
+                    native: false,
+                    MenuProps: getMenuProps(),
+                    renderValue: (value: unknown) => {
+                      if (!value || typeof value !== 'string') return '';
+                      const version = value as WowVersion;
+                      return (
+                        <Box
+                          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                        >
+                          <img
+                            src={getVersionImagePath(version)}
+                            alt={getVersionDisplayName(version)}
+                            style={{
+                              width: 24,
+                              height: 24,
+                              objectFit: 'contain',
+                            }}
+                            onError={e => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                          <Typography>
+                            {getVersionDisplayName(version)}
+                          </Typography>
+                        </Box>
+                      );
+                    },
+                  }}
+                >
+                  {versions.map((version: WowVersion) => (
+                    <StyledMenuItem key={version} value={version}>
+                      <img
+                        src={getVersionImagePath(version)}
+                        alt={getVersionDisplayName(version)}
+                        onError={e => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                      <Typography>{getVersionDisplayName(version)}</Typography>
+                    </StyledMenuItem>
+                  ))}
+                </StyledTextField>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <StyledTextField
+                  fullWidth
+                  type='date'
+                  label='Start Date'
+                  value={parseDateTime(formData.availabilityStartDateTime).date}
+                  onChange={handleDateTimeChange('availabilityStartDateTime')(
+                    'date'
+                  )}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <StyledTextField
+                  fullWidth
+                  type='time'
+                  label='Start Time'
+                  value={parseDateTime(formData.availabilityStartDateTime).time}
+                  onChange={handleDateTimeChange('availabilityStartDateTime')(
+                    'time'
+                  )}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <StyledTextField
+                  fullWidth
+                  type='date'
+                  label='End Date'
+                  value={parseDateTime(formData.availabilityEndDateTime).date}
+                  onChange={handleDateTimeChange('availabilityEndDateTime')(
+                    'date'
+                  )}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <StyledTextField
+                  fullWidth
+                  type='time'
+                  label='End Time'
+                  value={parseDateTime(formData.availabilityEndDateTime).time}
+                  onChange={handleDateTimeChange('availabilityEndDateTime')(
+                    'time'
+                  )}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <StyledTextField
+                  fullWidth
+                  select
+                  label='Bracket (Optional)'
+                  value={formData.bracket || ''}
+                  onChange={handleFieldChange('bracket')}
+                  SelectProps={{ MenuProps: getMenuProps() }}
+                >
+                  <MenuItem value=''>None</MenuItem>
+                  <MenuItem value='2v2'>2v2</MenuItem>
+                  <MenuItem value='3v3'>3v3</MenuItem>
+                </StyledTextField>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant='body2' sx={{ mb: 1 }}>
+                  Hours
+                </Typography>
+                <ToggleButtonGroup
+                  value={formData.hours || ''}
+                  exclusive
+                  onChange={(_, newValue) => {
+                    if (newValue !== null && formData) {
+                      setFormData({ ...formData, hours: newValue });
+                    }
+                  }}
+                  fullWidth
+                  sx={{
+                    '& .MuiToggleButtonGroup-grouped': {
+                      border: `1px solid ${alpha(
+                        theme.palette.primary.main,
+                        0.3
+                      )}`,
+                      padding: theme.spacing(1.5, 2),
+                      textTransform: 'none',
+                      '&:not(:first-of-type)': {
+                        marginTop: 1,
+                        borderTop: `1px solid ${alpha(
+                          theme.palette.primary.main,
+                          0.3
+                        )}`,
+                      },
+                      '&.Mui-selected': {
+                        backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                        borderColor: theme.palette.primary.main,
+                      },
+                    },
+                  }}
+                >
+                  {[1, 2, 3, 4, 5].map(hours => (
+                    <ToggleButton key={hours} value={String(hours)}>
+                      {hours} Hour{hours > 1 ? 's' : ''}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              </Grid>
+            </Grid>
+          ) : (
+            <>
+              <DetailRow>
+                <CalendarToday sx={{ color: 'text.primary' }} />
+                <Box>
+                  <Typography variant='body2' color='text.secondary'>
+                    Start Time
+                  </Typography>
+                  <Typography variant='body1' sx={{ fontWeight: 500 }}>
+                    {formatDateTime(job.availabilityStartDateTime)}
+                  </Typography>
+                </Box>
+              </DetailRow>
 
-          <DetailRow>
-            <AccessTime sx={{ color: 'text.primary' }} />
-            <Box>
-              <Typography variant='body2' color='text.secondary'>
-                End Time
-              </Typography>
-              <Typography variant='body1' sx={{ fontWeight: 500 }}>
-                {formatDateTime(job.availabilityEndDateTime)}
-              </Typography>
-            </Box>
-          </DetailRow>
+              <DetailRow>
+                <AccessTime sx={{ color: 'text.primary' }} />
+                <Box>
+                  <Typography variant='body2' color='text.secondary'>
+                    End Time
+                  </Typography>
+                  <Typography variant='body1' sx={{ fontWeight: 500 }}>
+                    {formatDateTime(job.availabilityEndDateTime)}
+                  </Typography>
+                </Box>
+              </DetailRow>
 
-          <DetailRow sx={{ gap: 1 }}>
-            <Typography
-              variant='body2'
-              color='text.secondary'
-              sx={{ minWidth: 10 }}
-            >
-              Version:
-            </Typography>
-            <Typography variant='body1' sx={{ fontWeight: 500 }}>
-              {job.version}
-            </Typography>
-          </DetailRow>
+              <DetailRow sx={{ gap: 1 }}>
+                <Typography
+                  variant='body2'
+                  color='text.secondary'
+                  sx={{ minWidth: 10 }}
+                >
+                  Version:
+                </Typography>
+                <Typography variant='body1' sx={{ fontWeight: 500 }}>
+                  {job.version}
+                </Typography>
+              </DetailRow>
 
-          {job.bracket && (
-            <DetailRow sx={{ gap: 1 }}>
-              <Typography
-                variant='body2'
-                color='text.secondary'
-                sx={{ minWidth: 10 }}
-              >
-                Bracket:
-              </Typography>
-              <Typography variant='body1' sx={{ fontWeight: 500 }}>
-                {job.bracket}
-              </Typography>
-            </DetailRow>
+              {job.bracket && (
+                <DetailRow sx={{ gap: 1 }}>
+                  <Typography
+                    variant='body2'
+                    color='text.secondary'
+                    sx={{ minWidth: 10 }}
+                  >
+                    Bracket:
+                  </Typography>
+                  <Typography variant='body1' sx={{ fontWeight: 500 }}>
+                    {job.bracket}
+                  </Typography>
+                </DetailRow>
+              )}
+
+              <DetailRow sx={{ gap: 1 }}>
+                <Typography
+                  variant='body2'
+                  color='text.secondary'
+                  sx={{ minWidth: 10 }}
+                >
+                  Hours:
+                </Typography>
+                <Typography variant='body1' sx={{ fontWeight: 500 }}>
+                  {job.hours}
+                </Typography>
+              </DetailRow>
+            </>
           )}
-
-          <DetailRow sx={{ gap: 1 }}>
-            <Typography
-              variant='body2'
-              color='text.secondary'
-              sx={{ minWidth: 10 }}
-            >
-              Hours:
-            </Typography>
-            <Typography variant='body1' sx={{ fontWeight: 500 }}>
-              {job.hours}
-            </Typography>
-          </DetailRow>
         </Box>
 
         <Divider
@@ -657,21 +1224,168 @@ export function JobDetails() {
             Contact Information
           </Typography>
 
-          <DetailRow sx={{ gap: 1 }}>
-            <Typography
-              variant='body2'
-              color='text.secondary'
-              sx={{ minWidth: 10 }}
-            >
-              Discord:
-            </Typography>
-            <Typography variant='body1' sx={{ fontWeight: 500 }}>
-              {job.discordUsername}
-            </Typography>
-          </DetailRow>
+          {isEditMode && formData ? (
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <StyledTextField
+                  fullWidth
+                  label='Discord Username'
+                  value={formData.discordUsername || ''}
+                  onChange={handleFieldChange('discordUsername')}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position='start'>
+                        <img
+                          src={DISCORD_LOGO_PATH}
+                          alt='Discord'
+                          style={{
+                            width: 24,
+                            height: 24,
+                            objectFit: 'contain',
+                          }}
+                          onError={e => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+            </Grid>
+          ) : (
+            <DetailRow sx={{ gap: 1 }}>
+              <Typography
+                variant='body2'
+                color='text.secondary'
+                sx={{ minWidth: 10 }}
+              >
+                Discord:
+              </Typography>
+              <Typography variant='body1' sx={{ fontWeight: 500 }}>
+                {job.discordUsername}
+              </Typography>
+            </DetailRow>
+          )}
         </Box>
 
-        {job.goal && (
+        {isUserAdmin && (
+          <>
+            <Divider
+              sx={{
+                my: 3,
+                borderColor: theme => alpha(theme.palette.text.primary, 0.3),
+              }}
+            />
+            <Box sx={{ mb: 3 }}>
+              <Typography
+                variant='h5'
+                sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}
+              >
+                Assigned Coaches/Admins
+              </Typography>
+
+              {isEditMode && formData ? (
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <StyledTextField
+                      fullWidth
+                      select
+                      SelectProps={{
+                        multiple: true,
+                        MenuProps: getMenuProps(),
+                        renderValue: (selected: unknown) => {
+                          const selectedIds = selected as string[];
+                          if (!selectedIds || selectedIds.length === 0) {
+                            return (
+                              <Typography color='text.secondary'>
+                                None selected
+                              </Typography>
+                            );
+                          }
+                          return (
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: 0.5,
+                              }}
+                            >
+                              {selectedIds.map((coachId: string) => {
+                                const coach = availableCoaches.find(
+                                  c => c._id === coachId
+                                );
+                                return (
+                                  <Chip
+                                    key={coachId}
+                                    label={
+                                      coach?.username || coach?.name || coachId
+                                    }
+                                    size='small'
+                                    sx={{ fontSize: '0.75rem' }}
+                                  />
+                                );
+                              })}
+                            </Box>
+                          );
+                        },
+                      }}
+                      value={formData.coachIds || []}
+                      onChange={handleCoachSelection}
+                      label='Select Coaches/Admins'
+                    >
+                      {availableCoaches.map((coach: Coach) => (
+                        <MenuItem key={coach._id} value={coach._id}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                            }}
+                          >
+                            <Typography>
+                              {coach.username || coach.name || coach._id}
+                            </Typography>
+                            <Chip
+                              label={coach.role}
+                              size='small'
+                              color={
+                                coach.role === 'admin' ? 'primary' : 'default'
+                              }
+                              sx={{ fontSize: '0.7rem', height: 20 }}
+                            />
+                          </Box>
+                        </MenuItem>
+                      ))}
+                    </StyledTextField>
+                  </Grid>
+                </Grid>
+              ) : (
+                <>
+                  {coaches.length > 0 ? (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {coaches.map((coach: Coach) => (
+                        <Chip
+                          key={coach._id}
+                          label={`${
+                            coach.username || coach.name || coach._id
+                          } (${coach.role})`}
+                          sx={{ fontSize: '0.875rem' }}
+                        />
+                      ))}
+                    </Box>
+                  ) : (
+                    <Typography variant='body2' color='text.secondary'>
+                      No coaches/admins assigned
+                    </Typography>
+                  )}
+                </>
+              )}
+            </Box>
+          </>
+        )}
+
+        {(job.goal || (isEditMode && formData)) && (
           <>
             <Divider
               sx={{
@@ -684,38 +1398,33 @@ export function JobDetails() {
                 variant='h5'
                 sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}
               >
-                Admin Notes (Admin)
+                Goal (Optional)
               </Typography>
-              <Typography variant='body1' sx={{ lineHeight: 1.8 }}>
-                {job.goal}
-              </Typography>
+              {isEditMode && formData ? (
+                <StyledTextField
+                  fullWidth
+                  label='Goal (Optional)'
+                  value={formData.goal || ''}
+                  onChange={handleFieldChange('goal')}
+                  multiline
+                  rows={3}
+                  placeholder='e.g., Gladiator, 2200 elite set, etc.'
+                />
+              ) : job.goal ? (
+                <Typography variant='body1' sx={{ lineHeight: 1.8 }}>
+                  {job.goal}
+                </Typography>
+              ) : null}
             </Box>
           </>
-        )}
-
-        {isUserAdmin && (
-          <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              variant='contained'
-              onClick={handleUpdateJob}
-              disabled={isSubmitting}
-              sx={{
-                minWidth: 150,
-                background: theme =>
-                  `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${
-                    theme.palette.primary.dark || theme.palette.primary.main
-                  } 100%)`,
-              }}
-            >
-              {isSubmitting ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </Box>
         )}
       </DetailsPaper>
 
       {/* Snackbar */}
       <Snackbar
-        open={snackbar.open && !!snackbar.message && snackbar.message.trim() !== ''}
+        open={
+          snackbar.open && !!snackbar.message && snackbar.message.trim() !== ''
+        }
         autoHideDuration={6000}
         onClose={() =>
           setSnackbar({ open: false, message: '', severity: 'success' })

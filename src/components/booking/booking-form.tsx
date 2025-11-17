@@ -70,7 +70,10 @@ const getVersionImagePath = (version: WowVersion): string => {
 };
 
 // Get version display name
-const getVersionDisplayName = (version: WowVersion, includeComingSoon: boolean = false): string => {
+const getVersionDisplayName = (
+  version: WowVersion,
+  includeComingSoon: boolean = false
+): string => {
   const versionNames: Record<WowVersion, string> = {
     TBC: 'Burning Crusade',
     MOP: 'Mists of Pandaria',
@@ -345,7 +348,9 @@ export function BookingForm() {
           const roundedMinutes = Math.round(totalMinutes / 15) * 15;
           const roundedHours = Math.floor(roundedMinutes / 60) % 24;
           const roundedMins = roundedMinutes % 60;
-          return `${String(roundedHours).padStart(2, '0')}:${String(roundedMins).padStart(2, '0')}`;
+          return `${String(roundedHours).padStart(2, '0')}:${String(
+            roundedMins
+          ).padStart(2, '0')}`;
         };
 
         startTime = roundTo15Minutes(startTime);
@@ -596,8 +601,8 @@ export function BookingForm() {
   // Calculate total price
   // Get discount for hours
   const getDiscount = (hours: number): number => {
-    if (hours === 3) return 0.10; // 10% discount for 3 hours
-    if (hours === 4) return 0.10; // 10% discount for 4 hours
+    if (hours === 3) return 0.1; // 10% discount for 3 hours
+    if (hours === 4) return 0.1; // 10% discount for 4 hours
     if (hours === 5) return 0.15; // 15% discount for 5 hours
     return 0;
   };
@@ -642,13 +647,13 @@ export function BookingForm() {
     const roundedMinutes = Math.round(totalMinutes / 15) * 15;
     const roundedHours = Math.floor(roundedMinutes / 60) % 24;
     const roundedMins = roundedMinutes % 60;
-    return `${String(roundedHours).padStart(2, '0')}:${String(roundedMins).padStart(2, '0')}`;
+    return `${String(roundedHours).padStart(2, '0')}:${String(
+      roundedMins
+    ).padStart(2, '0')}`;
   };
 
   // Generate hour options (1-12)
-  const hourOptions = Array.from({ length: 12 }, (_, i) => 
-    String(i + 1)
-  );
+  const hourOptions = Array.from({ length: 12 }, (_, i) => String(i + 1));
 
   // Generate minute options (only 15-minute intervals)
   const minuteOptions = ['00', '15', '30', '45'];
@@ -657,16 +662,19 @@ export function BookingForm() {
   const amPmOptions = ['AM', 'PM'];
 
   // Helper to convert 24-hour format to 12-hour format with AM/PM
-  const convert24To12 = (timeString: string): { hour: string; minute: string; amPm: string } => {
-    if (!timeString || !timeString.includes(':')) return { hour: '', minute: '00', amPm: 'AM' };
+  const convert24To12 = (
+    timeString: string
+  ): { hour: string; minute: string; amPm: string } => {
+    if (!timeString || !timeString.includes(':'))
+      return { hour: '', minute: '00', amPm: 'AM' };
     const [hours, minutes] = timeString.split(':').map(Number);
     const minValue = minutes || 0;
     const roundedMin = Math.round(minValue / 15) * 15;
-    
+
     let hour12 = hours % 12;
     if (hour12 === 0) hour12 = 12;
     const amPm = hours < 12 ? 'AM' : 'PM';
-    
+
     return {
       hour: String(hour12),
       minute: String(roundedMin).padStart(2, '0'),
@@ -675,21 +683,27 @@ export function BookingForm() {
   };
 
   // Helper to convert 12-hour format with AM/PM to 24-hour format
-  const convert12To24 = (hour: string, minute: string, amPm: string): string => {
+  const convert12To24 = (
+    hour: string,
+    minute: string,
+    amPm: string
+  ): string => {
     if (!hour) return '';
     let hour24 = parseInt(hour, 10);
-    
+
     if (amPm === 'PM' && hour24 !== 12) {
       hour24 += 12;
     } else if (amPm === 'AM' && hour24 === 12) {
       hour24 = 0;
     }
-    
+
     return `${String(hour24).padStart(2, '0')}:${minute.padStart(2, '0')}`;
   };
 
   // Helper to parse time string into hours, minutes, and AM/PM (for 12-hour display)
-  const parseTime = (timeString: string): { hour: string; minute: string; amPm: string } => {
+  const parseTime = (
+    timeString: string
+  ): { hour: string; minute: string; amPm: string } => {
     return convert24To12(timeString);
   };
 
@@ -699,39 +713,58 @@ export function BookingForm() {
   };
 
   // Handle time field changes for custom time picker
-  const handleTimeChange = (field: 'availabilityStartTime' | 'availabilityEndTime') => 
-    (type: 'hour' | 'minute' | 'amPm') => (event: any) => {
+  const handleTimeChange =
+    (field: 'availabilityStartTime' | 'availabilityEndTime') =>
+    (type: 'hour' | 'minute' | 'amPm') =>
+    (event: any) => {
       const currentTime = formData[field];
       const { hour, minute, amPm } = parseTime(currentTime || '00:00');
-      
+
       let newValue: string;
       if (type === 'hour') {
-        newValue = combineTime(event.target.value, minute || '00', amPm || 'AM');
+        newValue = combineTime(
+          event.target.value,
+          minute || '00',
+          amPm || 'AM'
+        );
       } else if (type === 'minute') {
         newValue = combineTime(hour || '1', event.target.value, amPm || 'AM');
-      } else { // amPm
+      } else {
+        // amPm
         newValue = combineTime(hour || '1', minute || '00', event.target.value);
       }
 
       setFormData(prev => {
         const newData = { ...prev, [field]: newValue };
-        
+
         // If start time changes and end time is before or equal to start, update end time
-        if (field === 'availabilityStartTime' && newValue && newData.availabilityDate) {
+        if (
+          field === 'availabilityStartTime' &&
+          newValue &&
+          newData.availabilityDate
+        ) {
           const [startHours, startMinutes] = newValue.split(':').map(Number);
-          const [endHours, endMinutes] = (newData.availabilityEndTime || '00:00')
+          const [endHours, endMinutes] = (
+            newData.availabilityEndTime || '00:00'
+          )
             .split(':')
             .map(Number);
 
           const startTotalMinutes = startHours * 60 + startMinutes;
           const endTotalMinutes = endHours * 60 + endMinutes;
 
-          if (!newData.availabilityEndTime || endTotalMinutes <= startTotalMinutes) {
+          if (
+            !newData.availabilityEndTime ||
+            endTotalMinutes <= startTotalMinutes
+          ) {
             const newEndTotalMinutes = startTotalMinutes + 120; // Add 2 hours
             const roundedEndMinutes = Math.round(newEndTotalMinutes / 15) * 15;
             const newEndHours = Math.floor(roundedEndMinutes / 60) % 24;
             const newEndMins = roundedEndMinutes % 60;
-            newData.availabilityEndTime = `${String(newEndHours).padStart(2, '0')}:${String(newEndMins).padStart(2, '0')}`;
+            newData.availabilityEndTime = `${String(newEndHours).padStart(
+              2,
+              '0'
+            )}:${String(newEndMins).padStart(2, '0')}`;
           }
         }
 
@@ -796,7 +829,9 @@ export function BookingForm() {
             )}:${String(newEndMins).padStart(2, '0')}`;
           } else {
             // Round existing end time to 15-minute intervals
-            newData.availabilityEndTime = roundTo15Minutes(newData.availabilityEndTime);
+            newData.availabilityEndTime = roundTo15Minutes(
+              newData.availabilityEndTime
+            );
           }
         }
 
@@ -1098,17 +1133,21 @@ export function BookingForm() {
                 }}
               >
                 {versions.map((version: WowVersion) => (
-                  <StyledMenuItem 
-                    key={version} 
+                  <StyledMenuItem
+                    key={version}
                     value={version}
                     disabled={version === 'TBC'}
-                    sx={version === 'TBC' ? { 
-                      opacity: 0.5,
-                      cursor: 'not-allowed',
-                      '&.Mui-disabled': {
-                        opacity: 0.5,
-                      }
-                    } : {}}
+                    sx={
+                      version === 'TBC'
+                        ? {
+                            opacity: 0.5,
+                            cursor: 'not-allowed',
+                            '&.Mui-disabled': {
+                              opacity: 0.5,
+                            },
+                          }
+                        : {}
+                    }
                   >
                     <img
                       src={getVersionImagePath(version)}
@@ -1117,7 +1156,9 @@ export function BookingForm() {
                         e.currentTarget.style.display = 'none';
                       }}
                     />
-                    <Typography>{getVersionDisplayName(version, true)}</Typography>
+                    <Typography>
+                      {getVersionDisplayName(version, true)}
+                    </Typography>
                   </StyledMenuItem>
                 ))}
               </StyledTextField>
@@ -1318,17 +1359,38 @@ export function BookingForm() {
                 </Typography>
                 <Grid container spacing={2} alignItems='flex-start'>
                   <Grid item xs={12} sm={5}>
-                    <InputLabel required sx={{ mb: 1 }}>From</InputLabel>
+                    <InputLabel
+                      required
+                      sx={{
+                        mb: 1,
+                        '& .MuiInputLabel-asterisk': {
+                          color: 'error.main',
+                        },
+                      }}
+                    >
+                      From
+                    </InputLabel>
                     <Grid container spacing={1}>
                       <Grid item xs={4}>
-                        <FormControl fullWidth error={!!errors.availabilityStartTime}>
+                        <FormControl
+                          fullWidth
+                          error={!!errors.availabilityStartTime}
+                        >
                           <Select
-                            value={parseTime(formData.availabilityStartTime).hour || ''}
-                            onChange={handleTimeChange('availabilityStartTime')('hour')}
+                            value={
+                              parseTime(formData.availabilityStartTime).hour ||
+                              ''
+                            }
+                            onChange={handleTimeChange('availabilityStartTime')(
+                              'hour'
+                            )}
                             displayEmpty
                             MenuProps={getMenuProps()}
                             sx={{
-                              backgroundColor: theme.palette.mode === 'light' ? '#f5f5f5' : undefined,
+                              backgroundColor:
+                                theme.palette.mode === 'light'
+                                  ? '#f5f5f5'
+                                  : undefined,
                             }}
                           >
                             <MenuItem value='' disabled>
@@ -1343,13 +1405,24 @@ export function BookingForm() {
                         </FormControl>
                       </Grid>
                       <Grid item xs={4}>
-                        <FormControl fullWidth error={!!errors.availabilityStartTime}>
+                        <FormControl
+                          fullWidth
+                          error={!!errors.availabilityStartTime}
+                        >
                           <Select
-                            value={parseTime(formData.availabilityStartTime).minute || '00'}
-                            onChange={handleTimeChange('availabilityStartTime')('minute')}
+                            value={
+                              parseTime(formData.availabilityStartTime)
+                                .minute || '00'
+                            }
+                            onChange={handleTimeChange('availabilityStartTime')(
+                              'minute'
+                            )}
                             MenuProps={getMenuProps()}
                             sx={{
-                              backgroundColor: theme.palette.mode === 'light' ? '#f5f5f5' : undefined,
+                              backgroundColor:
+                                theme.palette.mode === 'light'
+                                  ? '#f5f5f5'
+                                  : undefined,
                             }}
                           >
                             {minuteOptions.map(minute => (
@@ -1361,13 +1434,24 @@ export function BookingForm() {
                         </FormControl>
                       </Grid>
                       <Grid item xs={4}>
-                        <FormControl fullWidth error={!!errors.availabilityStartTime}>
+                        <FormControl
+                          fullWidth
+                          error={!!errors.availabilityStartTime}
+                        >
                           <Select
-                            value={parseTime(formData.availabilityStartTime).amPm || 'AM'}
-                            onChange={handleTimeChange('availabilityStartTime')('amPm')}
+                            value={
+                              parseTime(formData.availabilityStartTime).amPm ||
+                              'AM'
+                            }
+                            onChange={handleTimeChange('availabilityStartTime')(
+                              'amPm'
+                            )}
                             MenuProps={getMenuProps()}
                             sx={{
-                              backgroundColor: theme.palette.mode === 'light' ? '#f5f5f5' : undefined,
+                              backgroundColor:
+                                theme.palette.mode === 'light'
+                                  ? '#f5f5f5'
+                                  : undefined,
                             }}
                           >
                             {amPmOptions.map(amPm => (
@@ -1385,7 +1469,16 @@ export function BookingForm() {
                       </FormHelperText>
                     )}
                   </Grid>
-                  <Grid item xs={12} sm={1} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Grid
+                    item
+                    xs={12}
+                    sm={1}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
                     <Typography
                       variant='body1'
                       sx={{
@@ -1399,17 +1492,37 @@ export function BookingForm() {
                     </Typography>
                   </Grid>
                   <Grid item xs={12} sm={5}>
-                    <InputLabel required sx={{ mb: 1 }}>To</InputLabel>
+                    <InputLabel
+                      required
+                      sx={{
+                        mb: 1,
+                        '& .MuiInputLabel-asterisk': {
+                          color: 'error.main',
+                        },
+                      }}
+                    >
+                      To
+                    </InputLabel>
                     <Grid container spacing={1}>
                       <Grid item xs={4}>
-                        <FormControl fullWidth error={!!errors.availabilityEndTime}>
+                        <FormControl
+                          fullWidth
+                          error={!!errors.availabilityEndTime}
+                        >
                           <Select
-                            value={parseTime(formData.availabilityEndTime).hour || ''}
-                            onChange={handleTimeChange('availabilityEndTime')('hour')}
+                            value={
+                              parseTime(formData.availabilityEndTime).hour || ''
+                            }
+                            onChange={handleTimeChange('availabilityEndTime')(
+                              'hour'
+                            )}
                             displayEmpty
                             MenuProps={getMenuProps()}
                             sx={{
-                              backgroundColor: theme.palette.mode === 'light' ? '#f5f5f5' : undefined,
+                              backgroundColor:
+                                theme.palette.mode === 'light'
+                                  ? '#f5f5f5'
+                                  : undefined,
                             }}
                           >
                             <MenuItem value='' disabled>
@@ -1424,13 +1537,24 @@ export function BookingForm() {
                         </FormControl>
                       </Grid>
                       <Grid item xs={4}>
-                        <FormControl fullWidth error={!!errors.availabilityEndTime}>
+                        <FormControl
+                          fullWidth
+                          error={!!errors.availabilityEndTime}
+                        >
                           <Select
-                            value={parseTime(formData.availabilityEndTime).minute || '00'}
-                            onChange={handleTimeChange('availabilityEndTime')('minute')}
+                            value={
+                              parseTime(formData.availabilityEndTime).minute ||
+                              '00'
+                            }
+                            onChange={handleTimeChange('availabilityEndTime')(
+                              'minute'
+                            )}
                             MenuProps={getMenuProps()}
                             sx={{
-                              backgroundColor: theme.palette.mode === 'light' ? '#f5f5f5' : undefined,
+                              backgroundColor:
+                                theme.palette.mode === 'light'
+                                  ? '#f5f5f5'
+                                  : undefined,
                             }}
                           >
                             {minuteOptions.map(minute => (
@@ -1442,13 +1566,24 @@ export function BookingForm() {
                         </FormControl>
                       </Grid>
                       <Grid item xs={4}>
-                        <FormControl fullWidth error={!!errors.availabilityEndTime}>
+                        <FormControl
+                          fullWidth
+                          error={!!errors.availabilityEndTime}
+                        >
                           <Select
-                            value={parseTime(formData.availabilityEndTime).amPm || 'AM'}
-                            onChange={handleTimeChange('availabilityEndTime')('amPm')}
+                            value={
+                              parseTime(formData.availabilityEndTime).amPm ||
+                              'AM'
+                            }
+                            onChange={handleTimeChange('availabilityEndTime')(
+                              'amPm'
+                            )}
                             MenuProps={getMenuProps()}
                             sx={{
-                              backgroundColor: theme.palette.mode === 'light' ? '#f5f5f5' : undefined,
+                              backgroundColor:
+                                theme.palette.mode === 'light'
+                                  ? '#f5f5f5'
+                                  : undefined,
                             }}
                           >
                             {amPmOptions.map(amPm => (
