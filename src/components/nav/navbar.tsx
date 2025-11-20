@@ -65,9 +65,10 @@ function ResponsiveNavBar() {
                   src='/gladiator-guru-logo.png'
                   alt='GladiatorGuru'
                   style={{
-                    height: '48px',
+                    height: '48px', 
                     width: 'auto',
-                    marginLeft: '45px',
+                    position: 'relative',
+                    left: '45px',
                   }}
                 />
               </Box>

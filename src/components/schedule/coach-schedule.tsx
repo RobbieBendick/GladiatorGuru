@@ -937,8 +937,12 @@ export function CoachSchedule() {
 
         <Box
           sx={{
+            overflowX: 'auto',
+            overflowY: 'visible',
+            width: '100%',
             '& .fc': {
               fontFamily: theme.typography.fontFamily,
+              minWidth: { xs: '600px', sm: 'auto' },
             },
             '& .fc-header-toolbar': {
               marginBottom: theme.spacing(3),
