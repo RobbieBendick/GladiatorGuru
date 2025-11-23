@@ -10,7 +10,6 @@ import MenuItem from '@mui/material/MenuItem';
 import Chip from '@mui/material/Chip';
 import { useMediaQuery } from '@mui/material';
 import IconButton from '@mui/material/IconButton';
-import LoginIcon from '@mui/icons-material/Login';
 import HistoryIcon from '@mui/icons-material/History';
 import MenuIcon from '@mui/icons-material/Menu';
 import Brightness2Icon from '@mui/icons-material/Brightness2';
@@ -23,6 +22,7 @@ import { ROUTE_PATHS } from '@/schemas/route-paths';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
 import { useState } from 'react';
+import { initiateDiscordOAuth } from '../../config/discord-oauth';
 
 function ResponsiveNavBar() {
   const { mode, toggleColorMode } = useContext(ColorModeContext);
@@ -63,6 +63,14 @@ function ResponsiveNavBar() {
     logout();
     handleMenuClose();
     navigate(ROUTE_PATHS.home);
+  };
+
+  const handleDiscordLogin = async () => {
+    try {
+      await initiateDiscordOAuth();
+    } catch (err: any) {
+      console.error('Failed to initiate Discord login:', err);
+    }
   };
 
   // Don't show navbar on auth pages or admin pages
@@ -184,19 +192,33 @@ function ResponsiveNavBar() {
                   >
                     {!user && (
                       <MenuItem
-                        component={Link}
-                        to={ROUTE_PATHS.login}
-                        onClick={handleMobileMenuClose}
+                        onClick={() => {
+                          handleDiscordLogin();
+                          handleMobileMenuClose();
+                        }}
                         sx={{
                           display: 'flex',
                           alignItems: 'center',
                           py: 1.5,
-                          color: 'text.primary',
+                          backgroundColor: '#5865F2',
+                          color: 'white',
+                          '&:hover': {
+                            backgroundColor: '#4752C4',
+                          },
                         }}
                       >
-                        <LoginIcon sx={{ mr: 1.5, color: 'text.primary' }} />
+                        <Avatar
+                          sx={{
+                            width: 20,
+                            height: 20,
+                            bgcolor: 'transparent',
+                            mr: 1.5,
+                          }}
+                          src='/discord.png'
+                          alt='Discord'
+                        />
                         <Box sx={{ flex: 1, textAlign: 'center', ml: -1.5 }}>
-                          Login
+                          Login with Discord
                         </Box>
                       </MenuItem>
                     )}
@@ -339,23 +361,31 @@ function ResponsiveNavBar() {
                   )}
                   {!user && (
                     <Button
-                      component={Link}
-                      to={ROUTE_PATHS.login}
-                      variant='outlined'
-                      startIcon={<LoginIcon />}
+                      variant='contained'
+                      onClick={handleDiscordLogin}
+                      startIcon={
+                        <Avatar
+                          sx={{
+                            width: 20,
+                            height: 20,
+                            bgcolor: 'transparent',
+                          }}
+                          src='/discord.png'
+                          alt='Discord'
+                        />
+                      }
                       sx={{
+                        backgroundColor: '#5865F2',
                         color: 'white',
-                        borderColor: 'rgba(255, 255, 255, 0.3)',
                         textTransform: 'none',
                         fontSize: '0.875rem',
                         padding: '6px 16px',
                         '&:hover': {
-                          borderColor: 'rgba(255, 255, 255, 0.5)',
-                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                          backgroundColor: '#4752C4',
                         },
                       }}
                     >
-                      Login
+                      Login with Discord
                     </Button>
                   )}
                 </Box>
@@ -383,11 +413,13 @@ function ResponsiveNavBar() {
                         onClick={handleMenuOpen}
                         sx={{
                           color: 'white',
-                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                          backgroundColor: 'transparent',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
                           display: { xs: 'none', sm: 'flex' },
                           cursor: 'pointer',
                           '&:hover': {
-                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                            borderColor: 'rgba(255, 255, 255, 0.3)',
                           },
                         }}
                       />
