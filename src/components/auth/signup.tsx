@@ -36,7 +36,7 @@ const SignupTitle = styled(Typography)(({ theme }) => ({
   WebkitTextFillColor: 'transparent',
 }));
 
-const DiscordButton = styled(Button)(({ theme }) => ({
+const DiscordButton = styled(Button)(() => ({
   backgroundColor: '#5865F2',
   color: '#FFFFFF',
   '&:hover': {

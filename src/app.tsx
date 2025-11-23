@@ -51,6 +51,33 @@ export const ColorModeContext = createContext({
 });
 
 function App() {
+  // Handle Discord OAuth callback immediately (synchronously) before React renders
+  // Discord redirects to /auth/discord/callback but we need /#/auth/discord/callback
+  if (
+    typeof window !== 'undefined' &&
+    window.location.pathname === '/auth/discord/callback'
+  ) {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const error = params.get('error');
+    const state = params.get('state');
+
+    if (code || error) {
+      // Redirect to hash route, preserving all query parameters
+      const hashParams = new URLSearchParams();
+      if (code) hashParams.set('code', code);
+      if (error) hashParams.set('error', error);
+      if (state) hashParams.set('state', state);
+
+      // Use replace to avoid adding to history and redirect immediately
+      window.location.replace(
+        `/#/auth/discord/callback?${hashParams.toString()}`
+      );
+      // Return null to prevent rendering while redirecting
+      return null;
+    }
+  }
+
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
 
   // Retrieve the color mode from localStorage if available, otherwise use prefersDarkMode
@@ -80,24 +107,6 @@ function App() {
   useEffect(() => {
     document.body.style.backgroundColor = theme.palette.background.default;
   }, [theme]);
-
-  // Handle Discord OAuth callback when it comes without hash
-  // Discord redirects to /auth/discord/callback but we need /#/auth/discord/callback
-  useEffect(() => {
-    if (window.location.pathname === '/auth/discord/callback') {
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get('code');
-      const error = params.get('error');
-
-      if (code || error) {
-        // Redirect to hash route
-        const hashParams = new URLSearchParams();
-        if (code) hashParams.set('code', code);
-        if (error) hashParams.set('error', error);
-        window.location.href = `/#/auth/discord/callback?${hashParams.toString()}`;
-      }
-    }
-  }, []);
 
   return (
     <main
