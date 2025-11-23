@@ -110,7 +110,9 @@ export function Signup() {
       await initiateDiscordOAuth();
       // The redirect will happen, so we don't need to do anything else here
     } catch (err: any) {
-      setError(err.message || 'Failed to initiate Discord signup. Please try again.');
+      setError(
+        err.message || 'Failed to initiate Discord signup. Please try again.'
+      );
       setIsDiscordLoading(false);
     }
   };
@@ -184,6 +186,9 @@ export function Signup() {
           <DiscordButton
             fullWidth
             variant='contained'
+            startIcon={
+              <img src='/discord.png' alt='Discord' style={{ height: 24 }} />
+            }
             onClick={handleDiscordSignup}
             disabled={isLoading || isDiscordLoading}
             sx={{ mb: 2 }}
@@ -201,4 +206,3 @@ export function Signup() {
     </Container>
   );
 }
-

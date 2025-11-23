@@ -24,6 +24,8 @@ import { ArrowBack, Send } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { API_BASE_URL } from '../../config/api';
+import { getAuthToken } from '../../config/auth';
+import { useUser } from '../../contexts/UserContext';
 import {
   Class,
   getAvailableVersions,
@@ -218,6 +220,7 @@ interface BookingFormData {
 export function BookingForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useUser();
   const [formData, setFormData] = useState<BookingFormData>({
     characterName: '',
     characterRealm: '',
@@ -230,7 +233,7 @@ export function BookingForm() {
     availabilityDate: '',
     availabilityStartTime: '',
     availabilityEndTime: '',
-    discordUsername: '',
+    discordUsername: user?.discordUsername || '',
     goal: '',
   });
 
@@ -280,6 +283,69 @@ export function BookingForm() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Pre-fill Discord username when user data is available
+  useEffect(() => {
+    if (user?.discordUsername && !formData.discordUsername) {
+      setFormData(prev => ({
+        ...prev,
+        discordUsername: user.discordUsername || '',
+      }));
+    }
+  }, [user?.discordUsername, formData.discordUsername]);
+
+  // Fetch and pre-fill last booking details
+  useEffect(() => {
+    const fetchLastBooking = async () => {
+      if (!user) return;
+
+      try {
+        const token = getAuthToken();
+        if (!token) return;
+
+        const response = await fetch(`${API_BASE_URL}/api/bookings`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: 'include',
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const bookings = data.data || [];
+
+        // Get the most recent booking
+        if (bookings.length > 0) {
+          const lastBooking = bookings[0]; // Already sorted by createdAt desc
+
+          // Only pre-fill if fields are currently empty (or default for version)
+          setFormData(prev => ({
+            ...prev,
+            characterName:
+              prev.characterName || lastBooking.characterName || '',
+            characterRealm:
+              prev.characterRealm || lastBooking.characterRealm || '',
+            characterClass:
+              prev.characterClass || lastBooking.characterClass || '',
+            characterSpec:
+              prev.characterSpec || lastBooking.characterSpec || '',
+            // Pre-fill version if it's still the default or if last booking has a version
+            version: lastBooking.version
+              ? (lastBooking.version as WowVersion)
+              : prev.version,
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching last booking:', error);
+        // Silently fail - don't block form usage
+      }
+    };
+
+    fetchLastBooking();
+  }, [user]);
 
   // Handle date pre-fill from calendar
   useEffect(() => {
@@ -980,11 +1046,20 @@ export function BookingForm() {
 
       console.log('Submitting data:', submitData);
 
+      const token = getAuthToken();
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      // Include auth token if available (for linking booking to user)
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/jobs`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
+        credentials: 'include',
         body: JSON.stringify(submitData),
       });
 

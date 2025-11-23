@@ -18,6 +18,8 @@ import {
   Star,
   Groups,
   School,
+  BookOnline as BookOnlineIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/schemas/route-paths';
@@ -427,6 +429,7 @@ export function Home() {
             <PrimaryButton
               variant='contained'
               size='large'
+              startIcon={<BookOnlineIcon />}
               endIcon={<ArrowForward />}
               onClick={() => navigate(ROUTE_PATHS.booking)}
             >
@@ -435,6 +438,7 @@ export function Home() {
             <SecondaryButton
               variant='outlined'
               size='large'
+              startIcon={<InfoIcon />}
               onClick={() => navigate(ROUTE_PATHS.howItWorks)}
             >
               How It Works
@@ -525,6 +529,7 @@ export function Home() {
           <PrimaryButton
             variant='contained'
             size='large'
+            startIcon={<BookOnlineIcon />}
             endIcon={<ArrowForward />}
             onClick={() => navigate(ROUTE_PATHS.booking)}
             sx={{

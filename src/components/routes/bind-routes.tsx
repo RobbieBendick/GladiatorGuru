@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import { Home } from '../home/home';
 import { BookingForm } from '../booking/booking-form';
 import { BookingSuccess } from '../booking/booking-success';
+import { PastBookings } from '../booking/past-bookings';
 import { HowItWorks } from '../how-it-works/how-it-works';
 import { Calendar } from '../calendar/calendar';
 import { Login } from '../auth/login';
@@ -36,11 +37,15 @@ export function BindRoutes(props: { children?: React.ReactNode }): JSX.Element {
           <Route key={route.path} path={route.path} element={route.element} />
         ))}
         <Route path={ROUTE_PATHS.bookingSuccess} element={<BookingSuccess />} />
+        <Route path={ROUTE_PATHS.pastBookings} element={<PastBookings />} />
         <Route path={ROUTE_PATHS.howItWorks} element={<HowItWorks />} />
         <Route path={ROUTE_PATHS.calendar} element={<Calendar />} />
         <Route path={ROUTE_PATHS.login} element={<Login />} />
         <Route path={ROUTE_PATHS.signup} element={<Signup />} />
-        <Route path={ROUTE_PATHS.discordCallback} element={<DiscordCallback />} />
+        <Route
+          path={ROUTE_PATHS.discordCallback}
+          element={<DiscordCallback />}
+        />
         <Route path={ROUTE_PATHS.adminLogin} element={<AdminLogin />} />
         <Route
           path={ROUTE_PATHS.admin}

@@ -165,6 +165,9 @@ export function Login() {
           <DiscordButton
             fullWidth
             variant='contained'
+            startIcon={
+              <img src='/discord.png' alt='Discord' style={{ height: 24 }} />
+            }
             onClick={handleDiscordLogin}
             disabled={isLoading || isDiscordLoading}
             sx={{ mb: 2 }}
