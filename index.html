@@ -10,5 +10,32 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Handle Discord OAuth callback redirect before React loads -->
+    <script>
+      // Redirect Discord callback from /auth/discord/callback to /#/auth/discord/callback
+      // This runs immediately before React, ensuring HashRouter gets the correct route
+      (function () {
+        if (window.location.pathname === '/auth/discord/callback') {
+          const params = new URLSearchParams(window.location.search);
+          const code = params.get('code');
+          const error = params.get('error');
+          const state = params.get('state');
+
+          if (code || error) {
+            const hashParams = new URLSearchParams();
+            if (code) hashParams.set('code', code);
+            if (error) hashParams.set('error', error);
+            if (state) hashParams.set('state', state);
+
+            // Redirect immediately to hash route (using full URL)
+            const newUrl =
+              window.location.origin +
+              '/#/auth/discord/callback?' +
+              hashParams.toString();
+            window.location.replace(newUrl);
+          }
+        }
+      })();
+    </script>
   </body>
 </html>
