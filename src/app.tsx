@@ -4,6 +4,7 @@ import { grey } from '@mui/material/colors';
 import { createContext, useEffect, useMemo, useState } from 'react';
 import { BindRoutes } from './components/routes/bind-routes';
 import { HashRouter } from 'react-router-dom';
+import { UserProvider } from './contexts/UserContext';
 
 const getDesignTokens = (mode: PaletteMode) => ({
   palette: {
@@ -80,6 +81,24 @@ function App() {
     document.body.style.backgroundColor = theme.palette.background.default;
   }, [theme]);
 
+  // Handle Discord OAuth callback when it comes without hash
+  // Discord redirects to /auth/discord/callback but we need /#/auth/discord/callback
+  useEffect(() => {
+    if (window.location.pathname === '/auth/discord/callback') {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const error = params.get('error');
+
+      if (code || error) {
+        // Redirect to hash route
+        const hashParams = new URLSearchParams();
+        if (code) hashParams.set('code', code);
+        if (error) hashParams.set('error', error);
+        window.location.href = `/#/auth/discord/callback?${hashParams.toString()}`;
+      }
+    }
+  }, []);
+
   return (
     <main
       style={{
@@ -92,9 +111,11 @@ function App() {
     >
       <ColorModeContext.Provider value={colorMode}>
         <ThemeProvider theme={theme}>
-          <HashRouter>
-            <BindRoutes />
-          </HashRouter>
+          <UserProvider>
+            <HashRouter>
+              <BindRoutes />
+            </HashRouter>
+          </UserProvider>
         </ThemeProvider>
       </ColorModeContext.Provider>
     </main>

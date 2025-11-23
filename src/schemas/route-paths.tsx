@@ -14,4 +14,5 @@ export const ROUTE_PATHS: { [key: string]: string } = {
   adminLogin: '/admin/login',
   coachSchedule: '/:id/schedule',
   jobDetails: '/job/:id',
+  discordCallback: '/auth/discord/callback',
 };

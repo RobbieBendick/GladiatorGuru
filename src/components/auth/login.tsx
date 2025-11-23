@@ -8,12 +8,15 @@ import {
   Paper,
   Link,
   alpha,
+  Divider,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { setAuthToken } from '../../config/auth';
 import { API_BASE_URL } from '../../config/api';
+import { initiateDiscordOAuth } from '../../config/discord-oauth';
+import { useUser } from '../../contexts/UserContext';
 
 const LoginPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4),
@@ -33,12 +36,22 @@ const LoginTitle = styled(Typography)(({ theme }) => ({
   WebkitTextFillColor: 'transparent',
 }));
 
+const DiscordButton = styled(Button)(() => ({
+  backgroundColor: '#5865F2',
+  color: '#FFFFFF',
+  '&:hover': {
+    backgroundColor: '#4752C4',
+  },
+}));
+
 export function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isDiscordLoading, setIsDiscordLoading] = useState(false);
   const navigate = useNavigate();
+  const { refreshUser } = useUser();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +77,8 @@ export function Login() {
       // Store token
       if (data.data?.token) {
         setAuthToken(data.data.token);
+        // Refresh user context
+        await refreshUser();
       }
 
       // Redirect based on role
@@ -76,6 +91,20 @@ export function Login() {
       setError(err.message || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDiscordLogin = async () => {
+    setError('');
+    setIsDiscordLoading(true);
+    try {
+      await initiateDiscordOAuth();
+      // The redirect will happen, so we don't need to do anything else here
+    } catch (err: any) {
+      setError(
+        err.message || 'Failed to initiate Discord login. Please try again.'
+      );
+      setIsDiscordLoading(false);
     }
   };
 
@@ -120,13 +149,35 @@ export function Login() {
             fullWidth
             variant='contained'
             sx={{ mt: 3, mb: 2, py: 1.5 }}
-            disabled={isLoading}
+            disabled={isLoading || isDiscordLoading}
           >
             {isLoading ? 'Logging in...' : 'Login'}
           </Button>
 
+          <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
+            <Divider sx={{ flexGrow: 1 }} />
+            <Typography variant='body2' sx={{ px: 2, color: 'text.secondary' }}>
+              OR
+            </Typography>
+            <Divider sx={{ flexGrow: 1 }} />
+          </Box>
+
+          <DiscordButton
+            fullWidth
+            variant='contained'
+            onClick={handleDiscordLogin}
+            disabled={isLoading || isDiscordLoading}
+            sx={{ mb: 2 }}
+          >
+            {isDiscordLoading ? 'Connecting...' : 'Login with Discord'}
+          </DiscordButton>
+
           <Box sx={{ textAlign: 'center', mt: 2 }}>
-            <Link component={RouterLink} to={ROUTE_PATHS.signup} variant='body2'>
+            <Link
+              component={RouterLink}
+              to={ROUTE_PATHS.signup}
+              variant='body2'
+            >
               Don't have an account? Sign up
             </Link>
           </Box>
@@ -135,4 +186,3 @@ export function Login() {
     </Container>
   );
 }
-

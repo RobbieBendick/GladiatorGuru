@@ -6,6 +6,7 @@ import { HowItWorks } from '../how-it-works/how-it-works';
 import { Calendar } from '../calendar/calendar';
 import { Login } from '../auth/login';
 import { Signup } from '../auth/signup';
+import { DiscordCallback } from '../auth/discord-callback';
 import { AdminLogin } from '../admin/admin-login';
 import { AdminDashboard } from '../admin/admin-dashboard';
 import { CoachList } from '../admin/coach-list';
@@ -39,6 +40,7 @@ export function BindRoutes(props: { children?: React.ReactNode }): JSX.Element {
         <Route path={ROUTE_PATHS.calendar} element={<Calendar />} />
         <Route path={ROUTE_PATHS.login} element={<Login />} />
         <Route path={ROUTE_PATHS.signup} element={<Signup />} />
+        <Route path={ROUTE_PATHS.discordCallback} element={<DiscordCallback />} />
         <Route path={ROUTE_PATHS.adminLogin} element={<AdminLogin />} />
         <Route
           path={ROUTE_PATHS.admin}
