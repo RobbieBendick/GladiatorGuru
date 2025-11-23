@@ -5,37 +5,10 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GladiatorGuru</title>
-    <script type="module" crossorigin src="/assets/index-cQhBRinu.js"></script>
+    <script type="module" crossorigin src="/assets/index-OJeCxbVR.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-CqXoYeQS.css">
   </head>
   <body>
     <div id="root"></div>
-    <!-- Handle Discord OAuth callback redirect before React loads -->
-    <script>
-      // Redirect Discord callback from /auth/discord/callback to /#/auth/discord/callback
-      // This runs immediately before React, ensuring HashRouter gets the correct route
-      (function () {
-        if (window.location.pathname === '/auth/discord/callback') {
-          const params = new URLSearchParams(window.location.search);
-          const code = params.get('code');
-          const error = params.get('error');
-          const state = params.get('state');
-
-          if (code || error) {
-            const hashParams = new URLSearchParams();
-            if (code) hashParams.set('code', code);
-            if (error) hashParams.set('error', error);
-            if (state) hashParams.set('state', state);
-
-            // Redirect immediately to hash route (using full URL)
-            const newUrl =
-              window.location.origin +
-              '/#/auth/discord/callback?' +
-              hashParams.toString();
-            window.location.replace(newUrl);
-          }
-        }
-      })();
-    </script>
   </body>
 </html>
