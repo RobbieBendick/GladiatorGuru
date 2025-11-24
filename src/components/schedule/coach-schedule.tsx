@@ -419,12 +419,14 @@ export function CoachSchedule() {
     abortControllersRef.current.set(event.id, abortController);
 
     try {
+      const token = getAuthToken();
       const response = await fetch(
         `${API_BASE_URL}/api/admin/jobs/${event.id}/availability`,
         {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
+            Authorization: token ? `Bearer ${token}` : '',
           },
           credentials: 'include',
           signal: abortController.signal,
@@ -566,12 +568,14 @@ export function CoachSchedule() {
     abortControllersRef.current.set(event.id, abortController);
 
     try {
+      const token = getAuthToken();
       const response = await fetch(
         `${API_BASE_URL}/api/admin/jobs/${event.id}/availability`,
         {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
+            Authorization: token ? `Bearer ${token}` : '',
           },
           credentials: 'include',
           signal: abortController.signal,

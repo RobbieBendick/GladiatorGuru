@@ -32,3 +32,12 @@ export const getUserRole = (): string | null => {
 export const isAdmin = (): boolean => {
   return getUserRole() === 'admin';
 };
+
+export const isCoach = (): boolean => {
+  return getUserRole() === 'coach';
+};
+
+export const isAdminOrCoach = (): boolean => {
+  const role = getUserRole();
+  return role === 'admin' || role === 'coach';
+};

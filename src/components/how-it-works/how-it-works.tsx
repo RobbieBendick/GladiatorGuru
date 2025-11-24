@@ -201,6 +201,7 @@ export function HowItWorks() {
                 `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${
                   theme.palette.primary.dark || theme.palette.primary.main
                 } 100%)`,
+              transition: 'all 0.3s ease-in-out',
               '&:hover': {
                 transform: 'translateY(-2px)',
                 boxShadow: theme =>

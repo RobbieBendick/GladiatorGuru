@@ -23,6 +23,7 @@ import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
 import { useState } from 'react';
 import { initiateDiscordOAuth } from '../../config/discord-oauth';
+import DashboardIcon from '@mui/icons-material/Dashboard';
 
 function ResponsiveNavBar() {
   const { mode, toggleColorMode } = useContext(ColorModeContext);
@@ -243,6 +244,26 @@ function ResponsiveNavBar() {
                         </Box>
                       </MenuItem>
                     )}
+                    {user &&
+                      (user.role === 'coach' || user.role === 'admin') && (
+                        <MenuItem
+                          component={Link}
+                          to={ROUTE_PATHS.coach}
+                          onClick={handleMobileMenuClose}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            py: 1.5,
+                          }}
+                        >
+                          <DashboardIcon sx={{ mr: 1.5 }} />
+                          <Box sx={{ flex: 1, textAlign: 'center', ml: -1.5 }}>
+                            {user.role === 'admin'
+                              ? 'Admin Dashboard'
+                              : 'Coach Dashboard'}
+                          </Box>
+                        </MenuItem>
+                      )}
                     {user && currentPath !== ROUTE_PATHS.pastBookings && (
                       <MenuItem
                         component={Link}
@@ -302,6 +323,28 @@ function ResponsiveNavBar() {
                 </>
               ) : (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  {user && (user.role === 'coach' || user.role === 'admin') && (
+                    <Button
+                      component={Link}
+                      to={ROUTE_PATHS.coach}
+                      variant='outlined'
+                      startIcon={<DashboardIcon />}
+                      sx={{
+                        color: 'white',
+                        borderColor: 'rgba(255, 255, 255, 0.3)',
+                        textTransform: 'none',
+                        fontSize: '0.875rem',
+                        padding: '6px 16px',
+                        marginRight: '8px',
+                        '&:hover': {
+                          borderColor: 'rgba(255, 255, 255, 0.5)',
+                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        },
+                      }}
+                    >
+                      {user.role === 'admin' ? 'Admin' : 'Coach'} Dashboard
+                    </Button>
+                  )}
                   {Object.keys(routes).map((routeKey: string) => {
                     if (routes[routeKey] === currentPath) return;
                     const isPastBookings = routeKey === 'Past Bookings';

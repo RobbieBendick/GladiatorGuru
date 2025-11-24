@@ -13,6 +13,7 @@ export const ROUTE_PATHS: { [key: string]: string } = {
   signup: '/signup',
   admin: '/admin',
   adminLogin: '/admin/login',
+  coach: '/coach',
   coachSchedule: '/:id/schedule',
   jobDetails: '/job/:id',
   discordCallback: '/auth/discord/callback',
