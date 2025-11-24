@@ -62,7 +62,7 @@ interface Job {
   availabilityEndDateTime: string;
   discordUsername: string;
   goal?: string;
-  status: 'pending' | 'accepted' | 'completed' | 'cancelled';
+  status: 'pending' | 'accepted' | 'approved' | 'completed' | 'cancelled';
   coachIds?: string[];
   createdAt: string;
   updatedAt: string;
@@ -80,7 +80,7 @@ export function AdminDashboard() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('active');
   const [updating, setUpdating] = useState<string | null>(null);
   const [assignCoachDialogOpen, setAssignCoachDialogOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -91,8 +91,10 @@ export function AdminDashboard() {
       setLoading(true);
       const token = getAuthToken();
 
+      // For 'active' filter, we need to fetch all jobs and filter client-side
+      // For other statuses, we can use the API filter
       const url =
-        statusFilter === 'all'
+        statusFilter === 'active'
           ? `${API_BASE_URL}/api/admin/jobs`
           : `${API_BASE_URL}/api/admin/jobs?status=${statusFilter}`;
 
@@ -114,7 +116,20 @@ export function AdminDashboard() {
       const data = await response.json();
 
       if (data.data) {
-        setJobs(data.data);
+        const fetchedJobs = data.data;
+        
+        // Filter for active jobs (pending, accepted, approved)
+        if (statusFilter === 'active') {
+          const activeJobs = fetchedJobs.filter(
+            (job: Job) =>
+              job.status === 'pending' ||
+              job.status === 'accepted' ||
+              job.status === 'approved'
+          );
+          setJobs(activeJobs);
+        } else {
+          setJobs(fetchedJobs);
+        }
       }
     } catch (error) {
       console.error('Error fetching jobs:', error);
@@ -374,9 +389,10 @@ export function AdminDashboard() {
             onChange={e => setStatusFilter(e.target.value)}
             label='Filter by Status'
           >
-            <MenuItem value='all'>All</MenuItem>
+            <MenuItem value='active'>Active</MenuItem>
             <MenuItem value='pending'>Pending</MenuItem>
             <MenuItem value='accepted'>Accepted</MenuItem>
+            <MenuItem value='approved'>Approved</MenuItem>
             <MenuItem value='completed'>Completed</MenuItem>
             <MenuItem value='cancelled'>Cancelled</MenuItem>
           </Select>
@@ -457,6 +473,7 @@ export function AdminDashboard() {
                       >
                         <MenuItem value='pending'>Pending</MenuItem>
                         <MenuItem value='accepted'>Accepted</MenuItem>
+                        <MenuItem value='approved'>Approved</MenuItem>
                         <MenuItem value='completed'>Completed</MenuItem>
                         <MenuItem value='cancelled'>Cancelled</MenuItem>
                       </Select>
