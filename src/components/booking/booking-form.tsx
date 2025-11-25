@@ -1012,8 +1012,8 @@ export function BookingForm() {
 
     try {
       // Combine date and times into datetime strings
-      // Format: YYYY-MM-DDTHH:mm (ISO 8601 format without seconds/timezone)
-      // Add :00 for seconds if time doesn't include them
+      // Parse the local date and time, then convert to ISO string (UTC)
+      // This ensures the time is stored in UTC but represents the user's local time
       const startTime = formData.availabilityStartTime.includes(':')
         ? formData.availabilityStartTime
         : `${formData.availabilityStartTime}:00`;
@@ -1021,8 +1021,26 @@ export function BookingForm() {
         ? formData.availabilityEndTime
         : `${formData.availabilityEndTime}:00`;
 
-      const availabilityStartDateTime = `${formData.availabilityDate}T${startTime}`;
-      const availabilityEndDateTime = `${formData.availabilityDate}T${endTime}`;
+      // Create Date objects from local date/time (this interprets as local timezone)
+      const [year, month, day] = formData.availabilityDate
+        .split('-')
+        .map(Number);
+      const [startHours, startMinutes] = startTime.split(':').map(Number);
+      const [endHours, endMinutes] = endTime.split(':').map(Number);
+
+      // Create Date objects in local timezone, then convert to ISO string (UTC)
+      const startDateLocal = new Date(
+        year,
+        month - 1,
+        day,
+        startHours,
+        startMinutes
+      );
+      const endDateLocal = new Date(year, month - 1, day, endHours, endMinutes);
+
+      // Convert to ISO string (UTC) - this preserves the actual moment in time
+      const availabilityStartDateTime = startDateLocal.toISOString();
+      const availabilityEndDateTime = endDateLocal.toISOString();
 
       // Combine bracket and coaches into the format the backend expects (e.g., "3v3-2")
       const bracketValue =

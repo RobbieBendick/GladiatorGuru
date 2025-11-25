@@ -33,6 +33,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { API_BASE_URL } from '../../config/api';
 import { isAdmin, getAuthToken } from '../../config/auth';
+import { formatTimeWithTimezone } from '../../utils/timezone';
 
 const SchedulePaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4),
@@ -676,7 +677,7 @@ export function CoachSchedule() {
   };
 
   const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString('en-US', {
+    return formatTimeWithTimezone(date, {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,

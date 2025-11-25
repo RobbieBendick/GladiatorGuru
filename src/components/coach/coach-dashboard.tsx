@@ -31,6 +31,7 @@ import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { getAuthToken, removeAuthToken } from '../../config/auth';
 import { API_BASE_URL } from '../../config/api';
+import { formatDateRangeWithTimezone } from '../../utils/timezone';
 
 const DashboardPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -171,26 +172,7 @@ export function CoachDashboard() {
   ) => {
     const startDate = new Date(startDateTime);
     const endDate = new Date(endDateTime);
-
-    const isSameDay =
-      startDate.getFullYear() === endDate.getFullYear() &&
-      startDate.getMonth() === endDate.getMonth() &&
-      startDate.getDate() === endDate.getDate();
-
-    if (isSameDay) {
-      const dateStr = startDate.toLocaleDateString();
-      const startTime = startDate.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-      const endTime = endDate.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-      return `${dateStr} ${startTime} - ${endTime}`;
-    } else {
-      return `${formatDate(startDateTime)} - ${formatDate(endDateTime)}`;
-    }
+    return formatDateRangeWithTimezone(startDate, endDate);
   };
 
   const getStatusColor = (status: string) => {

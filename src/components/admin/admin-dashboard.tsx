@@ -36,6 +36,7 @@ import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { getAuthToken, removeAuthToken } from '../../config/auth';
 import { API_BASE_URL } from '../../config/api';
+import { formatDateRangeWithTimezone } from '../../utils/timezone';
 
 const DashboardPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -117,7 +118,7 @@ export function AdminDashboard() {
 
       if (data.data) {
         const fetchedJobs = data.data;
-        
+
         // Filter for active jobs (pending, accepted, approved)
         if (statusFilter === 'active') {
           const activeJobs = fetchedJobs.filter(
@@ -309,7 +310,15 @@ export function AdminDashboard() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
+    const date = new Date(dateString);
+    const formatted = date.toLocaleString();
+    const timezone =
+      Intl.DateTimeFormat('en-US', {
+        timeZoneName: 'short',
+      })
+        .formatToParts(date)
+        .find(part => part.type === 'timeZoneName')?.value || '';
+    return timezone ? `${formatted} ${timezone}` : formatted;
   };
 
   const formatAvailabilityRange = (
@@ -318,29 +327,7 @@ export function AdminDashboard() {
   ) => {
     const startDate = new Date(startDateTime);
     const endDate = new Date(endDateTime);
-
-    // Check if both dates are on the same day
-    const isSameDay =
-      startDate.getFullYear() === endDate.getFullYear() &&
-      startDate.getMonth() === endDate.getMonth() &&
-      startDate.getDate() === endDate.getDate();
-
-    if (isSameDay) {
-      // Same day: show date once, then time range
-      const dateStr = startDate.toLocaleDateString();
-      const startTime = startDate.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-      const endTime = endDate.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-      return `${dateStr} ${startTime} - ${endTime}`;
-    } else {
-      // Different days: show full date range
-      return `${formatDate(startDateTime)} - ${formatDate(endDateTime)}`;
-    }
+    return formatDateRangeWithTimezone(startDate, endDate);
   };
 
   return (

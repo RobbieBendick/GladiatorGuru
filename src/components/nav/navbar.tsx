@@ -23,7 +23,7 @@ import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
 import { useState } from 'react';
 import { initiateDiscordOAuth } from '../../config/discord-oauth';
-import DashboardIcon from '@mui/icons-material/Dashboard';
+    import DashboardIcon from '@mui/icons-material/Dashboard';
 
 function ResponsiveNavBar() {
   const { mode, toggleColorMode } = useContext(ColorModeContext);

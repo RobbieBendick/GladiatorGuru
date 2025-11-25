@@ -20,6 +20,7 @@ import { getAuthToken } from '../../config/auth';
 import { useUser } from '../../contexts/UserContext';
 import { getClassColor, WowVersion } from '../../constants/wow-classes';
 import { ArrowBack, Event, Schedule } from '@mui/icons-material';
+import { getTimezoneAbbreviation } from '../../utils/timezone';
 
 const PagePaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4),
@@ -100,7 +101,7 @@ const getClassImagePath = (className: string): string => {
 const formatDateTime = (dateTimeString: string): string => {
   try {
     const date = new Date(dateTimeString);
-    return date.toLocaleString('en-US', {
+    const formatted = date.toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -108,6 +109,8 @@ const formatDateTime = (dateTimeString: string): string => {
       minute: '2-digit',
       hour12: true,
     });
+    const timezone = getTimezoneAbbreviation();
+    return `${formatted} ${timezone}`;
   } catch (error) {
     return dateTimeString;
   }

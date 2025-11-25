@@ -33,6 +33,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { API_BASE_URL } from '../../config/api';
 import { getAuthToken, isAdmin } from '../../config/auth';
+import { getTimezoneAbbreviation } from '../../utils/timezone';
 import {
   Class,
   getAvailableVersions,
@@ -529,7 +530,7 @@ export function JobDetails() {
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
+    const formatted = date.toLocaleString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -538,6 +539,8 @@ export function JobDetails() {
       minute: '2-digit',
       hour12: true,
     });
+    const timezone = getTimezoneAbbreviation(date);
+    return `${formatted} ${timezone}`;
   };
 
   const getStatusColor = (status?: string) => {
