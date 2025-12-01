@@ -2,15 +2,13 @@ import {
   Box,
   Container,
   Typography,
-  Stepper,
-  Step,
-  StepLabel,
   Paper,
   alpha,
   styled,
   keyframes,
   Button,
   Divider,
+  useTheme,
 } from '@mui/material';
 import { ArrowBack, Info } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +25,28 @@ const fadeInUp = keyframes`
   }
 `;
 
+const slideIn = keyframes`
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+`;
+
+const pulse = keyframes`
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+`;
+
 const ContentPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(0, 6),
   borderRadius: theme.shape.borderRadius * 3,
@@ -38,6 +58,97 @@ const ContentPaper = styled(Paper)(({ theme }) => ({
   animation: `${fadeInUp} 0.6s ease-out`,
   [theme.breakpoints.down('md')]: {
     padding: theme.spacing(3, 2),
+  },
+}));
+
+const StepCard = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(3, 4),
+  borderRadius: theme.shape.borderRadius * 2,
+  backgroundColor:
+    theme.palette.mode === 'light'
+      ? alpha(theme.palette.background.paper, 0.9)
+      : alpha(theme.palette.background.paper, 0.6),
+  border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  position: 'relative',
+  overflow: 'hidden',
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '4px',
+    height: '100%',
+    background: `linear-gradient(180deg, ${theme.palette.primary.main} 0%, ${
+      theme.palette.primary.dark || theme.palette.primary.main
+    } 100%)`,
+    transition: 'width 0.3s ease',
+  },
+  '&:hover': {
+    transform: 'translateY(-4px)',
+    boxShadow: `0 12px 32px ${alpha(theme.palette.primary.main, 0.15)}`,
+    borderColor: alpha(theme.palette.primary.main, 0.4),
+    '&::before': {
+      width: '6px',
+    },
+  },
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(2.5, 2.5),
+  },
+}));
+
+const StepNumber = styled(Box)(({ theme }) => ({
+  width: 56,
+  height: 56,
+  borderRadius: '50%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${
+    theme.palette.primary.dark || theme.palette.primary.main
+  } 100%)`,
+  color: theme.palette.primary.contrastText,
+  fontWeight: 700,
+  fontSize: '1.5rem',
+  boxShadow: `0 4px 16px ${alpha(theme.palette.primary.main, 0.3)}`,
+  animation: `${pulse} 2s ease-in-out infinite`,
+  flexShrink: 0,
+  [theme.breakpoints.down('sm')]: {
+    width: 48,
+    height: 48,
+    fontSize: '1.25rem',
+  },
+}));
+
+const StepIcon = styled(Box)(({ theme }) => ({
+  fontSize: '2.5rem',
+  lineHeight: 1,
+  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))',
+  [theme.breakpoints.down('sm')]: {
+    fontSize: '2rem',
+  },
+}));
+
+const ConnectorLine = styled(Box)(({ theme }) => ({
+  width: '2px',
+  height: theme.spacing(3),
+  background: `linear-gradient(180deg, ${alpha(
+    theme.palette.primary.main,
+    0.3
+  )} 0%, ${alpha(theme.palette.primary.main, 0.1)} 100%)`,
+  margin: theme.spacing(1, 'auto'),
+  position: 'relative',
+  '&::after': {
+    content: '""',
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    background: theme.palette.primary.main,
+    boxShadow: `0 0 8px ${alpha(theme.palette.primary.main, 0.5)}`,
   },
 }));
 
@@ -76,6 +187,7 @@ const steps = [
 
 export function HowItWorks() {
   const navigate = useNavigate();
+  const theme = useTheme();
 
   return (
     <Container maxWidth='md' sx={{ px: { xs: 1, md: 3 } }} disableGutters>
@@ -134,58 +246,88 @@ export function HowItWorks() {
           }}
         />
 
-        <Stepper
-          activeStep={0}
-          orientation='vertical'
+        <Box
           sx={{
-            '& .MuiStepConnector-root span': {
-              display: 'none',
-            },
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 3,
           }}
         >
           {steps.map((step, index) => (
-            <Step
+            <Box
               key={step.label}
-              completed={index === 0}
               sx={{
-                paddingTop: '0.5rem',
+                animation: `${slideIn} 0.6s ease-out ${index * 0.1}s both`,
               }}
             >
-              <StepLabel
-                sx={{
-                  '& .MuiStepLabel-label': {
-                    fontSize: '1.25rem',
-                    fontWeight: 700,
-                  },
-                }}
-              >
+              <StepCard elevation={2}>
                 <Box
                   sx={{
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
+                    gap: 3,
+                    alignItems: 'flex-start',
+                    [theme.breakpoints.down('sm')]: {
+                      gap: 2,
+                    },
                   }}
                 >
-                  {step.icon} {step.label}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 1,
+                    }}
+                  >
+                    <StepNumber>{index + 1}</StepNumber>
+                    {index < steps.length - 1 && <ConnectorLine />}
+                  </Box>
+                  <Box sx={{ flex: 1, pt: 0.5 }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                        mb: 1.5,
+                      }}
+                    >
+                      <StepIcon>{step.icon}</StepIcon>
+                      <Typography
+                        variant='h5'
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: { xs: '1.25rem', md: '1.5rem' },
+                          background: theme =>
+                            `linear-gradient(135deg, ${
+                              theme.palette.text.primary
+                            } 0%, ${alpha(
+                              theme.palette.text.primary,
+                              0.7
+                            )} 100%)`,
+                          backgroundClip: 'text',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                        }}
+                      >
+                        {step.label}
+                      </Typography>
+                    </Box>
+                    <Typography
+                      variant='body1'
+                      color='text.secondary'
+                      sx={{
+                        lineHeight: 1.8,
+                        fontSize: { xs: '0.95rem', md: '1rem' },
+                      }}
+                    >
+                      {step.description}
+                    </Typography>
+                  </Box>
                 </Box>
-              </StepLabel>
-              <Box
-                sx={{
-                  pl: { xs: 4, md: 5 },
-                  pb: 1.2,
-                }}
-              >
-                <Typography
-                  variant='body1'
-                  color='text.secondary'
-                  sx={{ lineHeight: 1.7 }}
-                >
-                  {step.description}
-                </Typography>
-              </Box>
-            </Step>
+              </StepCard>
+            </Box>
           ))}
-        </Stepper>
+        </Box>
 
         <Box sx={{ mt: 4, textAlign: 'center' }}>
           <Button
