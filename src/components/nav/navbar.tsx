@@ -287,7 +287,11 @@ function ResponsiveNavBar() {
                       startIcon={<BookOnlineIcon />}
                       sx={{
                         color: 'white',
-                        borderColor: 'rgba(255, 255, 255, 0.3)',
+                        borderColor: 'rgba(255, 255, 255, 0.8)',
+                        backgroundColor: theme =>
+                          theme.palette.mode === 'light'
+                            ? 'rgba(8, 83, 62, 0.3)'
+                            : 'transparent',
                         textTransform: 'none',
                         fontSize: '0.875rem',
                         padding: '6px 16px',
