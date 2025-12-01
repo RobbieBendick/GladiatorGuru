@@ -16,6 +16,7 @@ import Brightness2Icon from '@mui/icons-material/Brightness2';
 import LightMode from '@mui/icons-material/LightMode';
 import BookOnlineIcon from '@mui/icons-material/BookOnline';
 import LogoutIcon from '@mui/icons-material/Logout';
+import ScheduleIcon from '@mui/icons-material/Schedule';
 import { ToggleColorModeButton } from '../toggle-color-mode-button';
 import { ColorModeContext } from '../../app';
 import { ROUTE_PATHS } from '@/schemas/route-paths';
@@ -23,7 +24,7 @@ import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
 import { useState } from 'react';
 import { initiateDiscordOAuth } from '../../config/discord-oauth';
-    import DashboardIcon from '@mui/icons-material/Dashboard';
+import DashboardIcon from '@mui/icons-material/Dashboard';
 
 function ResponsiveNavBar() {
   const { mode, toggleColorMode } = useContext(ColorModeContext);
@@ -40,7 +41,7 @@ function ResponsiveNavBar() {
   const isBookingPage = currentPath === ROUTE_PATHS.booking;
   const isAuthPage =
     currentPath === ROUTE_PATHS.login || currentPath === ROUTE_PATHS.signup;
-  const isAdminPage = currentPath.startsWith('/admin');
+  const isAdminLoginPage = currentPath === ROUTE_PATHS.adminLogin;
 
   const isMobile = useMediaQuery('(max-width: 899px)');
 
@@ -74,18 +75,10 @@ function ResponsiveNavBar() {
     }
   };
 
-  // Don't show navbar on auth pages or admin pages
-  if (isAuthPage || isAdminPage) {
+  // Don't show navbar on auth pages or admin login page
+  if (isAuthPage || isAdminLoginPage) {
     return null;
   }
-
-  interface Routes {
-    [key: string]: string;
-  }
-
-  const routes: Routes = {
-    'Past Bookings': ROUTE_PATHS.pastBookings,
-  };
 
   return (
     <>
@@ -245,10 +238,11 @@ function ResponsiveNavBar() {
                       </MenuItem>
                     )}
                     {user &&
-                      (user.role === 'coach' || user.role === 'admin') && (
+                      user.role === 'user' &&
+                      currentPath !== ROUTE_PATHS.pastBookings && (
                         <MenuItem
                           component={Link}
-                          to={ROUTE_PATHS.coach}
+                          to={ROUTE_PATHS.pastBookings}
                           onClick={handleMobileMenuClose}
                           sx={{
                             display: 'flex',
@@ -256,31 +250,12 @@ function ResponsiveNavBar() {
                             py: 1.5,
                           }}
                         >
-                          <DashboardIcon sx={{ mr: 1.5 }} />
+                          <HistoryIcon sx={{ mr: 1.5 }} />
                           <Box sx={{ flex: 1, textAlign: 'center', ml: -1.5 }}>
-                            {user.role === 'admin'
-                              ? 'Admin Dashboard'
-                              : 'Coach Dashboard'}
+                            Current Bookings
                           </Box>
                         </MenuItem>
                       )}
-                    {user && currentPath !== ROUTE_PATHS.pastBookings && (
-                      <MenuItem
-                        component={Link}
-                        to={ROUTE_PATHS.pastBookings}
-                        onClick={handleMobileMenuClose}
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          py: 1.5,
-                        }}
-                      >
-                        <HistoryIcon sx={{ mr: 1.5 }} />
-                        <Box sx={{ flex: 1, textAlign: 'center', ml: -1.5 }}>
-                          Past Bookings
-                        </Box>
-                      </MenuItem>
-                    )}
                     <MenuItem
                       onClick={() => {
                         toggleColorMode();
@@ -301,87 +276,10 @@ function ResponsiveNavBar() {
                         {mode === 'light' ? 'Dark Mode' : 'Light Mode'}
                       </Box>
                     </MenuItem>
-                    {user && (
-                      <MenuItem
-                        onClick={() => {
-                          handleLogout();
-                          handleMobileMenuClose();
-                        }}
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          py: 1.5,
-                        }}
-                      >
-                        <LogoutIcon sx={{ mr: 1.5 }} />
-                        <Box sx={{ flex: 1, textAlign: 'center', ml: -1.5 }}>
-                          Logout
-                        </Box>
-                      </MenuItem>
-                    )}
                   </Menu>
                 </>
               ) : (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  {user && (user.role === 'coach' || user.role === 'admin') && (
-                    <Button
-                      component={Link}
-                      to={ROUTE_PATHS.coach}
-                      variant='outlined'
-                      startIcon={<DashboardIcon />}
-                      sx={{
-                        color: 'white',
-                        borderColor: 'rgba(255, 255, 255, 0.3)',
-                        textTransform: 'none',
-                        fontSize: '0.875rem',
-                        padding: '6px 16px',
-                        marginRight: '8px',
-                        '&:hover': {
-                          borderColor: 'rgba(255, 255, 255, 0.5)',
-                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                        },
-                      }}
-                    >
-                      {user.role === 'admin' ? 'Admin' : 'Coach'} Dashboard
-                    </Button>
-                  )}
-                  {Object.keys(routes).map((routeKey: string) => {
-                    if (routes[routeKey] === currentPath) return;
-                    const isPastBookings = routeKey === 'Past Bookings';
-                    // Don't show Past Bookings if user isn't logged in
-                    if (isPastBookings && !user) return null;
-                    return (
-                      <Button
-                        key={routeKey}
-                        component={Link}
-                        to={routes[routeKey]}
-                        variant={isPastBookings ? 'outlined' : 'text'}
-                        startIcon={isPastBookings ? <HistoryIcon /> : undefined}
-                        sx={{
-                          color: 'white',
-                          borderColor: isPastBookings
-                            ? 'rgba(255, 255, 255, 0.3)'
-                            : 'transparent',
-                          textTransform: 'none',
-                          fontSize: '0.875rem',
-                          minWidth: 'auto',
-                          padding: isPastBookings ? '6px 16px' : '6px 12px',
-                          marginRight: '8px',
-                          '&:hover': {
-                            backgroundColor: isPastBookings
-                              ? 'rgba(255, 255, 255, 0.1)'
-                              : 'transparent',
-                            borderColor: isPastBookings
-                              ? 'rgba(255, 255, 255, 0.5)'
-                              : 'transparent',
-                            opacity: isPastBookings ? 1 : 0.8,
-                          },
-                        }}
-                      >
-                        {routeKey}
-                      </Button>
-                    );
-                  })}
                   {!isBookingPage && (
                     <Button
                       variant='outlined'
@@ -516,8 +414,72 @@ function ResponsiveNavBar() {
                       horizontal: 'right',
                     }}
                   >
+                    {user && user.role === 'admin' && (
+                      <MenuItem
+                        component={Link}
+                        to={ROUTE_PATHS.admin}
+                        onClick={handleMenuClose}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          py: 1.5,
+                        }}
+                      >
+                        <DashboardIcon sx={{ mr: 1.5 }} />
+                        Admin Dashboard
+                      </MenuItem>
+                    )}
+                    {user &&
+                      (user.role === 'coach' || user.role === 'admin') && (
+                        <MenuItem
+                          component={Link}
+                          to={ROUTE_PATHS.coach}
+                          onClick={handleMenuClose}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            py: 1.5,
+                          }}
+                        >
+                          <DashboardIcon sx={{ mr: 1.5 }} />
+                          Coach Dashboard
+                        </MenuItem>
+                      )}
+                    {user &&
+                      (user.role === 'coach' || user.role === 'admin') && (
+                        <MenuItem
+                          component={Link}
+                          to={`/${user.id}/schedule`}
+                          onClick={handleMenuClose}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            py: 1.5,
+                          }}
+                        >
+                          <ScheduleIcon sx={{ mr: 1.5 }} />
+                          My Schedule
+                        </MenuItem>
+                      )}
+                    {user &&
+                      user.role === 'user' &&
+                      currentPath !== ROUTE_PATHS.pastBookings && (
+                        <MenuItem
+                          component={Link}
+                          to={ROUTE_PATHS.pastBookings}
+                          onClick={handleMenuClose}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            py: 1.5,
+                          }}
+                        >
+                          <HistoryIcon sx={{ mr: 1.5 }} />
+                          Current Bookings
+                        </MenuItem>
+                      )}
                     <MenuItem onClick={handleLogout}>
-                      <LogoutIcon sx={{ mr: 1 }} />
+                      <LogoutIcon sx={{ mr: 1.5 }} />
                       Logout
                     </MenuItem>
                   </Menu>

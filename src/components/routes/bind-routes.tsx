@@ -65,14 +65,7 @@ export function BindRoutes(props: { children?: React.ReactNode }): JSX.Element {
           }
         />
         <Route path={ROUTE_PATHS.coachSchedule} element={<CoachSchedule />} />
-        <Route
-          path={ROUTE_PATHS.jobDetails}
-          element={
-            <ProtectedRoute>
-              <JobDetails />
-            </ProtectedRoute>
-          }
-        />
+        <Route path={ROUTE_PATHS.jobDetails} element={<JobDetails />} />
         <Route
           path={ROUTE_PATHS.coach}
           element={

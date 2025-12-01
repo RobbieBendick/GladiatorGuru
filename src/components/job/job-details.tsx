@@ -32,7 +32,12 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { API_BASE_URL } from '../../config/api';
-import { getAuthToken, isAdmin } from '../../config/auth';
+import {
+  getAuthToken,
+  isAdmin,
+  getUserId,
+  isAuthenticated,
+} from '../../config/auth';
 import { getTimezoneAbbreviation } from '../../utils/timezone';
 import {
   Class,
@@ -248,11 +253,42 @@ export function JobDetails() {
 
       if (response.ok) {
         const data = await response.json();
-        setJob(data.data || data);
+        const jobData = data.data || data;
+
+        // Check if user has permission to view (must be authenticated and either admin or assigned coach)
+        const userId = getUserId();
+        const userIsAuthenticated = isAuthenticated();
+        const userIsAdmin = isAdmin();
+
+        if (!userIsAuthenticated || !userId) {
+          // User is not authenticated - deny access
+          setError('Access Denied');
+          setLoading(false);
+          return;
+        }
+
+        // Check if user is assigned to this job
+        const userIsAssigned =
+          jobData.coachIds &&
+          jobData.coachIds.some(
+            (coachId: string) => coachId.toString() === userId.toString()
+          );
+
+        if (!userIsAdmin && !userIsAssigned) {
+          // User is authenticated but not admin or assigned coach - deny access
+          setError('Access Denied');
+          setLoading(false);
+          return;
+        }
+
+        // User has permission - allow viewing
+        setJob(jobData);
       } else if (response.status === 404) {
         setError('Job not found');
+      } else if (response.status === 403 || response.status === 401) {
+        setError('Access Denied');
       } else {
-        setError('Failed to load job details');
+        setError('Unable to load job details. Please try again later.');
       }
     } catch (err: any) {
       console.error('Error fetching job details:', err);
@@ -604,6 +640,7 @@ export function JobDetails() {
   }
 
   if (error || !job) {
+    const isAccessDenied = error === 'Access Denied';
     return (
       <Container maxWidth='lg'>
         <Box sx={{ mb: 3 }}>
@@ -616,12 +653,59 @@ export function JobDetails() {
           </Button>
         </Box>
         <DetailsPaper elevation={3}>
-          <Typography variant='h4' color='error' gutterBottom>
-            Error
-          </Typography>
-          <Typography variant='body1' color='text.secondary'>
-            {error || 'Job not found'}
-          </Typography>
+          <Box
+            sx={{
+              textAlign: 'center',
+              py: 4,
+              px: 2,
+            }}
+          >
+            {isAccessDenied && (
+              <Box
+                sx={{
+                  mb: 3,
+                  display: 'flex',
+                  justifyContent: 'center',
+                }}
+              >
+                <img
+                  src='/access_denied.png'
+                  alt='Access Denied'
+                  style={{
+                    maxWidth: '400px',
+                    width: '100%',
+                    height: 'auto',
+                  }}
+                />
+              </Box>
+            )}
+            <Typography
+              variant='h4'
+              color={isAccessDenied ? 'error' : 'text.primary'}
+              gutterBottom
+              sx={{ fontWeight: 600, mb: 2 }}
+            >
+              {isAccessDenied ? 'Access Denied' : 'Error'}
+            </Typography>
+            <Typography
+              variant='body1'
+              color='text.secondary'
+              sx={{ mb: 3, maxWidth: '600px', mx: 'auto' }}
+            >
+              {isAccessDenied
+                ? 'You do not have permission to view this job. Please contact an administrator if you believe this is an error.'
+                : error || 'Job not found'}
+            </Typography>
+            {isAccessDenied && (
+              <Button
+                variant='outlined'
+                onClick={() => navigate(ROUTE_PATHS.home)}
+                sx={{ mt: 2 }}
+              >
+                Return to Home
+              </Button>
+            )}
+          </Box>
         </DetailsPaper>
       </Container>
     );

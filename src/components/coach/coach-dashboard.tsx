@@ -26,10 +26,11 @@ import {
 import {
   Refresh as RefreshIcon,
   CalendarToday as CalendarIcon,
+  Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
-import { getAuthToken, removeAuthToken } from '../../config/auth';
+import { getAuthToken, removeAuthToken, getUserId } from '../../config/auth';
 import { API_BASE_URL } from '../../config/api';
 import { formatDateRangeWithTimezone } from '../../utils/timezone';
 
@@ -215,22 +216,39 @@ export function CoachDashboard() {
           justifyContent: 'space-between',
           alignItems: 'center',
           mb: 4,
+          flexWrap: 'wrap',
+          gap: 2,
         }}
       >
         <DashboardTitle variant='h2'>Coach Dashboard</DashboardTitle>
-        <Button
-          variant='outlined'
-          startIcon={<RefreshIcon />}
-          onClick={() => {
-            if (statusFilter === 'all') {
-              fetchDashboard();
-            } else {
-              fetchJobs();
-            }
-          }}
-        >
-          Refresh
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <Button
+            variant='contained'
+            color='primary'
+            startIcon={<ScheduleIcon />}
+            onClick={() => {
+              const userId = getUserId();
+              if (userId) {
+                navigate(`/${userId}/schedule`);
+              }
+            }}
+          >
+            View My Schedule
+          </Button>
+          <Button
+            variant='outlined'
+            startIcon={<RefreshIcon />}
+            onClick={() => {
+              if (statusFilter === 'all') {
+                fetchDashboard();
+              } else {
+                fetchJobs();
+              }
+            }}
+          >
+            Refresh
+          </Button>
+        </Box>
       </Box>
 
       {/* Stats Cards */}

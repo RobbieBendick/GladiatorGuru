@@ -32,8 +32,9 @@ import { ArrowBack } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { API_BASE_URL } from '../../config/api';
-import { isAdmin, getAuthToken } from '../../config/auth';
+import { isAdmin, getAuthToken, getUserId } from '../../config/auth';
 import { formatTimeWithTimezone } from '../../utils/timezone';
+import { User } from '../../contexts/UserContext';
 
 const SchedulePaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4),
@@ -97,11 +98,9 @@ interface Job {
   coachName?: string;
 }
 
-interface CoachInfo {
+interface Coach extends User {
   _id: string;
-  username: string;
-  name?: string;
-  role: string;
+  coachAlias?: string;
 }
 
 export function CoachSchedule() {
@@ -109,7 +108,7 @@ export function CoachSchedule() {
   const theme = useTheme();
   const { id } = useParams<{ id: string }>();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [coachInfo, setCoachInfo] = useState<CoachInfo | null>(null);
+  const [coachInfo, setCoachInfo] = useState<Coach | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTimeRange, setSelectedTimeRange] = useState<{
@@ -123,6 +122,7 @@ export function CoachSchedule() {
     severity?: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, message: '', severity: 'error' });
   const [isAdminMode, setIsAdminMode] = useState(false);
+  const [canCreateEvents, setCanCreateEvents] = useState(false);
   const [adminFormData, setAdminFormData] = useState<{
     characterName: string;
     characterRealm: string;
@@ -145,8 +145,17 @@ export function CoachSchedule() {
 
   useEffect(() => {
     fetchCoachSchedule();
-    // Check if user is admin and enable admin mode
-    setIsAdminMode(isAdmin());
+    // Check if user is admin or the coach whose schedule it is
+    const userIsAdmin = isAdmin();
+    const userId = getUserId();
+    const userIsCoach = userId && id && userId === id;
+
+    // Enable admin mode (quick booking) for admins and the coach whose schedule it is
+    setIsAdminMode(userIsAdmin || !!userIsCoach);
+
+    // Check if user can create events (admin or the coach whose schedule it is)
+    const userCanCreateEvents = userIsAdmin || !!userIsCoach;
+    setCanCreateEvents(!!userCanCreateEvents);
   }, [id]);
 
   // Cache currentView to localStorage whenever it changes
@@ -322,6 +331,7 @@ export function CoachSchedule() {
               hours: job.hours,
               discordUsername: job.discordUsername,
               status: job.status || 'pending',
+              coachIds: job.coachIds || [],
             },
           };
         });
@@ -334,6 +344,18 @@ export function CoachSchedule() {
   };
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
+    // Check if user has permission to create events
+    if (!canCreateEvents) {
+      setSnackbar({
+        open: true,
+        message:
+          'You do not have permission to create events on this schedule.',
+        severity: 'error',
+      });
+      selectInfo.view.calendar.unselect();
+      return;
+    }
+
     // Use startStr and endStr to get timezone-aware times
     // These are in ISO format with timezone, so parse them to get the correct local time
     const start = selectInfo.startStr
@@ -374,6 +396,24 @@ export function CoachSchedule() {
 
   const handleEventClick = (clickInfo: EventClickArg) => {
     const event = clickInfo.event;
+    const userId = getUserId();
+    const userIsAdmin = isAdmin();
+
+    // Check if user has permission to view this specific job
+    // User must be admin OR assigned to this job
+    const jobCoachIds = event.extendedProps?.coachIds || [];
+    const userIsAssigned =
+      userId &&
+      jobCoachIds.some(
+        (coachId: string) => coachId.toString() === userId.toString()
+      );
+
+    // Only allow navigation if user has permission (admin or assigned to this job)
+    if (!userIsAdmin && !userIsAssigned) {
+      // Silently prevent navigation - don't show error message
+      return;
+    }
+
     // Navigate to job details page
     navigate(`/job/${event.id}`);
   };
@@ -794,7 +834,6 @@ export function CoachSchedule() {
   };
 
   const renderEventContent = (eventInfo: EventContentArg) => {
-    const userIsAdmin = isAdmin();
     // Extract character name from title (format: "CharacterName - Bracket")
     const characterName =
       eventInfo.event.extendedProps?.characterName ||
@@ -812,7 +851,7 @@ export function CoachSchedule() {
         }}
       >
         <strong>{eventInfo.timeText}</strong>
-        {userIsAdmin && characterName && (
+        {canCreateEvents && characterName && (
           <>
             <br />
             {characterName}
@@ -869,8 +908,8 @@ export function CoachSchedule() {
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
   };
 
-  const displayName = coachInfo?.name
-    ? capitalizeFirstLetter(coachInfo.name)
+  const displayName = coachInfo?.coachAlias
+    ? coachInfo.coachAlias
     : coachInfo?.username
     ? capitalizeFirstLetter(coachInfo.username)
     : id || 'Coach';
@@ -895,49 +934,53 @@ export function CoachSchedule() {
           View {displayName}'s coaching sessions and availability.
         </Typography>
 
-        {/* Instruction Box */}
-        {currentView === 'dayGridMonth' ? (
-          <Alert
-            severity='info'
-            sx={{
-              mb: 3,
-              backgroundColor: alpha(theme.palette.info.main, 0.1),
-              border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
-              '& .MuiAlert-icon': {
-                color: theme.palette.info.main,
-              },
-            }}
-          >
-            <Typography variant='body1' sx={{ fontWeight: 600, mb: 0.5 }}>
-              📅 How to Book a Time
-            </Typography>
-            <Typography variant='body2'>
-              Switch to <strong>Day</strong> or <strong>Week</strong> view using
-              the buttons above, then <strong>click and drag</strong> on the
-              calendar to select your desired time slot.
-            </Typography>
-          </Alert>
-        ) : (
-          <Alert
-            severity='info'
-            sx={{
-              mb: 3,
-              backgroundColor: alpha(theme.palette.info.main, 0.1),
-              border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
-              '& .MuiAlert-icon': {
-                color: theme.palette.info.main,
-              },
-            }}
-          >
-            <Typography variant='body1' sx={{ fontWeight: 600, mb: 0.5 }}>
-              🖱️ Click and Drag to Book
-            </Typography>
-            <Typography variant='body2'>
-              <strong>Click and drag</strong> on the calendar below to select
-              your desired time range. A dialog will appear to confirm your
-              selection and proceed to booking.
-            </Typography>
-          </Alert>
+        {/* Instruction Box - Only show if user can create events (admin or own schedule) */}
+        {canCreateEvents && (
+          <>
+            {currentView === 'dayGridMonth' ? (
+              <Alert
+                severity='info'
+                sx={{
+                  mb: 3,
+                  backgroundColor: alpha(theme.palette.info.main, 0.1),
+                  border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
+                  '& .MuiAlert-icon': {
+                    color: theme.palette.info.main,
+                  },
+                }}
+              >
+                <Typography variant='body1' sx={{ fontWeight: 600, mb: 0.5 }}>
+                  📅 How to Book a Time
+                </Typography>
+                <Typography variant='body2'>
+                  Switch to <strong>Day</strong> or <strong>Week</strong> view
+                  using the buttons above, then <strong>click and drag</strong>{' '}
+                  on the calendar to select your desired time slot.
+                </Typography>
+              </Alert>
+            ) : (
+              <Alert
+                severity='info'
+                sx={{
+                  mb: 3,
+                  backgroundColor: alpha(theme.palette.info.main, 0.1),
+                  border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
+                  '& .MuiAlert-icon': {
+                    color: theme.palette.info.main,
+                  },
+                }}
+              >
+                <Typography variant='body1' sx={{ fontWeight: 600, mb: 0.5 }}>
+                  🖱️ Click and Drag to Book
+                </Typography>
+                <Typography variant='body2'>
+                  <strong>Click and drag</strong> on the calendar below to
+                  select your desired time range. A dialog will appear to
+                  confirm your selection and proceed to booking.
+                </Typography>
+              </Alert>
+            )}
+          </>
         )}
 
         <Box
@@ -997,9 +1040,11 @@ export function CoachSchedule() {
             },
             '& .fc-event': {
               cursor:
-                isAdmin() && currentView !== 'dayGridMonth'
+                canCreateEvents && currentView !== 'dayGridMonth'
                   ? 'move'
-                  : 'pointer',
+                  : canCreateEvents
+                  ? 'pointer'
+                  : 'default',
               border: 'none',
               borderRadius: theme.shape.borderRadius,
             },
@@ -1042,20 +1087,21 @@ export function CoachSchedule() {
               right: 'dayGridMonth,timeGridWeek,timeGridDay',
             }}
             editable={
-              isAdmin() &&
+              canCreateEvents &&
               (currentView === 'timeGridDay' || currentView === 'timeGridWeek')
             }
             eventStartEditable={
-              isAdmin() &&
+              canCreateEvents &&
               (currentView === 'timeGridDay' || currentView === 'timeGridWeek')
             }
             eventDurationEditable={
-              isAdmin() &&
+              canCreateEvents &&
               (currentView === 'timeGridDay' || currentView === 'timeGridWeek')
             }
-            eventResizableFromStart={isAdmin()}
+            eventResizableFromStart={canCreateEvents}
             selectable={
-              currentView === 'timeGridDay' || currentView === 'timeGridWeek'
+              canCreateEvents &&
+              (currentView === 'timeGridDay' || currentView === 'timeGridWeek')
             }
             selectMirror={true}
             selectOverlap={false}
@@ -1148,7 +1194,7 @@ export function CoachSchedule() {
                 <>
                   <Divider sx={{ my: 3 }} />
                   <Typography variant='h6' sx={{ mb: 2, fontWeight: 600 }}>
-                    Quick Add (Admin)
+                    Quick Add Booking
                   </Typography>
                   <Typography
                     variant='body2'

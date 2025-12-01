@@ -29,6 +29,19 @@ export const getUserRole = (): string | null => {
   }
 };
 
+export const getUserId = (): string | null => {
+  const token = getAuthToken();
+  if (!token) return null;
+
+  try {
+    // Decode JWT token (simple base64 decode, not verification)
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.userId || null;
+  } catch (error) {
+    return null;
+  }
+};
+
 export const isAdmin = (): boolean => {
   return getUserRole() === 'admin';
 };

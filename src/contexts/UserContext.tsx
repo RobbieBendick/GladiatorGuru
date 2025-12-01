@@ -10,12 +10,13 @@ import {
 import { getAuthToken, removeAuthToken } from '../config/auth';
 import { API_BASE_URL } from '../config/api';
 
-interface User {
+export interface User {
   id: string;
   username: string;
   role: string;
   discordId?: string;
   discordUsername?: string;
+  coachAlias?: string;
 }
 
 interface UserContextType {

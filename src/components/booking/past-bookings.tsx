@@ -53,16 +53,26 @@ interface Booking {
   availabilityEndDateTime: string;
   discordUsername: string;
   goal?: string;
-  status: 'pending' | 'accepted' | 'completed' | 'cancelled';
+  status:
+    | 'active'
+    | 'pending'
+    | 'accepted'
+    | 'approved'
+    | 'completed'
+    | 'cancelled';
   createdAt: string;
   updatedAt: string;
 }
 
 const getStatusColor = (status: string) => {
   switch (status) {
+    case 'active':
+      return 'info';
     case 'pending':
       return 'warning';
     case 'accepted':
+      return 'success';
+    case 'approved':
       return 'success';
     case 'completed':
       return 'success';
@@ -75,10 +85,14 @@ const getStatusColor = (status: string) => {
 
 const getStatusLabel = (status: string) => {
   switch (status) {
+    case 'active':
+      return 'Active';
     case 'pending':
       return 'Pending';
     case 'accepted':
       return 'Accepted';
+    case 'approved':
+      return 'Approved';
     case 'completed':
       return 'Completed';
     case 'cancelled':
@@ -168,7 +182,17 @@ export function PastBookings() {
         }
 
         const data = await response.json();
-        setBookings(data.data || []);
+        const allBookings = data.data || [];
+        // Filter to show only current bookings: Active, Pending, Accepted, Approved
+        // Exclude Completed and Cancelled
+        const currentBookings = allBookings.filter(
+          (booking: Booking) =>
+            booking.status === 'active' ||
+            booking.status === 'pending' ||
+            booking.status === 'accepted' ||
+            booking.status === 'approved'
+        );
+        setBookings(currentBookings);
       } catch (err: any) {
         console.error('Error fetching bookings:', err);
         setError(err.message || 'Failed to load bookings');
@@ -245,20 +269,20 @@ export function PastBookings() {
             color: 'text.primary',
           }}
         >
-          Past Bookings
+          Current Bookings
         </Typography>
         <Typography variant='body1' color='text.secondary' sx={{ mb: 4 }}>
-          View all your coaching session bookings
+          View your active coaching session bookings
         </Typography>
 
         {bookings.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 6 }}>
             <Event sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
             <Typography variant='h6' color='text.secondary' sx={{ mb: 2 }}>
-              No bookings found
+              No current bookings
             </Typography>
             <Typography variant='body2' color='text.secondary' sx={{ mb: 3 }}>
-              You haven't submitted any booking requests yet.
+              You don't have any active bookings at the moment.
             </Typography>
             <Button
               variant='contained'
