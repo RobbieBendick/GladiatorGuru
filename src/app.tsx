@@ -1,4 +1,9 @@
-import { PaletteMode, ThemeProvider, useMediaQuery } from '@mui/material';
+import {
+  PaletteMode,
+  ThemeProvider,
+  useMediaQuery,
+  alpha,
+} from '@mui/material';
 import { createTheme } from '@mui/material/styles';
 import { grey } from '@mui/material/colors';
 import { createContext, useEffect, useMemo, useState } from 'react';
@@ -6,44 +11,48 @@ import { BindRoutes } from './components/routes/bind-routes';
 import { HashRouter } from 'react-router-dom';
 import { UserProvider } from './contexts/UserContext';
 
-const getDesignTokens = (mode: PaletteMode) => ({
-  palette: {
-    mode,
-    ...(mode === 'light'
-      ? {
-          // palette values for light mode
-          primary: {
-            main: '#0ea47a',
-          },
-          divider: '#0ea47a',
-          background: {
-            default: '#fff',
-            paper: '#fff',
-            secondary: '#ededed',
-          },
-          text: {
-            primary: grey[900],
-            secondary: grey[800],
-          },
-        }
-      : {
-          // palette values for dark mode
-          primary: {
-            main: '#0ea47a',
-          },
-          divider: '#0ea47a',
-          background: {
-            default: '#1a1c1e',
-            paper: '#1a1c1e',
-            secondary: '#161719',
-          },
-          text: {
-            primary: '#fff',
-            secondary: grey[500],
-          },
-        }),
-  },
-});
+const getDesignTokens = (mode: PaletteMode) => {
+  const textPrimary = mode === 'light' ? grey[900] : '#fff';
+
+  return {
+    palette: {
+      mode,
+      ...(mode === 'light'
+        ? {
+            // palette values for light mode
+            primary: {
+              main: '#0ea47a',
+            },
+            divider: alpha(textPrimary, 0.3),
+            background: {
+              default: '#fff',
+              paper: '#fff',
+              secondary: '#ededed',
+            },
+            text: {
+              primary: grey[900],
+              secondary: grey[800],
+            },
+          }
+        : {
+            // palette values for dark mode
+            primary: {
+              main: '#0ea47a',
+            },
+            divider: alpha(textPrimary, 0.3),
+            background: {
+              default: '#1a1c1e',
+              paper: '#1a1c1e',
+              secondary: '#161719',
+            },
+            text: {
+              primary: '#fff',
+              secondary: grey[500],
+            },
+          }),
+    },
+  };
+};
 
 export const ColorModeContext = createContext({
   toggleColorMode: () => {},

@@ -11,7 +11,11 @@ import {
   Divider,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import {
+  useNavigate,
+  Link as RouterLink,
+  useSearchParams,
+} from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { setAuthToken } from '../../config/auth';
 import { API_BASE_URL } from '../../config/api';
@@ -51,7 +55,11 @@ export function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [isDiscordLoading, setIsDiscordLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { refreshUser } = useUser();
+
+  // Get redirect path from query params
+  const redirectTo = searchParams.get('redirect');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,8 +89,10 @@ export function Login() {
         await refreshUser();
       }
 
-      // Redirect based on role
-      if (data.data?.user?.role === 'admin') {
+      // Redirect to the intended destination if provided, otherwise based on role
+      if (redirectTo) {
+        navigate(decodeURIComponent(redirectTo));
+      } else if (data.data?.user?.role === 'admin') {
         navigate('/admin');
       } else {
         navigate(ROUTE_PATHS.home);
@@ -98,6 +108,10 @@ export function Login() {
     setError('');
     setIsDiscordLoading(true);
     try {
+      // Store redirect path before initiating OAuth
+      if (redirectTo) {
+        localStorage.setItem('oauth_redirect', redirectTo);
+      }
       await initiateDiscordOAuth();
       // The redirect will happen, so we don't need to do anything else here
     } catch (err: any) {

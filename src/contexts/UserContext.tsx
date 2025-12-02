@@ -17,6 +17,7 @@ export interface User {
   discordId?: string;
   discordUsername?: string;
   coachAlias?: string;
+  email?: string;
 }
 
 interface UserContextType {

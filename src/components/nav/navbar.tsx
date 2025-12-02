@@ -17,6 +17,7 @@ import LightMode from '@mui/icons-material/LightMode';
 import BookOnlineIcon from '@mui/icons-material/BookOnline';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ScheduleIcon from '@mui/icons-material/Schedule';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { ToggleColorModeButton } from '../toggle-color-mode-button';
 import { ColorModeContext } from '../../app';
 import { ROUTE_PATHS } from '@/schemas/route-paths';
@@ -256,6 +257,23 @@ function ResponsiveNavBar() {
                           </Box>
                         </MenuItem>
                       )}
+                    {user && (
+                      <MenuItem
+                        component={Link}
+                        to={ROUTE_PATHS.settings}
+                        onClick={handleMobileMenuClose}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          py: 1.5,
+                        }}
+                      >
+                        <SettingsIcon sx={{ mr: 1.5 }} />
+                        <Box sx={{ flex: 1, textAlign: 'center', ml: -1.5 }}>
+                          Settings
+                        </Box>
+                      </MenuItem>
+                    )}
                     <MenuItem
                       onClick={() => {
                         toggleColorMode();
@@ -287,7 +305,7 @@ function ResponsiveNavBar() {
                       startIcon={<BookOnlineIcon />}
                       sx={{
                         color: 'white',
-                        borderColor: 'rgba(255, 255, 255, 0.8)',
+                        borderColor: 'rgba(255, 255, 255, 0.5)',
                         backgroundColor: theme =>
                           theme.palette.mode === 'light'
                             ? 'rgba(8, 83, 62, 0.3)'
@@ -482,6 +500,21 @@ function ResponsiveNavBar() {
                           Current Bookings
                         </MenuItem>
                       )}
+                    {user && (
+                      <MenuItem
+                        component={Link}
+                        to={ROUTE_PATHS.settings}
+                        onClick={handleMenuClose}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          py: 1.5,
+                        }}
+                      >
+                        <SettingsIcon sx={{ mr: 1.5 }} />
+                        Settings
+                      </MenuItem>
+                    )}
                     <MenuItem onClick={handleLogout}>
                       <LogoutIcon sx={{ mr: 1.5 }} />
                       Logout

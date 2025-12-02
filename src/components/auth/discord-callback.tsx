@@ -121,8 +121,12 @@ export function DiscordCallback() {
         // Mark as navigated
         hasNavigatedRef.current = true;
 
-        // Redirect based on role
-        if (user?.role === 'admin') {
+        // Check for stored redirect path from OAuth flow
+        const storedRedirect = localStorage.getItem('oauth_redirect');
+        if (storedRedirect) {
+          localStorage.removeItem('oauth_redirect');
+          navigate(decodeURIComponent(storedRedirect), { replace: true });
+        } else if (user?.role === 'admin') {
           navigate('/admin', { replace: true });
         } else {
           navigate(ROUTE_PATHS.home, { replace: true });

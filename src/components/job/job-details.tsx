@@ -247,8 +247,13 @@ export function JobDetails() {
         return;
       }
 
+      const token = getAuthToken();
       const response = await fetch(`${API_BASE_URL}/api/jobs/${id}`, {
         credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
       });
 
       if (response.ok) {

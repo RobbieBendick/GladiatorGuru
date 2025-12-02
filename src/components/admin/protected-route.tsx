@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { isAuthenticated, getUserRole, getAuthToken } from '../../config/auth';
@@ -7,13 +7,16 @@ import { API_BASE_URL } from '../../config/api';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: ('admin' | 'coach')[];
+  allowedRoles?: ('admin' | 'coach' | 'user')[];
+  requireAuthOnly?: boolean; // If true, only require authentication, no role check
 }
 
 export function ProtectedRoute({
   children,
   allowedRoles = ['admin'],
+  requireAuthOnly = false,
 }: ProtectedRouteProps) {
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -87,6 +90,20 @@ export function ProtectedRoute({
         <CircularProgress />
       </Box>
     );
+  }
+
+  // If requireAuthOnly is true, only check authentication, not role
+  if (requireAuthOnly) {
+    if (!authenticated) {
+      // Pass the current location as a redirect parameter
+      const redirectTo = encodeURIComponent(
+        location.pathname + location.search
+      );
+      return (
+        <Navigate to={`${ROUTE_PATHS.login}?redirect=${redirectTo}`} replace />
+      );
+    }
+    return <>{children}</>;
   }
 
   if (!authenticated || !userRole || !allowedRoles.includes(userRole as any)) {

@@ -309,18 +309,6 @@ export function AdminDashboard() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const formatted = date.toLocaleString();
-    const timezone =
-      Intl.DateTimeFormat('en-US', {
-        timeZoneName: 'short',
-      })
-        .formatToParts(date)
-        .find(part => part.type === 'timeZoneName')?.value || '';
-    return timezone ? `${formatted} ${timezone}` : formatted;
-  };
-
   const formatAvailabilityRange = (
     startDateTime: string,
     endDateTime: string

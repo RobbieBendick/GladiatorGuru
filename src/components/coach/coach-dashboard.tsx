@@ -59,7 +59,7 @@ interface Job {
   availabilityEndDateTime: string;
   discordUsername: string;
   goal?: string;
-  status: 'pending' | 'accepted' | 'completed' | 'cancelled';
+  status: 'pending' | 'accepted' | 'approved' | 'completed' | 'cancelled';
   createdAt: string;
   updatedAt: string;
 }
@@ -121,8 +121,10 @@ export function CoachDashboard() {
       setLoading(true);
       const token = getAuthToken();
 
+      // For 'active' filter, we need to fetch all jobs and filter client-side
+      // For other statuses, we can use the API filter
       const url =
-        statusFilter === 'all'
+        statusFilter === 'all' || statusFilter === 'active'
           ? `${API_BASE_URL}/api/coach/jobs`
           : `${API_BASE_URL}/api/coach/jobs?status=${statusFilter}`;
 
@@ -142,7 +144,20 @@ export function CoachDashboard() {
 
       if (response.ok) {
         const data = await response.json();
-        setJobs(data.data || []);
+        const fetchedJobs = data.data || [];
+
+        // Filter for active jobs (pending, accepted, approved)
+        if (statusFilter === 'active') {
+          const activeJobs = fetchedJobs.filter(
+            (job: Job) =>
+              job.status === 'pending' ||
+              job.status === 'accepted' ||
+              job.status === 'approved'
+          );
+          setJobs(activeJobs);
+        } else {
+          setJobs(fetchedJobs);
+        }
       }
     } catch (error) {
       console.error('Error fetching jobs:', error);
@@ -163,10 +178,6 @@ export function CoachDashboard() {
     }
   }, [statusFilter]);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
-
   const formatAvailabilityRange = (
     startDateTime: string,
     endDateTime: string
@@ -179,6 +190,8 @@ export function CoachDashboard() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'accepted':
+        return 'success';
+      case 'approved':
         return 'success';
       case 'pending':
         return 'warning';
@@ -357,8 +370,10 @@ export function CoachDashboard() {
               onChange={e => setStatusFilter(e.target.value)}
             >
               <MenuItem value='all'>All</MenuItem>
+              <MenuItem value='active'>Active</MenuItem>
               <MenuItem value='pending'>Pending</MenuItem>
               <MenuItem value='accepted'>Accepted</MenuItem>
+              <MenuItem value='approved'>Approved</MenuItem>
               <MenuItem value='completed'>Completed</MenuItem>
               <MenuItem value='cancelled'>Cancelled</MenuItem>
             </Select>

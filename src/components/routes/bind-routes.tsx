@@ -15,6 +15,7 @@ import { ProtectedRoute } from '../admin/protected-route';
 import { CoachSchedule } from '../schedule/coach-schedule';
 import { JobDetails } from '../job/job-details';
 import { CoachDashboard } from '../coach/coach-dashboard';
+import { Settings } from '../settings/settings';
 import ResponsiveNavBar from '../nav/navbar';
 import { IRoute, ROUTE_PATHS } from '../../schemas/route-paths';
 
@@ -71,6 +72,14 @@ export function BindRoutes(props: { children?: React.ReactNode }): JSX.Element {
           element={
             <ProtectedRoute allowedRoles={['coach', 'admin']}>
               <CoachDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={ROUTE_PATHS.settings}
+          element={
+            <ProtectedRoute requireAuthOnly={true}>
+              <Settings />
             </ProtectedRoute>
           }
         />
