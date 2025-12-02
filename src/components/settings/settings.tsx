@@ -18,10 +18,20 @@ import {
   Switch,
   Chip,
 } from '@mui/material';
-import { Save, Person, Notifications } from '@mui/icons-material';
+import {
+  Save,
+  Person,
+  Notifications,
+  Schedule,
+  Add,
+  Delete,
+} from '@mui/icons-material';
+import { MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import { AvailabilitySlot } from '../../contexts/UserContext';
 import { API_BASE_URL } from '../../config/api';
 import { getAuthToken } from '../../config/auth';
 import { useUser } from '../../contexts/UserContext';
+import { getTimezoneAbbreviation } from '../../utils/timezone';
 
 const SettingsPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4),
@@ -73,6 +83,10 @@ export function Settings() {
     email: true,
     jobAssignment: true,
   });
+  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
+  const [originalAvailability, setOriginalAvailability] = useState<
+    AvailabilitySlot[]
+  >([]);
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
@@ -86,6 +100,13 @@ export function Settings() {
       setCoachAlias(alias);
       setOriginalCoachAlias(alias);
     }
+    if (user?.availability) {
+      setAvailability(user.availability);
+      setOriginalAvailability(user.availability);
+    } else {
+      setAvailability([]);
+      setOriginalAvailability([]);
+    }
   }, [user]);
 
   // Check if user is admin or coach
@@ -97,6 +118,8 @@ export function Settings() {
     emailNotifications !== originalNotifications.email ||
     emailAddress.trim() !== originalEmailAddress ||
     jobAssignmentNotifications !== originalNotifications.jobAssignment;
+  const hasAvailabilityChanges =
+    JSON.stringify(availability) !== JSON.stringify(originalAvailability);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -151,6 +174,86 @@ export function Settings() {
       }
     } catch (error: any) {
       console.error('Error updating profile:', error);
+      setSnackbar({
+        open: true,
+        message: 'An error occurred. Please try again.',
+        severity: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveAvailability = async () => {
+    try {
+      setLoading(true);
+      const token = getAuthToken();
+
+      if (!token) {
+        setSnackbar({
+          open: true,
+          message: 'You must be logged in to update your availability',
+          severity: 'error',
+        });
+        return;
+      }
+
+      // Validate availability slots
+      for (let i = 0; i < availability.length; i++) {
+        const slot = availability[i];
+        const [startHours, startMinutes] = slot.startTime
+          .split(':')
+          .map(Number);
+        const [endHours, endMinutes] = slot.endTime.split(':').map(Number);
+        const startTotalMinutes = startHours * 60 + startMinutes;
+        const endTotalMinutes = endHours * 60 + endMinutes;
+
+        if (endTotalMinutes <= startTotalMinutes) {
+          setSnackbar({
+            open: true,
+            message: `Time slot ${i + 1}: End time must be after start time`,
+            severity: 'error',
+          });
+          return;
+        }
+      }
+
+      // Get the coach's current timezone
+      const coachTimezone = getTimezoneAbbreviation();
+
+      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          availability: availability,
+          timezone: coachTimezone, // Save coach's timezone when setting availability
+        }),
+      });
+
+      if (response.ok) {
+        setSnackbar({
+          open: true,
+          message: 'Availability updated successfully!',
+          severity: 'success',
+        });
+        setOriginalAvailability(availability);
+        await refreshUser();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setSnackbar({
+          open: true,
+          message:
+            errorData.errorMessage ||
+            'Failed to update availability. Please try again.',
+          severity: 'error',
+        });
+      }
+    } catch (error: any) {
+      console.error('Error updating availability:', error);
       setSnackbar({
         open: true,
         message: 'An error occurred. Please try again.',
@@ -365,6 +468,14 @@ export function Settings() {
                 iconPosition='start'
                 label='Notifications'
                 id='settings-tab-2'
+              />
+            )}
+            {isAdminOrCoach && (
+              <Tab
+                icon={<Schedule />}
+                iconPosition='start'
+                label='Availability'
+                id='settings-tab-3'
               />
             )}
           </Tabs>
@@ -603,6 +714,195 @@ export function Settings() {
                   }
                   onClick={handleSaveNotifications}
                   disabled={loading || !hasNotificationChanges}
+                  sx={{
+                    textTransform: 'none',
+                    borderRadius: theme => theme.shape.borderRadius * 1.5,
+                  }}
+                >
+                  Save Changes
+                </Button>
+              </Box>
+            </Box>
+          </CustomTabPanel>
+        )}
+
+        {/* Availability Tab - Admin/Coach Only */}
+        {isAdminOrCoach && (
+          <CustomTabPanel value={tabValue} index={3}>
+            <Typography
+              variant='h5'
+              sx={{
+                fontWeight: 600,
+                mb: 3,
+                fontSize: { xs: '1.25rem', md: '1.5rem' },
+              }}
+            >
+              Time Availability
+            </Typography>
+            <Typography variant='body2' color='text.secondary' sx={{ mb: 3 }}>
+              Set your recurring weekly availability. Bookings cannot be made
+              outside of these time slots on your schedule.
+            </Typography>
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {availability.map((slot, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    p: 2,
+                    borderRadius: theme => theme.shape.borderRadius * 1.5,
+                    border: theme =>
+                      `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+                    display: 'flex',
+                    gap: 2,
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <FormControl sx={{ minWidth: 150 }}>
+                    <InputLabel>Day of Week</InputLabel>
+                    <Select
+                      value={slot.dayOfWeek}
+                      label='Day of Week'
+                      onChange={e => {
+                        const newAvailability = [...availability];
+                        newAvailability[index].dayOfWeek = Number(
+                          e.target.value
+                        );
+                        setAvailability(newAvailability);
+                      }}
+                    >
+                      <MenuItem value={0}>Sunday</MenuItem>
+                      <MenuItem value={1}>Monday</MenuItem>
+                      <MenuItem value={2}>Tuesday</MenuItem>
+                      <MenuItem value={3}>Wednesday</MenuItem>
+                      <MenuItem value={4}>Thursday</MenuItem>
+                      <MenuItem value={5}>Friday</MenuItem>
+                      <MenuItem value={6}>Saturday</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <TextField
+                    label='Start Time'
+                    type='time'
+                    value={slot.startTime}
+                    onChange={e => {
+                      const newAvailability = [...availability];
+                      newAvailability[index].startTime = e.target.value;
+                      setAvailability(newAvailability);
+                    }}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                    inputProps={{
+                      step: 300, // 5 minutes
+                    }}
+                    sx={{
+                      minWidth: 150,
+                      '& input[type="time"]::-webkit-calendar-picker-indicator':
+                        {
+                          filter: theme =>
+                            theme.palette.mode === 'dark'
+                              ? 'invert(1)'
+                              : 'none',
+                          cursor: 'pointer',
+                          opacity: 1,
+                        },
+                      '& input[type="time"]': {
+                        color: theme => theme.palette.text.primary,
+                      },
+                    }}
+                  />
+
+                  <TextField
+                    label='End Time'
+                    type='time'
+                    value={slot.endTime}
+                    onChange={e => {
+                      const newAvailability = [...availability];
+                      newAvailability[index].endTime = e.target.value;
+                      setAvailability(newAvailability);
+                    }}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                    inputProps={{
+                      step: 300, // 5 minutes
+                    }}
+                    sx={{
+                      minWidth: 150,
+                      '& input[type="time"]::-webkit-calendar-picker-indicator':
+                        {
+                          filter: theme =>
+                            theme.palette.mode === 'dark'
+                              ? 'invert(1)'
+                              : 'none',
+                          cursor: 'pointer',
+                          opacity: 1,
+                        },
+                      '& input[type="time"]': {
+                        color: theme => theme.palette.text.primary,
+                      },
+                    }}
+                  />
+
+                  <Button
+                    variant='outlined'
+                    color='error'
+                    startIcon={<Delete />}
+                    onClick={() => {
+                      const newAvailability = availability.filter(
+                        (_, i) => i !== index
+                      );
+                      setAvailability(newAvailability);
+                    }}
+                    sx={{ ml: 'auto' }}
+                  >
+                    Remove
+                  </Button>
+                </Box>
+              ))}
+
+              <Button
+                variant='outlined'
+                startIcon={<Add />}
+                onClick={() => {
+                  setAvailability([
+                    ...availability,
+                    { dayOfWeek: 1, startTime: '09:00', endTime: '17:00' },
+                  ]);
+                }}
+                sx={{
+                  alignSelf: 'flex-start',
+                  textTransform: 'none',
+                  borderRadius: theme => theme.shape.borderRadius * 1.5,
+                }}
+              >
+                Add Time Slot
+              </Button>
+
+              {availability.length === 0 && (
+                <Alert severity='info' sx={{ mt: 2 }}>
+                  No availability slots set. Add time slots to restrict when
+                  bookings can be made on your schedule.
+                </Alert>
+              )}
+
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: 2,
+                  justifyContent: 'flex-end',
+                  mt: 2,
+                }}
+              >
+                <Button
+                  variant='contained'
+                  startIcon={
+                    loading ? <CircularProgress size={20} /> : <Save />
+                  }
+                  onClick={handleSaveAvailability}
+                  disabled={loading || !hasAvailabilityChanges}
                   sx={{
                     textTransform: 'none',
                     borderRadius: theme => theme.shape.borderRadius * 1.5,

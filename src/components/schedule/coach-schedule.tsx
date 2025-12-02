@@ -33,8 +33,53 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { API_BASE_URL } from '../../config/api';
 import { isAdmin, getAuthToken, getUserId } from '../../config/auth';
-import { formatTimeWithTimezone } from '../../utils/timezone';
-import { User } from '../../contexts/UserContext';
+import {
+  formatTimeWithTimezone,
+  getTimezoneAbbreviation,
+  getIANATimezone,
+  abbreviationToIANA,
+  convertTimeBetweenTimezones,
+} from '../../utils/timezone';
+import { User, AvailabilitySlot, useUser } from '../../contexts/UserContext';
+import {
+  isTimeWithinAvailability,
+  formatAvailabilityByDay,
+} from '../../utils/availability';
+
+// LocalStorage keys (matching booking form)
+const SAVED_CHARACTERS_KEY = 'gladiatorGuru_savedCharacters';
+const LAST_DISCORD_USERNAME_KEY = 'gladiatorGuru_lastDiscordUsername';
+
+// Interface for saved character
+interface SavedCharacter {
+  characterName: string;
+  characterRealm: string;
+  characterClass?: string;
+  characterSpec?: string;
+  version?: string;
+}
+
+// Utility functions for localStorage
+const getSavedCharacters = (): SavedCharacter[] => {
+  try {
+    const saved = localStorage.getItem(SAVED_CHARACTERS_KEY);
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error('Error loading saved characters:', error);
+    return [];
+  }
+};
+
+const getLastDiscordUsername = (): string => {
+  try {
+    return localStorage.getItem(LAST_DISCORD_USERNAME_KEY) || '';
+  } catch (error) {
+    console.error('Error loading last Discord username:', error);
+    return '';
+  }
+};
 
 const SchedulePaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4),
@@ -107,8 +152,15 @@ export function CoachSchedule() {
   const navigate = useNavigate();
   const theme = useTheme();
   const { id } = useParams<{ id: string }>();
+  const { user } = useUser();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [coachInfo, setCoachInfo] = useState<Coach | null>(null);
+  const [coachAvailability, setCoachAvailability] = useState<
+    AvailabilitySlot[] | undefined
+  >(undefined);
+  const [coachTimezone, setCoachTimezone] = useState<string | undefined>(
+    undefined
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTimeRange, setSelectedTimeRange] = useState<{
@@ -128,6 +180,15 @@ export function CoachSchedule() {
     characterRealm: string;
     discordUsername: string;
   }>({ characterName: '', characterRealm: '', discordUsername: '' });
+  const [quickBookingFormData, setQuickBookingFormData] = useState<{
+    characterName: string;
+    characterRealm: string;
+    discordUsername: string;
+  }>({
+    characterName: '',
+    characterRealm: '',
+    discordUsername: '',
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Initialize currentView from localStorage or default to 'timeGridWeek'
   const [currentView, setCurrentView] = useState<string>(() => {
@@ -165,6 +226,27 @@ export function CoachSchedule() {
     }
   }, [currentView]);
 
+  // Pre-fill quick booking form with most recently used character and Discord username
+  useEffect(() => {
+    if (showTimeDialog && !isAdminMode) {
+      const savedCharacters = getSavedCharacters();
+      // Prefer user's Discord username from profile if logged in, otherwise use localStorage
+      const lastDiscordUsername =
+        user?.discordUsername || getLastDiscordUsername();
+
+      // Get the most recent character (first in array)
+      const mostRecentCharacter =
+        savedCharacters.length > 0 ? savedCharacters[0] : null;
+
+      setQuickBookingFormData(prev => ({
+        characterName: mostRecentCharacter?.characterName || prev.characterName,
+        characterRealm:
+          mostRecentCharacter?.characterRealm || prev.characterRealm,
+        discordUsername: lastDiscordUsername || prev.discordUsername,
+      }));
+    }
+  }, [showTimeDialog, isAdminMode, user?.discordUsername]);
+
   const fetchCoachSchedule = async () => {
     try {
       setLoading(true);
@@ -189,6 +271,13 @@ export function CoachSchedule() {
             : coachData.data;
           if (coach) {
             setCoachInfo(coach);
+            // Set coach availability and timezone if available
+            if (coach.availability) {
+              setCoachAvailability(coach.availability);
+            }
+            if (coach.timezone) {
+              setCoachTimezone(coach.timezone);
+            }
             // Fetch jobs assigned to this coach
             await fetchCoachJobs(coach._id || id);
             return;
@@ -344,17 +433,7 @@ export function CoachSchedule() {
   };
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
-    // Check if user has permission to create events
-    if (!canCreateEvents) {
-      setSnackbar({
-        open: true,
-        message:
-          'You do not have permission to create events on this schedule.',
-        severity: 'error',
-      });
-      selectInfo.view.calendar.unselect();
-      return;
-    }
+    // Allow everyone to select times for booking (removed permission check)
 
     // Use startStr and endStr to get timezone-aware times
     // These are in ISO format with timezone, so parse them to get the correct local time
@@ -378,6 +457,28 @@ export function CoachSchedule() {
         open: true,
         message:
           'Maximum selection time is 5 hours. Please select a shorter time range.',
+        severity: 'error',
+      });
+      selectInfo.view.calendar.unselect();
+      return;
+    }
+
+    // Check if the selected time is within coach's availability
+    // Note: Availability times are in the coach's timezone
+    // The booking time (start/end) is in the user's local timezone
+    // For proper validation, we'd need to convert to coach's timezone, but for now
+    // we compare directly (works correctly if both are in same timezone or user books in coach's timezone)
+    if (
+      coachAvailability &&
+      coachAvailability.length > 0 &&
+      !isTimeWithinAvailability(start, end, coachAvailability)
+    ) {
+      const timezoneNote = coachTimezone
+        ? ` (availability is in ${coachTimezone})`
+        : '';
+      setSnackbar({
+        open: true,
+        message: `This time slot is outside of the coach's availability${timezoneNote}. Please select a time within their available hours.`,
         severity: 'error',
       });
       selectInfo.view.calendar.unselect();
@@ -755,6 +856,11 @@ export function CoachSchedule() {
       characterRealm: '',
       discordUsername: '',
     });
+    setQuickBookingFormData({
+      characterName: '',
+      characterRealm: '',
+      discordUsername: '',
+    });
   };
 
   const handleAdminSubmit = async () => {
@@ -826,6 +932,90 @@ export function CoachSchedule() {
       setSnackbar({
         open: true,
         message: 'Failed to create booking',
+        severity: 'error',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleQuickBookingSubmit = async () => {
+    if (!selectedTimeRange || !id) return;
+
+    if (
+      !quickBookingFormData.characterName ||
+      !quickBookingFormData.characterRealm ||
+      !quickBookingFormData.discordUsername
+    ) {
+      setSnackbar({
+        open: true,
+        message: 'Please fill in all required fields',
+        severity: 'error',
+      });
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const token = getAuthToken();
+
+      // The selected time is in the user's local timezone
+      // Convert to ISO string (UTC) - this preserves the actual moment in time
+      const startISO = selectedTimeRange.start.toISOString();
+      const endISO = selectedTimeRange.end.toISOString();
+      const durationMs =
+        selectedTimeRange.end.getTime() - selectedTimeRange.start.getTime();
+      const durationHours = Math.round(durationMs / (1000 * 60 * 60));
+      const hours = Math.max(1, Math.min(5, durationHours));
+
+      // Submit to public booking endpoint
+      const response = await fetch(`${API_BASE_URL}/api/jobs`, {
+        method: 'POST',
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          characterName: quickBookingFormData.characterName.trim(),
+          characterRealm: quickBookingFormData.characterRealm.trim(),
+          version: 'MOP', // Default to MOP for quick bookings
+          discordUsername: quickBookingFormData.discordUsername.trim(),
+          availabilityStartDateTime: startISO,
+          availabilityEndDateTime: endISO,
+          hours: hours.toString(),
+          bracket: '',
+          characterClass: '',
+          characterSpec: '',
+          goal: '',
+        }),
+      });
+
+      if (response.ok) {
+        await response.json();
+        setSnackbar({
+          open: true,
+          message: 'Booking request submitted successfully!',
+          severity: 'success',
+        });
+        handleCloseTimeDialog();
+        // Refresh the calendar after a short delay
+        setTimeout(() => {
+          fetchCoachSchedule();
+        }, 1000);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setSnackbar({
+          open: true,
+          message: errorData.message || 'Failed to submit booking request',
+          severity: 'error',
+        });
+      }
+    } catch (err: any) {
+      console.error('Error submitting booking:', err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to submit booking request',
         severity: 'error',
       });
     } finally {
@@ -914,6 +1104,97 @@ export function CoachSchedule() {
     ? capitalizeFirstLetter(coachInfo.username)
     : id || 'Coach';
 
+  // Convert availability slots to FullCalendar businessHours format
+  // Converts times from coach's timezone to user's local timezone
+  const getBusinessHours = () => {
+    if (!coachAvailability || coachAvailability.length === 0) {
+      return undefined; // No restrictions if no availability set
+    }
+
+    // Get user's IANA timezone
+    const userIANA = getIANATimezone();
+
+    // Get coach's IANA timezone if available
+    // coachTimezone can be either an IANA timezone string (e.g., "America/Los_Angeles")
+    // or an abbreviation (e.g., "PST")
+    let coachIANA = userIANA;
+    if (coachTimezone) {
+      // Check if it's already an IANA timezone (contains "/")
+      if (coachTimezone.includes('/')) {
+        coachIANA = coachTimezone;
+      } else {
+        // Try to convert abbreviation to IANA
+        const converted = abbreviationToIANA(coachTimezone);
+        coachIANA = converted || userIANA;
+      }
+    }
+
+    // Group availability by day of week and convert times to user's timezone
+    const businessHoursByDay: {
+      [key: number]: Array<{ startTime: string; endTime: string }>;
+    } = {};
+
+    coachAvailability.forEach(slot => {
+      if (!businessHoursByDay[slot.dayOfWeek]) {
+        businessHoursByDay[slot.dayOfWeek] = [];
+      }
+
+      // Convert times from coach's timezone to user's timezone
+      let startTime = slot.startTime;
+      let endTime = slot.endTime;
+
+      if (coachIANA && coachIANA !== userIANA) {
+        // Convert times to user's timezone
+        const today = new Date();
+        startTime = convertTimeBetweenTimezones(
+          slot.startTime,
+          coachIANA,
+          userIANA,
+          today
+        );
+        endTime = convertTimeBetweenTimezones(
+          slot.endTime,
+          coachIANA,
+          userIANA,
+          today
+        );
+      }
+
+      businessHoursByDay[slot.dayOfWeek].push({
+        startTime: startTime,
+        endTime: endTime,
+      });
+    });
+
+    // Convert to FullCalendar businessHours format
+    const businessHours: any[] = [];
+    Object.keys(businessHoursByDay).forEach(dayOfWeek => {
+      const day = Number(dayOfWeek);
+      businessHoursByDay[day].forEach(timeSlot => {
+        businessHours.push({
+          daysOfWeek: [day],
+          startTime: timeSlot.startTime,
+          endTime: timeSlot.endTime,
+        });
+      });
+    });
+
+    return businessHours.length > 0 ? businessHours : undefined;
+  };
+
+  // Get select constraint - use businessHours to restrict selection to available times
+  const getSelectConstraint = () => {
+    if (!coachAvailability || coachAvailability.length === 0) {
+      // No availability restrictions - allow all times
+      return {
+        start: '00:00',
+        end: '24:00',
+      };
+    }
+    // Restrict selection to business hours (availability)
+    return 'businessHours';
+  };
+
   return (
     <Container maxWidth='lg'>
       <Box sx={{ mb: 3 }}>
@@ -934,53 +1215,101 @@ export function CoachSchedule() {
           View {displayName}'s coaching sessions and availability.
         </Typography>
 
-        {/* Instruction Box - Only show if user can create events (admin or own schedule) */}
-        {canCreateEvents && (
-          <>
-            {currentView === 'dayGridMonth' ? (
-              <Alert
-                severity='info'
-                sx={{
-                  mb: 3,
-                  backgroundColor: alpha(theme.palette.info.main, 0.1),
-                  border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
-                  '& .MuiAlert-icon': {
-                    color: theme.palette.info.main,
-                  },
-                }}
-              >
-                <Typography variant='body1' sx={{ fontWeight: 600, mb: 0.5 }}>
-                  📅 How to Book a Time
-                </Typography>
-                <Typography variant='body2'>
-                  Switch to <strong>Day</strong> or <strong>Week</strong> view
-                  using the buttons above, then <strong>click and drag</strong>{' '}
-                  on the calendar to select your desired time slot.
-                </Typography>
-              </Alert>
-            ) : (
-              <Alert
-                severity='info'
-                sx={{
-                  mb: 3,
-                  backgroundColor: alpha(theme.palette.info.main, 0.1),
-                  border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
-                  '& .MuiAlert-icon': {
-                    color: theme.palette.info.main,
-                  },
-                }}
-              >
-                <Typography variant='body1' sx={{ fontWeight: 600, mb: 0.5 }}>
-                  🖱️ Click and Drag to Book
-                </Typography>
-                <Typography variant='body2'>
-                  <strong>Click and drag</strong> on the calendar below to
-                  select your desired time range. A dialog will appear to
-                  confirm your selection and proceed to booking.
-                </Typography>
-              </Alert>
-            )}
-          </>
+        {/* Availability Display */}
+        {coachAvailability && coachAvailability.length > 0 && (
+          <Alert
+            severity='info'
+            sx={{
+              mb: 3,
+              backgroundColor: alpha(theme.palette.info.main, 0.1),
+              border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
+              '& .MuiAlert-icon': {
+                color: theme.palette.info.main,
+              },
+            }}
+          >
+            <Box
+              sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}
+            >
+              <Typography variant='body1' sx={{ fontWeight: 600 }}>
+                ⏰ Available Hours
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 0.75,
+                pl: 0.5,
+              }}
+            >
+              {formatAvailabilityByDay(coachAvailability, coachTimezone).map(
+                (dayInfo, index) => (
+                  <Typography key={index} variant='body2' component='div'>
+                    <Box component='span' sx={{ fontWeight: 600, mr: 1 }}>
+                      {dayInfo.dayName}:
+                    </Box>
+                    <Box component='span' color='text.secondary'>
+                      {dayInfo.slots.join(', ')}
+                    </Box>
+                  </Typography>
+                )
+              )}
+            </Box>
+          </Alert>
+        )}
+
+        {/* Instruction Box - Show for everyone */}
+        {currentView === 'dayGridMonth' ? (
+          <Alert
+            severity='info'
+            sx={{
+              mb: 3,
+              backgroundColor: alpha(theme.palette.info.main, 0.1),
+              border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
+              '& .MuiAlert-icon': {
+                color: theme.palette.info.main,
+              },
+            }}
+          >
+            <Typography variant='body1' sx={{ fontWeight: 600, mb: 0.5 }}>
+              📅 How to Book a Time
+            </Typography>
+            <Typography variant='body2'>
+              Switch to <strong>Day</strong> or <strong>Week</strong> view using
+              the buttons above, then <strong>click and drag</strong> on the
+              calendar to select your desired time slot.
+            </Typography>
+          </Alert>
+        ) : (
+          <Alert
+            severity='info'
+            sx={{
+              mb: 3,
+              backgroundColor: alpha(theme.palette.info.main, 0.1),
+              border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
+              '& .MuiAlert-icon': {
+                color: theme.palette.info.main,
+              },
+            }}
+          >
+            <Typography variant='body1' sx={{ fontWeight: 600, mb: 0.5 }}>
+              🖱️ Click and Drag to Book
+            </Typography>
+            <Typography variant='body2' sx={{ mb: 1 }}>
+              <strong>Click and drag</strong> on the calendar below to select
+              your desired time range. A dialog will appear to confirm your
+              selection and proceed to booking.
+            </Typography>
+            <Typography
+              variant='caption'
+              color='text.secondary'
+              sx={{ display: 'block', fontStyle: 'italic' }}
+            >
+              📍 All times are shown in your local timezone (
+              {getTimezoneAbbreviation()})
+            </Typography>
+          </Alert>
         )}
 
         <Box
@@ -1019,6 +1348,10 @@ export function CoachSchedule() {
                 theme.palette.mode === 'light'
                   ? theme.palette.background.paper
                   : alpha(theme.palette.background.paper, 0.5),
+              '&.fc-non-business': {
+                backgroundColor: alpha(theme.palette.grey[500], 0.05),
+                opacity: 0.6,
+              },
             },
             '& .fc-day-today': {
               backgroundColor: alpha(theme.palette.primary.main, 0.1),
@@ -1060,6 +1393,17 @@ export function CoachSchedule() {
             '& .fc-timegrid-slot': {
               height: '2.5em',
             },
+            // Highlight available business hours (background events)
+            '& .fc-bg-event': {
+              backgroundColor: alpha(
+                theme.palette.success?.main || '#4caf50',
+                0.15
+              ),
+              border: `1px solid ${alpha(
+                theme.palette.success?.main || '#4caf50',
+                0.2
+              )}`,
+            },
             '& .fc-select-highlight': {
               backgroundColor: alpha(
                 theme.palette.success?.main || '#4caf50',
@@ -1100,15 +1444,12 @@ export function CoachSchedule() {
             }
             eventResizableFromStart={canCreateEvents}
             selectable={
-              canCreateEvents &&
-              (currentView === 'timeGridDay' || currentView === 'timeGridWeek')
+              currentView === 'timeGridDay' || currentView === 'timeGridWeek'
             }
             selectMirror={true}
             selectOverlap={false}
-            selectConstraint={{
-              start: '00:00',
-              end: '24:00',
-            }}
+            businessHours={getBusinessHours()}
+            selectConstraint={getSelectConstraint()}
             dayMaxEvents={true}
             weekends={true}
             select={handleDateSelect}
@@ -1190,7 +1531,7 @@ export function CoachSchedule() {
                 </Box>
               )}
 
-              {isAdminMode && (
+              {isAdminMode ? (
                 <>
                   <Divider sx={{ my: 3 }} />
                   <Typography variant='h6' sx={{ mb: 2, fontWeight: 600 }}>
@@ -1268,6 +1609,85 @@ export function CoachSchedule() {
                     }}
                   />
                 </>
+              ) : (
+                <>
+                  <Divider sx={{ my: 3 }} />
+                  <Typography variant='h6' sx={{ mb: 2, fontWeight: 600 }}>
+                    Quick Booking
+                  </Typography>
+                  <Typography
+                    variant='body2'
+                    color='text.secondary'
+                    sx={{ mb: 2 }}
+                  >
+                    Fill in the essential information to submit your booking
+                    request. Times are shown in your local timezone (
+                    {getTimezoneAbbreviation()}).
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    label='Character Name'
+                    value={quickBookingFormData.characterName}
+                    onChange={e =>
+                      setQuickBookingFormData({
+                        ...quickBookingFormData,
+                        characterName: e.target.value,
+                      })
+                    }
+                    sx={{ mb: 2 }}
+                    required
+                    InputLabelProps={{
+                      required: true,
+                      sx: {
+                        '& .MuiInputLabel-asterisk': {
+                          color: 'error.main',
+                        },
+                      },
+                    }}
+                  />
+                  <TextField
+                    fullWidth
+                    label='Character Realm'
+                    value={quickBookingFormData.characterRealm}
+                    onChange={e =>
+                      setQuickBookingFormData({
+                        ...quickBookingFormData,
+                        characterRealm: e.target.value,
+                      })
+                    }
+                    sx={{ mb: 2 }}
+                    required
+                    InputLabelProps={{
+                      required: true,
+                      sx: {
+                        '& .MuiInputLabel-asterisk': {
+                          color: 'error.main',
+                        },
+                      },
+                    }}
+                  />
+                  <TextField
+                    fullWidth
+                    label='Discord Username'
+                    value={quickBookingFormData.discordUsername}
+                    onChange={e =>
+                      setQuickBookingFormData({
+                        ...quickBookingFormData,
+                        discordUsername: e.target.value,
+                      })
+                    }
+                    sx={{ mb: 2 }}
+                    required
+                    InputLabelProps={{
+                      required: true,
+                      sx: {
+                        '& .MuiInputLabel-asterisk': {
+                          color: 'error.main',
+                        },
+                      },
+                    }}
+                  />
+                </>
               )}
             </Box>
           )}
@@ -1297,54 +1717,9 @@ export function CoachSchedule() {
             </Button>
           ) : (
             <Button
-              onClick={() => {
-                if (selectedTimeRange) {
-                  const startYear = selectedTimeRange.start.getFullYear();
-                  const startMonth = String(
-                    selectedTimeRange.start.getMonth() + 1
-                  ).padStart(2, '0');
-                  const startDay = String(
-                    selectedTimeRange.start.getDate()
-                  ).padStart(2, '0');
-                  const startHours = String(
-                    selectedTimeRange.start.getHours()
-                  ).padStart(2, '0');
-                  const startMinutes = String(
-                    selectedTimeRange.start.getMinutes()
-                  ).padStart(2, '0');
-                  const formattedStartDate = `${startYear}-${startMonth}-${startDay}T${startHours}:${startMinutes}`;
-
-                  const endYear = selectedTimeRange.end.getFullYear();
-                  const endMonth = String(
-                    selectedTimeRange.end.getMonth() + 1
-                  ).padStart(2, '0');
-                  const endDay = String(
-                    selectedTimeRange.end.getDate()
-                  ).padStart(2, '0');
-                  const endHours = String(
-                    selectedTimeRange.end.getHours()
-                  ).padStart(2, '0');
-                  const endMinutes = String(
-                    selectedTimeRange.end.getMinutes()
-                  ).padStart(2, '0');
-                  const formattedEndDate = `${endYear}-${endMonth}-${endDay}T${endHours}:${endMinutes}`;
-
-                  // Calculate duration in hours and round to nearest integer
-                  const durationMs =
-                    selectedTimeRange.end.getTime() -
-                    selectedTimeRange.start.getTime();
-                  const durationHours = Math.round(
-                    durationMs / (1000 * 60 * 60)
-                  );
-                  // Clamp between 1 and 5 hours (form validation limits)
-                  const hours = Math.max(1, Math.min(5, durationHours));
-
-                  navigate(
-                    `${ROUTE_PATHS.booking}?date=${formattedStartDate}&endDate=${formattedEndDate}&hours=${hours}`
-                  );
-                }
-              }}
+              onClick={handleQuickBookingSubmit}
               variant='contained'
+              disabled={isSubmitting}
               sx={{
                 background: `linear-gradient(135deg, ${
                   theme.palette.primary.main
@@ -1353,7 +1728,7 @@ export function CoachSchedule() {
                 } 100%)`,
               }}
             >
-              Book This Time
+              {isSubmitting ? 'Submitting...' : 'Submit Booking Request'}
             </Button>
           )}
         </DialogActions>

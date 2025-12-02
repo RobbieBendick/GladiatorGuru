@@ -19,6 +19,11 @@ import {
   ToggleButton,
   useTheme,
   InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -28,6 +33,7 @@ import {
   Edit,
   Save,
   Close,
+  Delete,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
@@ -178,6 +184,8 @@ export function JobDetails() {
     message: string;
     severity: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, message: '', severity: 'success' });
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchJobDetails();
@@ -613,6 +621,64 @@ export function JobDetails() {
         return 'Cancelled';
       default:
         return 'Pending';
+    }
+  };
+
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!job || !id) return;
+
+    try {
+      setIsDeleting(true);
+      const token = getAuthToken();
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/jobs/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        setSnackbar({
+          open: true,
+          message: errorData.message || 'Failed to delete job',
+          severity: 'error',
+        });
+        setIsDeleting(false);
+        setDeleteDialogOpen(false);
+        return;
+      }
+
+      setSnackbar({
+        open: true,
+        message: 'Job deleted successfully',
+        severity: 'success',
+      });
+
+      // Navigate back after a short delay to show the success message
+      setTimeout(() => {
+        navigate(-1);
+      }, 1000);
+    } catch (err: any) {
+      console.error('Error deleting job:', err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to delete job',
+        severity: 'error',
+      });
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
     }
   };
 
@@ -1554,7 +1620,76 @@ export function JobDetails() {
             </Box>
           </>
         )}
+
+        {/* Delete Button - Only visible to admins when not in edit mode */}
+        {isUserAdmin && !isEditMode && (
+          <>
+            <Divider
+              sx={{
+                my: 3,
+                borderColor: theme => alpha(theme.palette.text.primary, 0.3),
+              }}
+            />
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                mt: 3,
+              }}
+            >
+              <Button
+                variant='outlined'
+                color='error'
+                startIcon={<Delete />}
+                onClick={handleDeleteClick}
+                sx={{ textTransform: 'none' }}
+              >
+                Delete Job
+              </Button>
+            </Box>
+          </>
+        )}
       </DetailsPaper>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        aria-labelledby='delete-dialog-title'
+        aria-describedby='delete-dialog-description'
+      >
+        <DialogTitle id='delete-dialog-title'>Delete Job?</DialogTitle>
+        <DialogContent>
+          <DialogContentText id='delete-dialog-description'>
+            Are you sure you want to delete this job? This action cannot be
+            undone. The job for{' '}
+            <strong>
+              {job?.characterName} - {job?.characterRealm}
+            </strong>{' '}
+            will be permanently removed.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={handleDeleteCancel}
+            color='inherit'
+            disabled={isDeleting}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color='error'
+            variant='contained'
+            disabled={isDeleting}
+            startIcon={
+              isDeleting ? <CircularProgress size={20} color='inherit' /> : null
+            }
+          >
+            {isDeleting ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar */}
       <Snackbar

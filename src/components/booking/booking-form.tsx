@@ -19,8 +19,14 @@ import {
   Select,
   FormControl,
   InputLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  IconButton,
 } from '@mui/material';
-import { ArrowBack, Send } from '@mui/icons-material';
+import { ArrowBack, Send, Delete } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { API_BASE_URL } from '../../config/api';
@@ -34,6 +40,85 @@ import {
   getClassColor,
   WowVersion,
 } from '../../constants/wow-classes';
+
+// LocalStorage keys
+const SAVED_CHARACTERS_KEY = 'gladiatorGuru_savedCharacters';
+const LAST_DISCORD_USERNAME_KEY = 'gladiatorGuru_lastDiscordUsername';
+
+// Interface for saved character
+interface SavedCharacter {
+  characterName: string;
+  characterRealm: string;
+  characterClass?: string;
+  characterSpec?: string;
+  version?: WowVersion;
+}
+
+// Utility functions for localStorage
+const getSavedCharacters = (): SavedCharacter[] => {
+  try {
+    const saved = localStorage.getItem(SAVED_CHARACTERS_KEY);
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error('Error loading saved characters:', error);
+    return [];
+  }
+};
+
+const saveCharacter = (character: SavedCharacter): void => {
+  try {
+    const saved = getSavedCharacters();
+    // Check if character already exists (case-insensitive)
+    const exists = saved.some(
+      c =>
+        c.characterName.toLowerCase() ===
+          character.characterName.toLowerCase() &&
+        c.characterRealm.toLowerCase() ===
+          character.characterRealm.toLowerCase()
+    );
+    if (!exists) {
+      // Add new character to the beginning of the array
+      const updated = [character, ...saved];
+      // Limit to last 10 characters
+      const limited = updated.slice(0, 10);
+      localStorage.setItem(SAVED_CHARACTERS_KEY, JSON.stringify(limited));
+    }
+  } catch (error) {
+    console.error('Error saving character:', error);
+  }
+};
+
+const deleteCharacter = (index: number): void => {
+  try {
+    const saved = getSavedCharacters();
+    const updated = saved.filter((_, i) => i !== index);
+    localStorage.setItem(SAVED_CHARACTERS_KEY, JSON.stringify(updated));
+  } catch (error) {
+    console.error('Error deleting character:', error);
+  }
+};
+
+// Utility functions for Discord username
+const getLastDiscordUsername = (): string => {
+  try {
+    return localStorage.getItem(LAST_DISCORD_USERNAME_KEY) || '';
+  } catch (error) {
+    console.error('Error loading last Discord username:', error);
+    return '';
+  }
+};
+
+const saveLastDiscordUsername = (username: string): void => {
+  try {
+    if (username.trim()) {
+      localStorage.setItem(LAST_DISCORD_USERNAME_KEY, username.trim());
+    }
+  } catch (error) {
+    console.error('Error saving Discord username:', error);
+  }
+};
 
 // Helper function to normalize class names to match file names
 const normalizeClassName = (className: string): string => {
@@ -50,6 +135,12 @@ const normalizeSpecName = (specName: string): string => {
     feralcombat: 'feral', // MOP uses "Feral Combat" but file is feral.png
   };
   return specNameMap[normalized] || normalized;
+};
+
+// Helper function to capitalize first letter
+const capitalizeFirst = (str: string): string => {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 };
 
 // Get class image path
@@ -241,6 +332,13 @@ export function BookingForm() {
     Partial<Record<keyof BookingFormData, string>>
   >({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [savedCharacters, setSavedCharacters] = useState<SavedCharacter[]>([]);
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string>('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [characterToDelete, setCharacterToDelete] = useState<{
+    index: number;
+    character: SavedCharacter;
+  } | null>(null);
 
   // Calculate min and max dates for date input
   const getMinDate = (): string => {
@@ -283,6 +381,93 @@ export function BookingForm() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Load saved characters from localStorage and default to last used
+  useEffect(() => {
+    const saved = getSavedCharacters();
+    setSavedCharacters(saved);
+
+    // Auto-select the first (most recent) character if available
+    // This runs on mount, and fetchLastBooking (if user is logged in) will run after
+    // and can override if the user has previous bookings
+    if (saved.length > 0) {
+      const lastCharacter = saved[0];
+      setSelectedCharacterId('0');
+      setFormData(prev => {
+        // Only set if fields are still empty (initial state)
+        if (!prev.characterName && !prev.characterRealm) {
+          return {
+            ...prev,
+            characterName: lastCharacter.characterName,
+            characterRealm: lastCharacter.characterRealm,
+            characterClass: lastCharacter.characterClass || '',
+            characterSpec: lastCharacter.characterSpec || '',
+            version: lastCharacter.version || prev.version,
+          };
+        }
+        return prev;
+      });
+    }
+
+    // Load last Discord username if user is not logged in
+    // (Logged-in users get it from their profile)
+    if (!user) {
+      const lastDiscordUsername = getLastDiscordUsername();
+      if (lastDiscordUsername) {
+        setFormData(prev => {
+          // Only set if field is still empty (initial state)
+          if (!prev.discordUsername) {
+            return {
+              ...prev,
+              discordUsername: lastDiscordUsername,
+            };
+          }
+          return prev;
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
+  // Handle delete confirmation
+  const handleDeleteClick = (
+    e: React.MouseEvent,
+    index: number,
+    character: SavedCharacter
+  ) => {
+    e.stopPropagation(); // Prevent selecting the character when clicking delete
+    setCharacterToDelete({ index, character });
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (characterToDelete) {
+      deleteCharacter(characterToDelete.index);
+      const updated = getSavedCharacters();
+      setSavedCharacters(updated);
+      // Clear selected character if it was deleted
+      if (selectedCharacterId === `${characterToDelete.index}`) {
+        setSelectedCharacterId('');
+        setFormData(prev => ({
+          ...prev,
+          characterName: '',
+          characterRealm: '',
+          characterClass: '',
+          characterSpec: '',
+        }));
+      } else if (parseInt(selectedCharacterId) > characterToDelete.index) {
+        // Adjust selected index if a character before it was deleted
+        setSelectedCharacterId(String(parseInt(selectedCharacterId) - 1));
+      }
+      setDeleteDialogOpen(false);
+      setCharacterToDelete(null);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setCharacterToDelete(null);
+  };
 
   // Pre-fill Discord username when user data is available
   useEffect(() => {
@@ -696,11 +881,14 @@ export function BookingForm() {
 
   const totalPrice = calculateTotalPrice();
 
-  // MenuProps for select dropdowns with grey background in light mode
+  // MenuProps for select dropdowns with white background in light mode
   const getMenuProps = () => ({
     PaperProps: {
       sx: {
-        backgroundColor: theme.palette.mode === 'light' ? '#f5f5f5' : undefined,
+        backgroundColor:
+          theme.palette.mode === 'light'
+            ? theme.palette.background.paper
+            : undefined,
       },
     },
   });
@@ -1099,6 +1287,18 @@ export function BookingForm() {
         throw new Error(errorMessage);
       }
 
+      // Save character to localStorage
+      saveCharacter({
+        characterName: formData.characterName.trim(),
+        characterRealm: formData.characterRealm.trim(),
+        characterClass: formData.characterClass || undefined,
+        characterSpec: formData.characterSpec || undefined,
+        version: formData.version || undefined,
+      });
+
+      // Save Discord username to localStorage
+      saveLastDiscordUsername(formData.discordUsername);
+
       // Navigate to success page
       navigate(ROUTE_PATHS.bookingSuccess);
     } catch (error: any) {
@@ -1274,14 +1474,279 @@ export function BookingForm() {
                 ⚔️ Character Information
               </Typography>
             </Grid>
-            <Grid item xs={12}>
+            {/* Saved Characters Dropdown */}
+            {savedCharacters.length > 0 && (
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <Select
+                    value={selectedCharacterId}
+                    onChange={e => {
+                      const id = e.target.value;
+                      setSelectedCharacterId(id);
+                      if (id && id !== '') {
+                        const index = parseInt(id, 10);
+                        const character = savedCharacters[index];
+                        if (character) {
+                          setFormData(prev => ({
+                            ...prev,
+                            characterName: character.characterName,
+                            characterRealm: character.characterRealm,
+                            characterClass: character.characterClass || '',
+                            characterSpec: character.characterSpec || '',
+                            version: (character.version ||
+                              prev.version) as WowVersion,
+                          }));
+                          // Clear errors for these fields
+                          setErrors(prev => ({
+                            ...prev,
+                            characterName: undefined,
+                            characterRealm: undefined,
+                            characterClass: undefined,
+                            characterSpec: undefined,
+                            version: undefined,
+                          }));
+                        }
+                      } else {
+                        // Clear form when "empty" is selected
+                        setFormData(prev => ({
+                          ...prev,
+                          characterName: '',
+                          characterRealm: '',
+                          characterClass: '',
+                          characterSpec: '',
+                        }));
+                      }
+                    }}
+                    displayEmpty
+                    MenuProps={getMenuProps()}
+                    sx={{
+                      backgroundColor:
+                        theme.palette.mode === 'light'
+                          ? theme.palette.background.paper
+                          : undefined,
+                    }}
+                    renderValue={value => {
+                      if (!value || value === '') return '';
+                      const index = parseInt(value, 10);
+                      if (
+                        isNaN(index) ||
+                        index < 0 ||
+                        index >= savedCharacters.length
+                      )
+                        return '';
+                      const character = savedCharacters[index];
+                      if (!character) return '';
+                      const classColor = character.characterClass
+                        ? getReadableClassColor(character.characterClass)
+                        : undefined;
+                      return (
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                          }}
+                        >
+                          {character.characterClass && (
+                            <>
+                              <img
+                                src={getClassImagePath(
+                                  character.characterClass
+                                )}
+                                alt={character.characterClass}
+                                style={{
+                                  width: 28,
+                                  height: 28,
+                                  objectFit: 'contain',
+                                }}
+                                onError={e => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                              {character.characterSpec && (
+                                <img
+                                  src={getSpecImagePath(
+                                    character.characterClass,
+                                    character.characterSpec
+                                  )}
+                                  alt={character.characterSpec}
+                                  style={{
+                                    width: 28,
+                                    height: 28,
+                                    objectFit: 'contain',
+                                  }}
+                                  onError={e => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              )}
+                            </>
+                          )}
+                          <Typography
+                            sx={{
+                              color: classColor || 'text.primary',
+                              fontWeight: 500,
+                            }}
+                          >
+                            {capitalizeFirst(character.characterName)} -{' '}
+                            {capitalizeFirst(character.characterRealm)}
+                          </Typography>
+                        </Box>
+                      );
+                    }}
+                  >
+                    {savedCharacters.map((character, index) => {
+                      const classColor = character.characterClass
+                        ? getReadableClassColor(character.characterClass)
+                        : undefined;
+                      return (
+                        <MenuItem
+                          key={index}
+                          value={`${index}`}
+                          onClick={() => {
+                            // Always repopulate the form when a character is clicked,
+                            // even if it's the same one that's already selected
+                            setSelectedCharacterId(`${index}`);
+                            setFormData(prev => ({
+                              ...prev,
+                              characterName: character.characterName,
+                              characterRealm: character.characterRealm,
+                              characterClass: character.characterClass || '',
+                              characterSpec: character.characterSpec || '',
+                              version: (character.version ||
+                                prev.version) as WowVersion,
+                            }));
+                            // Clear errors for these fields
+                            setErrors(prev => ({
+                              ...prev,
+                              characterName: undefined,
+                              characterRealm: undefined,
+                              characterClass: undefined,
+                              characterSpec: undefined,
+                              version: undefined,
+                            }));
+                          }}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1.5,
+                            py: 1.5,
+                            '&:hover': {
+                              backgroundColor: classColor
+                                ? alpha(classColor, 0.1)
+                                : undefined,
+                            },
+                          }}
+                        >
+                          {character.characterClass && (
+                            <>
+                              <img
+                                src={getClassImagePath(
+                                  character.characterClass
+                                )}
+                                alt={character.characterClass}
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  objectFit: 'contain',
+                                }}
+                                onError={e => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                              {character.characterSpec && (
+                                <img
+                                  src={getSpecImagePath(
+                                    character.characterClass,
+                                    character.characterSpec
+                                  )}
+                                  alt={character.characterSpec}
+                                  style={{
+                                    width: 32,
+                                    height: 32,
+                                    objectFit: 'contain',
+                                  }}
+                                  onError={e => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              )}
+                            </>
+                          )}
+                          <Box
+                            sx={{
+                              flex: 1,
+                              display: 'flex',
+                              flexDirection: 'column',
+                            }}
+                          >
+                            <Typography
+                              sx={{
+                                color: classColor || 'text.primary',
+                                fontWeight: 600,
+                              }}
+                            >
+                              {capitalizeFirst(character.characterName)} -{' '}
+                              {capitalizeFirst(character.characterRealm)}
+                            </Typography>
+                            {character.characterClass && (
+                              <Typography
+                                variant='caption'
+                                sx={{
+                                  color: 'text.secondary',
+                                  fontSize: '0.75rem',
+                                }}
+                              >
+                                {character.characterClass}
+                                {character.characterSpec &&
+                                  ` - ${character.characterSpec}`}
+                              </Typography>
+                            )}
+                          </Box>
+                          <IconButton
+                            size='small'
+                            onClick={e =>
+                              handleDeleteClick(e, index, character)
+                            }
+                            sx={{
+                              color: 'error.main',
+                              '&:hover': {
+                                backgroundColor: alpha(
+                                  theme.palette.error.main,
+                                  0.1
+                                ),
+                              },
+                            }}
+                          >
+                            <Delete fontSize='small' />
+                          </IconButton>
+                        </MenuItem>
+                      );
+                    })}
+                  </Select>
+                  <FormHelperText sx={{ mb: 2 }}>
+                    Select a character you've used before, or enter a new one
+                    below
+                  </FormHelperText>
+                </FormControl>
+              </Grid>
+            )}
+            <Grid item xs={12} sx={{ pt: savedCharacters.length > 0 ? 1 : 0 }}>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <StyledTextField
                     fullWidth
                     label='Character Name'
                     value={formData.characterName}
-                    onChange={handleChange('characterName')}
+                    onChange={e => {
+                      handleChange('characterName')(
+                        e as React.ChangeEvent<HTMLInputElement>
+                      );
+                      // Clear selected character when user types manually
+                      if (selectedCharacterId) {
+                        setSelectedCharacterId('');
+                      }
+                    }}
                     error={!!errors.characterName}
                     helperText={errors.characterName}
                     required
@@ -1292,7 +1757,15 @@ export function BookingForm() {
                     fullWidth
                     label='Character Realm'
                     value={formData.characterRealm}
-                    onChange={handleChange('characterRealm')}
+                    onChange={e => {
+                      handleChange('characterRealm')(
+                        e as React.ChangeEvent<HTMLInputElement>
+                      );
+                      // Clear selected character when user types manually
+                      if (selectedCharacterId) {
+                        setSelectedCharacterId('');
+                      }
+                    }}
                     error={!!errors.characterRealm}
                     helperText={errors.characterRealm}
                     required
@@ -1399,29 +1872,50 @@ export function BookingForm() {
                 >
                   Pick any day you're available
                 </Typography>
-                <StyledTextField
-                  fullWidth
-                  type='date'
-                  label='Date'
-                  value={formData.availabilityDate}
-                  onChange={handleChange('availabilityDate')}
-                  error={!!errors.availabilityDate}
-                  helperText={
-                    errors.availabilityDate ||
-                    'Choose a date for your coaching session'
-                  }
-                  required
-                  inputProps={{
-                    min: minDate,
-                    max: maxDate,
-                  }}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                  FormHelperTextProps={{
-                    sx: { marginLeft: 0 },
-                  }}
-                />
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                  <StyledTextField
+                    fullWidth
+                    type='date'
+                    label='Date'
+                    value={formData.availabilityDate}
+                    onChange={handleChange('availabilityDate')}
+                    error={!!errors.availabilityDate}
+                    helperText={
+                      errors.availabilityDate ||
+                      'Choose a date for your coaching session'
+                    }
+                    required
+                    inputProps={{
+                      min: minDate,
+                      max: maxDate,
+                    }}
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                    FormHelperTextProps={{
+                      sx: { marginLeft: 0 },
+                    }}
+                  />
+                  <Button
+                    variant='text'
+                    onClick={() => {
+                      const today = getMinDate();
+                      handleChange('availabilityDate')({
+                        target: { value: today },
+                      } as React.ChangeEvent<HTMLInputElement>);
+                    }}
+                    sx={{
+                      mt: 1,
+                      textTransform: 'none',
+                      color: 'primary.main',
+                      '&:hover': {
+                        backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                      },
+                    }}
+                  >
+                    Today
+                  </Button>
+                </Box>
               </Box>
             </Grid>
 
@@ -1482,7 +1976,7 @@ export function BookingForm() {
                             sx={{
                               backgroundColor:
                                 theme.palette.mode === 'light'
-                                  ? '#f5f5f5'
+                                  ? theme.palette.background.paper
                                   : undefined,
                             }}
                           >
@@ -1514,7 +2008,7 @@ export function BookingForm() {
                             sx={{
                               backgroundColor:
                                 theme.palette.mode === 'light'
-                                  ? '#f5f5f5'
+                                  ? theme.palette.background.paper
                                   : undefined,
                             }}
                           >
@@ -1543,7 +2037,7 @@ export function BookingForm() {
                             sx={{
                               backgroundColor:
                                 theme.palette.mode === 'light'
-                                  ? '#f5f5f5'
+                                  ? theme.palette.background.paper
                                   : undefined,
                             }}
                           >
@@ -1614,7 +2108,7 @@ export function BookingForm() {
                             sx={{
                               backgroundColor:
                                 theme.palette.mode === 'light'
-                                  ? '#f5f5f5'
+                                  ? theme.palette.background.paper
                                   : undefined,
                             }}
                           >
@@ -1646,7 +2140,7 @@ export function BookingForm() {
                             sx={{
                               backgroundColor:
                                 theme.palette.mode === 'light'
-                                  ? '#f5f5f5'
+                                  ? theme.palette.background.paper
                                   : undefined,
                             }}
                           >
@@ -1675,7 +2169,7 @@ export function BookingForm() {
                             sx={{
                               backgroundColor:
                                 theme.palette.mode === 'light'
-                                  ? '#f5f5f5'
+                                  ? theme.palette.background.paper
                                   : undefined,
                             }}
                           >
@@ -2156,6 +2650,41 @@ export function BookingForm() {
           </Grid>
         </form>
       </FormPaper>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        aria-labelledby='delete-dialog-title'
+        aria-describedby='delete-dialog-description'
+      >
+        <DialogTitle id='delete-dialog-title'>Delete Character?</DialogTitle>
+        <DialogContent>
+          <DialogContentText id='delete-dialog-description'>
+            Are you sure you want to delete{' '}
+            {characterToDelete
+              ? `${capitalizeFirst(
+                  characterToDelete.character.characterName
+                )}-${capitalizeFirst(
+                  characterToDelete.character.characterRealm
+                )}`
+              : 'this character'}
+            ?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteCancel} color='inherit'>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color='error'
+            variant='contained'
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

@@ -515,7 +515,14 @@ function ResponsiveNavBar() {
                         Settings
                       </MenuItem>
                     )}
-                    <MenuItem onClick={handleLogout}>
+                    <MenuItem
+                      onClick={handleLogout}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        py: 1.5,
+                      }}
+                    >
                       <LogoutIcon sx={{ mr: 1.5 }} />
                       Logout
                     </MenuItem>

@@ -10,6 +10,12 @@ import {
 import { getAuthToken, removeAuthToken } from '../config/auth';
 import { API_BASE_URL } from '../config/api';
 
+export interface AvailabilitySlot {
+  dayOfWeek: number; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  startTime: string; // Format: "HH:mm" (e.g., "09:00")
+  endTime: string; // Format: "HH:mm" (e.g., "17:00")
+}
+
 export interface User {
   id: string;
   username: string;
@@ -18,6 +24,8 @@ export interface User {
   discordUsername?: string;
   coachAlias?: string;
   email?: string;
+  timezone?: string;
+  availability?: AvailabilitySlot[];
 }
 
 interface UserContextType {
