@@ -26,7 +26,7 @@ import {
   DialogActions,
   IconButton,
 } from '@mui/material';
-import { ArrowBack, Send, Delete } from '@mui/icons-material';
+import { Send, Delete } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { API_BASE_URL } from '../../config/api';
@@ -1325,12 +1325,19 @@ export function BookingForm() {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/jobs`, {
+      const url = `${API_BASE_URL}/api/jobs`;
+      console.log('Making request to:', url);
+      console.log('API_BASE_URL:', API_BASE_URL);
+
+      const response = await fetch(url, {
         method: 'POST',
         headers,
         credentials: 'include',
         body: JSON.stringify(submitData),
       });
+
+      console.log('Response status:', response.status, response.statusText);
+      console.log('Response URL:', response.url);
 
       if (!response.ok) {
         // Try to get error message from response
@@ -1342,10 +1349,20 @@ export function BookingForm() {
           console.error('API Error:', errorData);
         } catch (e) {
           console.error(
-            'Response status:',
+            'Failed to parse error response. Status:',
             response.status,
             response.statusText
           );
+          // Try to get response text
+          try {
+            const errorText = await response.text();
+            console.error('Error response text:', errorText);
+            if (errorText) {
+              errorMessage = errorText;
+            }
+          } catch (textError) {
+            console.error('Could not read error response text');
+          }
         }
         throw new Error(errorMessage);
       }

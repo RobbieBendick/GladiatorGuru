@@ -1328,9 +1328,11 @@ export function CoachSchedule() {
 
   // Convert availability slots to FullCalendar businessHours format
   // Converts times from coach's timezone to user's local timezone
+  // Always return businessHours for visual styling (shows unavailable times)
+  // Constraints are handled separately via selectConstraint and eventConstraint
   const getBusinessHours = () => {
     if (!coachAvailability || coachAvailability.length === 0) {
-      return undefined; // No restrictions if no availability set
+      return undefined; // No visual styling if no availability set
     }
 
     // Get user's IANA timezone
@@ -1405,7 +1407,16 @@ export function CoachSchedule() {
   };
 
   // Get select constraint - use businessHours to restrict selection to available times
+  // Admins and schedule owners can select/drag anywhere (no restrictions)
   const getSelectConstraint = () => {
+    // Allow admins and schedule owners to select/drag anywhere
+    if (isAdminMode) {
+      return {
+        start: '00:00',
+        end: '24:00',
+      };
+    }
+
     if (!coachAvailability || coachAvailability.length === 0) {
       // No availability restrictions - allow all times
       return {
@@ -1413,12 +1424,41 @@ export function CoachSchedule() {
         end: '24:00',
       };
     }
-    // Restrict selection to business hours (availability)
+    // Restrict selection to business hours (availability) for regular users
+    return 'businessHours';
+  };
+
+  // Get event constraint - restricts where existing events can be dragged
+  // Admins and schedule owners can drag events anywhere (no restrictions)
+  const getEventConstraint = () => {
+    // Allow admins and schedule owners to drag events anywhere
+    if (isAdminMode) {
+      return {
+        start: '00:00',
+        end: '24:00',
+      };
+    }
+
+    if (!coachAvailability || coachAvailability.length === 0) {
+      // No availability restrictions - allow all times
+      return {
+        start: '00:00',
+        end: '24:00',
+      };
+    }
+    // Restrict event dragging to business hours (availability) for regular users
     return 'businessHours';
   };
 
   // Get valid range - prevent selection of past dates (allow 2 days ago and future)
+  // Admins and schedule owners can drag to any date, including past dates
   const getValidRange = () => {
+    // Allow admins and schedule owners to drag to any date (no restrictions)
+    if (isAdminMode) {
+      return undefined; // No date restrictions for admins/owners
+    }
+
+    // Regular users: prevent selection of past dates (allow 2 days ago and future)
     const twoDaysAgo = new Date();
     twoDaysAgo.setDate(twoDaysAgo.getDate() - 2); // 2 days ago
     twoDaysAgo.setHours(0, 0, 0, 0);
@@ -1672,6 +1712,7 @@ export function CoachSchedule() {
             selectOverlap={false}
             businessHours={getBusinessHours()}
             selectConstraint={getSelectConstraint()}
+            eventConstraint={getEventConstraint()}
             validRange={getValidRange()}
             dayMaxEvents={true}
             weekends={true}

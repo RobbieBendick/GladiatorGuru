@@ -401,6 +401,19 @@ export function AdminDashboard() {
     return formatDateRangeWithTimezone(startDate, endDate);
   };
 
+  const formatCreatedAt = (createdAt?: string) => {
+    if (!createdAt) return '-';
+    const date = new Date(createdAt);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
   return (
     <Container maxWidth='xl' sx={{ py: 4 }}>
       <Box
@@ -515,6 +528,7 @@ export function AdminDashboard() {
                   <TableCell>Availability</TableCell>
                   <TableCell>Goal</TableCell>
                   <TableCell>Status</TableCell>
+                  <TableCell>Created At</TableCell>
                   <TableCell>Coaches</TableCell>
                   {!deleteMode && <TableCell>Actions</TableCell>}
                 </TableRow>
@@ -584,6 +598,7 @@ export function AdminDashboard() {
                         <MenuItem value='cancelled'>Cancelled</MenuItem>
                       </Select>
                     </TableCell>
+                    <TableCell>{formatCreatedAt(job.createdAt)}</TableCell>
                     <TableCell
                       onClick={e => e.stopPropagation()}
                       sx={{ cursor: 'default' }}
