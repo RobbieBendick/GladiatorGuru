@@ -44,6 +44,7 @@ import {
 // LocalStorage keys
 const SAVED_CHARACTERS_KEY = 'gladiatorGuru_savedCharacters';
 const LAST_DISCORD_USERNAME_KEY = 'gladiatorGuru_lastDiscordUsername';
+const LAST_SELECTED_CHARACTER_KEY = 'gladiatorGuru_lastSelectedCharacter';
 
 // Interface for saved character
 interface SavedCharacter {
@@ -97,6 +98,29 @@ const deleteCharacter = (index: number): void => {
     localStorage.setItem(SAVED_CHARACTERS_KEY, JSON.stringify(updated));
   } catch (error) {
     console.error('Error deleting character:', error);
+  }
+};
+
+// Utility functions for last selected character
+const getLastSelectedCharacter = (): SavedCharacter | null => {
+  try {
+    const saved = localStorage.getItem(LAST_SELECTED_CHARACTER_KEY);
+    if (!saved) return null;
+    return JSON.parse(saved);
+  } catch (error) {
+    console.error('Error loading last selected character:', error);
+    return null;
+  }
+};
+
+const setLastSelectedCharacter = (character: SavedCharacter): void => {
+  try {
+    localStorage.setItem(
+      LAST_SELECTED_CHARACTER_KEY,
+      JSON.stringify(character)
+    );
+  } catch (error) {
+    console.error('Error saving last selected character:', error);
   }
 };
 
@@ -382,27 +406,51 @@ export function BookingForm() {
     return () => clearInterval(interval);
   }, []);
 
-  // Load saved characters from localStorage and default to last used
+  // Load saved characters from localStorage and default to last selected
   useEffect(() => {
     const saved = getSavedCharacters();
     setSavedCharacters(saved);
 
-    // Auto-select the first (most recent) character if available
+    // Try to find and use the last selected character
     // This runs on mount, and fetchLastBooking (if user is logged in) will run after
     // and can override if the user has previous bookings
     if (saved.length > 0) {
-      const lastCharacter = saved[0];
-      setSelectedCharacterId('0');
+      const lastSelected = getLastSelectedCharacter();
+      let characterToUse: SavedCharacter | null = null;
+      let characterIndex = 0;
+
+      if (lastSelected) {
+        // Try to find the last selected character in the saved list
+        const foundIndex = saved.findIndex(
+          c =>
+            c.characterName.toLowerCase() ===
+              lastSelected.characterName.toLowerCase() &&
+            c.characterRealm.toLowerCase() ===
+              lastSelected.characterRealm.toLowerCase()
+        );
+        if (foundIndex !== -1) {
+          characterToUse = saved[foundIndex];
+          characterIndex = foundIndex;
+        }
+      }
+
+      // If no last selected character found, use the first one (most recent)
+      if (!characterToUse) {
+        characterToUse = saved[0];
+        characterIndex = 0;
+      }
+
+      setSelectedCharacterId(String(characterIndex));
       setFormData(prev => {
         // Only set if fields are still empty (initial state)
         if (!prev.characterName && !prev.characterRealm) {
           return {
             ...prev,
-            characterName: lastCharacter.characterName,
-            characterRealm: lastCharacter.characterRealm,
-            characterClass: lastCharacter.characterClass || '',
-            characterSpec: lastCharacter.characterSpec || '',
-            version: lastCharacter.version || prev.version,
+            characterName: characterToUse!.characterName,
+            characterRealm: characterToUse!.characterRealm,
+            characterClass: characterToUse!.characterClass || '',
+            characterSpec: characterToUse!.characterSpec || '',
+            version: characterToUse!.version || prev.version,
           };
         }
         return prev;
@@ -1166,6 +1214,7 @@ export function BookingForm() {
       newErrors.availabilityEndTime = 'End time is required';
     } else if (formData.availabilityStartTime) {
       // Check if end time is after start time
+      // If end time is less than start time, it's assumed to be the next day (e.g., 11pm to 1am)
       const [startHours, startMinutes] = formData.availabilityStartTime
         .split(':')
         .map(Number);
@@ -1174,8 +1223,15 @@ export function BookingForm() {
         .map(Number);
 
       const startTotalMinutes = startHours * 60 + startMinutes;
-      const endTotalMinutes = endHours * 60 + endMinutes;
+      let endTotalMinutes = endHours * 60 + endMinutes;
 
+      // If end time is less than start time, assume it's the next day
+      if (endTotalMinutes <= startTotalMinutes) {
+        endTotalMinutes += 24 * 60; // Add 24 hours
+      }
+
+      // End time should be at least some minutes after start time
+      // (Allow same time or very close times to be caught by minimum duration check)
       if (endTotalMinutes <= startTotalMinutes) {
         newErrors.availabilityEndTime = 'End time must be after start time';
       }
@@ -1224,7 +1280,14 @@ export function BookingForm() {
         startHours,
         startMinutes
       );
-      const endDateLocal = new Date(year, month - 1, day, endHours, endMinutes);
+
+      // If end time is less than start time, assume it's the next day
+      let endDateLocal = new Date(year, month - 1, day, endHours, endMinutes);
+      if (endDateLocal <= startDateLocal) {
+        // Add one day to end date
+        endDateLocal = new Date(endDateLocal);
+        endDateLocal.setDate(endDateLocal.getDate() + 1);
+      }
 
       // Convert to ISO string (UTC) - this preserves the actual moment in time
       const availabilityStartDateTime = startDateLocal.toISOString();
@@ -1313,16 +1376,6 @@ export function BookingForm() {
 
   return (
     <Container maxWidth='md' sx={{ pb: 4 }}>
-      <Box sx={{ mb: 3 }}>
-        <Button
-          startIcon={<ArrowBack />}
-          onClick={() => navigate(ROUTE_PATHS.home)}
-          sx={{ mb: 2 }}
-        >
-          Back to Home
-        </Button>
-      </Box>
-
       <FormPaper elevation={3}>
         <FormTitle
           variant='h2'
@@ -1487,6 +1540,8 @@ export function BookingForm() {
                         const index = parseInt(id, 10);
                         const character = savedCharacters[index];
                         if (character) {
+                          // Save as last selected character
+                          setLastSelectedCharacter(character);
                           setFormData(prev => ({
                             ...prev,
                             characterName: character.characterName,
@@ -1607,6 +1662,8 @@ export function BookingForm() {
                             // Always repopulate the form when a character is clicked,
                             // even if it's the same one that's already selected
                             setSelectedCharacterId(`${index}`);
+                            // Save as last selected character
+                            setLastSelectedCharacter(character);
                             setFormData(prev => ({
                               ...prev,
                               characterName: character.characterName,

@@ -15,7 +15,7 @@ export const ToggleColorModeButton = ({ color }: { color?: string }) => {
     <Tooltip
       title={`Toggle ${mode === 'light' ? 'Dark' : 'Light'} Mode`}
       placement='bottom'
-      sx={{ marginLeft: '7px' }}
+      sx={{ marginRight: '7px' }}
     >
       <IconButton color='inherit' onClick={handleToggleColorMode}>
         {mode === 'light' ? (
@@ -29,4 +29,3 @@ export const ToggleColorModeButton = ({ color }: { color?: string }) => {
     </Tooltip>
   );
 };
-

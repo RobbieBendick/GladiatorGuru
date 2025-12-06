@@ -63,7 +63,7 @@ export function CoachList() {
 
       if (response.status === 401 || response.status === 403) {
         removeAuthToken();
-        navigate(ROUTE_PATHS.adminLogin);
+        navigate(ROUTE_PATHS.login);
         return;
       }
 

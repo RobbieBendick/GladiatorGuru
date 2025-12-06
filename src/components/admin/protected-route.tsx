@@ -107,11 +107,11 @@ export function ProtectedRoute({
   }
 
   if (!authenticated || !userRole || !allowedRoles.includes(userRole as any)) {
-    // Redirect based on what roles are allowed
-    if (allowedRoles.includes('admin') && !allowedRoles.includes('coach')) {
-      return <Navigate to={ROUTE_PATHS.adminLogin} replace />;
-    }
-    return <Navigate to={ROUTE_PATHS.home} replace />;
+    // Redirect to login with redirect parameter
+    const redirectTo = encodeURIComponent(location.pathname + location.search);
+    return (
+      <Navigate to={`${ROUTE_PATHS.login}?redirect=${redirectTo}`} replace />
+    );
   }
 
   return <>{children}</>;

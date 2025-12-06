@@ -44,7 +44,9 @@ import {
   getUserId,
   isAuthenticated,
 } from '../../config/auth';
+import { useUser } from '../../contexts/UserContext';
 import { getTimezoneAbbreviation } from '../../utils/timezone';
+import { initiateDiscordOAuth } from '../../config/discord-oauth';
 import {
   Class,
   getAvailableVersions,
@@ -147,6 +149,7 @@ interface Job {
   availabilityStartDateTime: string;
   availabilityEndDateTime: string;
   discordUsername: string;
+  discordId?: string;
   goal?: string;
   adminNotes?: string;
   status?:
@@ -169,9 +172,13 @@ interface Coach {
 export function JobDetails() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { user } = useUser();
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<
+    'not_authenticated' | 'no_permission' | 'other' | null
+  >(null);
   const [isUserAdmin, setIsUserAdmin] = useState(false);
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [availableCoaches, setAvailableCoaches] = useState<Coach[]>([]);
@@ -248,6 +255,7 @@ export function JobDetails() {
     try {
       setLoading(true);
       setError(null);
+      setErrorType(null);
 
       if (!id) {
         setError('Job ID is required');
@@ -268,28 +276,46 @@ export function JobDetails() {
         const data = await response.json();
         const jobData = data.data || data;
 
-        // Check if user has permission to view (must be authenticated and either admin or assigned coach)
+        // Check if user has permission to view (must be authenticated and either admin, assigned coach, or customer)
         const userId = getUserId();
         const userIsAuthenticated = isAuthenticated();
         const userIsAdmin = isAdmin();
 
         if (!userIsAuthenticated || !userId) {
-          // User is not authenticated - deny access
-          setError('Access Denied');
+          // User is not authenticated - show message about signing in
+          setError('Please sign in with Discord to view this job');
+          setErrorType('not_authenticated');
           setLoading(false);
           return;
         }
 
-        // Check if user is assigned to this job
+        // Check if user is assigned to this job as a coach
         const userIsAssigned =
           jobData.coachIds &&
           jobData.coachIds.some(
             (coachId: string) => coachId.toString() === userId.toString()
           );
 
-        if (!userIsAdmin && !userIsAssigned) {
-          // User is authenticated but not admin or assigned coach - deny access
-          setError('Access Denied');
+        // Check if user is the customer (by Discord ID match)
+        const userIsCustomer =
+          user?.discordId &&
+          jobData.discordId &&
+          user.discordId === jobData.discordId;
+
+        if (!userIsAdmin && !userIsAssigned && !userIsCustomer) {
+          // User is authenticated but not admin, assigned coach, or customer
+          // Check if they might need to sign in with the correct Discord account
+          if (!user?.discordId) {
+            setError(
+              'Please sign in with Discord to view this job. Make sure you use the same Discord account that was used to create this booking.'
+            );
+            setErrorType('not_authenticated');
+          } else {
+            setError(
+              'You do not have permission to view this job. Please make sure you are signed in with the Discord account that was used to create this booking.'
+            );
+            setErrorType('no_permission');
+          }
           setLoading(false);
           return;
         }
@@ -298,10 +324,18 @@ export function JobDetails() {
         setJob(jobData);
       } else if (response.status === 404) {
         setError('Job not found');
-      } else if (response.status === 403 || response.status === 401) {
-        setError('Access Denied');
+        setErrorType('other');
+      } else if (response.status === 401) {
+        setError('Please sign in with Discord to view this job');
+        setErrorType('not_authenticated');
+      } else if (response.status === 403) {
+        setError(
+          'You do not have permission to view this job. Please make sure you are signed in with the Discord account that was used to create this booking.'
+        );
+        setErrorType('no_permission');
       } else {
         setError('Unable to load job details. Please try again later.');
+        setErrorType('other');
       }
     } catch (err: any) {
       console.error('Error fetching job details:', err);
@@ -711,18 +745,16 @@ export function JobDetails() {
   }
 
   if (error || !job) {
-    const isAccessDenied = error === 'Access Denied';
+    const isAccessDenied =
+      errorType === 'not_authenticated' ||
+      errorType === 'no_permission' ||
+      (error && error.includes('sign in'));
+    const needsDiscordLogin =
+      errorType === 'not_authenticated' ||
+      (error && error.includes('sign in with Discord'));
+
     return (
       <Container maxWidth='lg'>
-        <Box sx={{ mb: 3 }}>
-          <Button
-            startIcon={<ArrowBack />}
-            onClick={() => navigate(ROUTE_PATHS.home)}
-            sx={{ mb: 2 }}
-          >
-            Back to Home
-          </Button>
-        </Box>
         <DetailsPaper elevation={3}>
           <Box
             sx={{
@@ -763,19 +795,51 @@ export function JobDetails() {
               color='text.secondary'
               sx={{ mb: 3, maxWidth: '600px', mx: 'auto' }}
             >
-              {isAccessDenied
-                ? 'You do not have permission to view this job. Please contact an administrator if you believe this is an error.'
-                : error || 'Job not found'}
+              {error || 'Job not found'}
             </Typography>
-            {isAccessDenied && (
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 2,
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+              }}
+            >
+              {needsDiscordLogin && (
+                <Button
+                  variant='contained'
+                  onClick={async () => {
+                    try {
+                      await initiateDiscordOAuth();
+                    } catch (err) {
+                      console.error('Failed to initiate Discord login:', err);
+                    }
+                  }}
+                  startIcon={
+                    <Box
+                      component='img'
+                      src='/discord.png'
+                      alt='Discord'
+                      sx={{ width: 20, height: 20 }}
+                    />
+                  }
+                  sx={{
+                    backgroundColor: '#5865F2',
+                    '&:hover': {
+                      backgroundColor: '#4752C4',
+                    },
+                  }}
+                >
+                  Sign in with Discord
+                </Button>
+              )}
               <Button
-                variant='outlined'
+                variant={needsDiscordLogin ? 'outlined' : 'contained'}
                 onClick={() => navigate(ROUTE_PATHS.home)}
-                sx={{ mt: 2 }}
               >
                 Return to Home
               </Button>
-            )}
+            </Box>
           </Box>
         </DetailsPaper>
       </Container>

@@ -74,13 +74,11 @@ export function Settings() {
   const [tabValue, setTabValue] = useState(0);
   const [coachAlias, setCoachAlias] = useState('');
   const [originalCoachAlias, setOriginalCoachAlias] = useState('');
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [emailAddress, setEmailAddress] = useState('');
-  const [originalEmailAddress, setOriginalEmailAddress] = useState('');
+  const [discordNotifications, setDiscordNotifications] = useState(true);
   const [jobAssignmentNotifications, setJobAssignmentNotifications] =
     useState(true);
   const [originalNotifications, setOriginalNotifications] = useState({
-    email: true,
+    discord: true,
     jobAssignment: true,
   });
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
@@ -115,8 +113,7 @@ export function Settings() {
   // Check if there are any changes
   const hasProfileChanges = coachAlias.trim() !== originalCoachAlias;
   const hasNotificationChanges =
-    emailNotifications !== originalNotifications.email ||
-    emailAddress.trim() !== originalEmailAddress ||
+    discordNotifications !== originalNotifications.discord ||
     jobAssignmentNotifications !== originalNotifications.jobAssignment;
   const hasAvailabilityChanges =
     JSON.stringify(availability) !== JSON.stringify(originalAvailability);
@@ -278,75 +275,22 @@ export function Settings() {
         return;
       }
 
-      // Validate email if notifications are enabled
-      if (emailNotifications && emailAddress.trim()) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(emailAddress.trim())) {
-          setSnackbar({
-            open: true,
-            message: 'Please enter a valid email address',
-            severity: 'error',
-          });
-          return;
-        }
-      }
-
-      // Save email to backend if notifications are enabled
-      if (emailNotifications && emailAddress.trim()) {
-        const profileResponse = await fetch(
-          `${API_BASE_URL}/api/auth/profile`,
-          {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-              email: emailAddress.trim(),
-            }),
-          }
-        );
-
-        if (!profileResponse.ok) {
-          const errorData = await profileResponse.json().catch(() => ({}));
-          setSnackbar({
-            open: true,
-            message:
-              errorData.errorMessage ||
-              'Failed to save email address. Please try again.',
-            severity: 'error',
-          });
-          return;
-        }
-      } else if (!emailNotifications) {
-        // Clear email from backend if notifications are disabled
-        const profileResponse = await fetch(
-          `${API_BASE_URL}/api/auth/profile`,
-          {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-              email: null,
-            }),
-          }
-        );
-        // Don't fail if this fails, just log it
-        if (!profileResponse.ok) {
-          console.error('Failed to clear email address');
-        }
+      // Check if user has Discord connected
+      if (discordNotifications && !user?.discordId) {
+        setSnackbar({
+          open: true,
+          message:
+            'Please connect your Discord account to receive Discord notifications. You can do this by logging in with Discord.',
+          severity: 'warning',
+        });
+        return;
       }
 
       // Save notification preferences to localStorage
       localStorage.setItem(
         'notification_preferences',
         JSON.stringify({
-          email: emailNotifications,
-          emailAddress: emailAddress.trim(),
+          discord: discordNotifications,
           jobAssignment: jobAssignmentNotifications,
         })
       );
@@ -358,12 +302,10 @@ export function Settings() {
       });
 
       setOriginalNotifications({
-        email: emailNotifications,
+        discord: discordNotifications,
         jobAssignment: jobAssignmentNotifications,
       });
-      setOriginalEmailAddress(emailAddress.trim());
 
-      // Refresh user context to get updated email
       await refreshUser();
     } catch (error: any) {
       console.error('Error updating notifications:', error);
@@ -378,33 +320,38 @@ export function Settings() {
   };
 
   useEffect(() => {
-    // Load email from user context if available
-    if (user?.email) {
-      setEmailAddress(user.email);
-      setOriginalEmailAddress(user.email);
-      setEmailNotifications(true);
-      setOriginalNotifications(prev => ({ ...prev, email: true }));
-    }
-
     // Load notification preferences from localStorage
     const savedPrefs = localStorage.getItem('notification_preferences');
     if (savedPrefs) {
       try {
         const prefs = JSON.parse(savedPrefs);
-        // Only use localStorage prefs if user doesn't have email in profile
-        if (!user?.email) {
-          setEmailAddress(prefs.emailAddress || '');
-          setOriginalEmailAddress(prefs.emailAddress || '');
-        }
-        setEmailNotifications(prefs.email ?? !!user?.email);
+        // Check if user has Discord connected
+        const hasDiscord = !!user?.discordId;
+        setDiscordNotifications(prefs.discord ?? hasDiscord);
         setJobAssignmentNotifications(prefs.jobAssignment ?? true);
         setOriginalNotifications({
-          email: prefs.email ?? !!user?.email,
+          discord: prefs.discord ?? hasDiscord,
           jobAssignment: prefs.jobAssignment ?? true,
         });
       } catch (e) {
-        // Invalid JSON, use defaults
+        // Invalid JSON, use defaults based on Discord connection
+        const hasDiscord = !!user?.discordId;
+        setDiscordNotifications(hasDiscord);
+        setJobAssignmentNotifications(true);
+        setOriginalNotifications({
+          discord: hasDiscord,
+          jobAssignment: true,
+        });
       }
+    } else {
+      // No saved preferences, use defaults based on Discord connection
+      const hasDiscord = !!user?.discordId;
+      setDiscordNotifications(hasDiscord);
+      setJobAssignmentNotifications(true);
+      setOriginalNotifications({
+        discord: hasDiscord,
+        jobAssignment: true,
+      });
     }
   }, [user]);
 
@@ -640,39 +587,29 @@ export function Settings() {
                 <FormControlLabel
                   control={
                     <Switch
-                      checked={emailNotifications}
-                      onChange={e => setEmailNotifications(e.target.checked)}
+                      checked={discordNotifications}
+                      onChange={e => setDiscordNotifications(e.target.checked)}
+                      disabled={!user?.discordId}
                     />
                   }
                   label={
                     <Box>
                       <Typography variant='body1' sx={{ fontWeight: 500 }}>
-                        Email Notifications
+                        Discord Notifications
                       </Typography>
                       <Typography variant='body2' color='text.secondary'>
-                        Receive email updates about your account and job
-                        assignments
+                        {user?.discordId
+                          ? `Receive Discord DM notifications about your account and job assignments (Connected as ${user.discordUsername})`
+                          : 'Connect your Discord account to receive DM notifications. Log in with Discord to enable this feature.'}
                       </Typography>
                     </Box>
                   }
                 />
-                {emailNotifications && (
-                  <Box sx={{ mt: 2 }}>
-                    <TextField
-                      label='Email Address'
-                      type='email'
-                      value={emailAddress}
-                      onChange={e => setEmailAddress(e.target.value)}
-                      placeholder='Enter your email address'
-                      helperText="We'll send notifications to this email address"
-                      fullWidth
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: theme => theme.shape.borderRadius * 1.5,
-                        },
-                      }}
-                    />
-                  </Box>
+                {!user?.discordId && (
+                  <Alert severity='info' sx={{ mt: 2 }}>
+                    To receive Discord notifications, please log in with Discord
+                    to connect your account.
+                  </Alert>
                 )}
               </Box>
 
@@ -699,7 +636,8 @@ export function Settings() {
                         Job Assignment Notifications
                       </Typography>
                       <Typography variant='body2' color='text.secondary'>
-                        Get notified when you're assigned to new coaching jobs
+                        Get notified via Discord DM when you're assigned to new
+                        coaching jobs
                       </Typography>
                     </Box>
                   }

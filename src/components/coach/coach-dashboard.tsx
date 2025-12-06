@@ -33,6 +33,7 @@ import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { getAuthToken, removeAuthToken, getUserId } from '../../config/auth';
 import { API_BASE_URL } from '../../config/api';
 import { formatDateRangeWithTimezone } from '../../utils/timezone';
+import { JOB_STATUS_FILTER_OPTIONS } from '../../constants/job-status';
 
 const DashboardPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -83,7 +84,11 @@ export function CoachDashboard() {
     cancelled: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  // Initialize status filter from localStorage or default to 'active'
+  const [statusFilter, setStatusFilter] = useState<string>(() => {
+    const savedFilter = localStorage.getItem('coachDashboardStatusFilter');
+    return savedFilter || 'active';
+  });
 
   const fetchDashboard = async () => {
     try {
@@ -175,6 +180,13 @@ export function CoachDashboard() {
       fetchJobs();
     } else {
       fetchDashboard();
+    }
+  }, [statusFilter]);
+
+  // Save status filter to localStorage whenever it changes
+  useEffect(() => {
+    if (statusFilter) {
+      localStorage.setItem('coachDashboardStatusFilter', statusFilter);
     }
   }, [statusFilter]);
 
@@ -369,13 +381,11 @@ export function CoachDashboard() {
               label='Filter by Status'
               onChange={e => setStatusFilter(e.target.value)}
             >
-              <MenuItem value='all'>All</MenuItem>
-              <MenuItem value='active'>Active</MenuItem>
-              <MenuItem value='pending'>Pending</MenuItem>
-              <MenuItem value='accepted'>Accepted</MenuItem>
-              <MenuItem value='approved'>Approved</MenuItem>
-              <MenuItem value='completed'>Completed</MenuItem>
-              <MenuItem value='cancelled'>Cancelled</MenuItem>
+              {JOB_STATUS_FILTER_OPTIONS.map(option => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
         </Box>

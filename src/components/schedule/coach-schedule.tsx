@@ -17,6 +17,10 @@ import {
   Alert,
   TextField,
   Divider,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -28,7 +32,13 @@ import {
   DateSelectArg,
   EventDropArg,
 } from '@fullcalendar/core';
-import { ArrowBack } from '@mui/icons-material';
+import {
+  ArrowBack,
+  Visibility,
+  Delete,
+  Cancel,
+  CheckCircle,
+} from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { API_BASE_URL } from '../../config/api';
@@ -116,6 +126,7 @@ interface CalendarEvent {
     hours?: string;
     discordUsername?: string;
     status?: string;
+    coachIds?: string[];
   };
 }
 
@@ -195,6 +206,15 @@ export function CoachSchedule() {
     const cachedView = localStorage.getItem('coachScheduleView');
     return cachedView || 'timeGridWeek';
   });
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    mouseX: number;
+    mouseY: number;
+  } | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
+    null
+  );
+  const [updatingJobId, setUpdatingJobId] = useState<string | null>(null);
   // Track abort controllers per event
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   // Track the latest event positions to prevent stale updates
@@ -515,8 +535,210 @@ export function CoachSchedule() {
       return;
     }
 
-    // Navigate to job details page
+    // Left click - navigate to job details
     navigate(`/job/${event.id}`);
+  };
+
+  // Store event listeners for cleanup
+  const eventListenersRef = useRef<Map<string, EventListener>>(new Map());
+
+  const handleEventDidMount = (arg: any) => {
+    // Add context menu listener to event element
+    const eventElement = arg.el;
+    const eventId = arg.event.id;
+
+    // Remove existing listener if any
+    const existingListener = eventListenersRef.current.get(eventId);
+    if (existingListener) {
+      eventElement.removeEventListener('contextmenu', existingListener);
+    }
+
+    const handleContextMenu = (e: Event) => {
+      const mouseEvent = e as MouseEvent;
+      mouseEvent.preventDefault();
+      mouseEvent.stopPropagation();
+
+      const userId = getUserId();
+      const userIsAdmin = isAdmin();
+
+      // Find the event in our events array
+      const calendarEvent = events.find(e => e.id === eventId);
+      if (!calendarEvent) return;
+
+      // Check if user has permission to interact with this job
+      const jobCoachIds = calendarEvent.extendedProps?.coachIds || [];
+      const userIsAssigned =
+        userId &&
+        jobCoachIds.some(
+          (coachId: string) => coachId.toString() === userId.toString()
+        );
+
+      // Only show context menu if user has permission (admin or assigned to this job)
+      if (!userIsAdmin && !userIsAssigned) {
+        return;
+      }
+
+      setSelectedEvent(calendarEvent);
+      setContextMenu({
+        mouseX: mouseEvent.clientX,
+        mouseY: mouseEvent.clientY,
+      });
+    };
+
+    eventElement.addEventListener('contextmenu', handleContextMenu);
+    eventListenersRef.current.set(eventId, handleContextMenu);
+  };
+
+  // Cleanup listeners on unmount
+  useEffect(() => {
+    return () => {
+      eventListenersRef.current.forEach((listener, eventId) => {
+        // Find and remove listener from DOM if element still exists
+        const eventElements = document.querySelectorAll(
+          `[data-event-id="${eventId}"]`
+        );
+        eventElements.forEach(el => {
+          el.removeEventListener('contextmenu', listener);
+        });
+      });
+      eventListenersRef.current.clear();
+    };
+  }, []);
+
+  const handleCloseContextMenu = () => {
+    setContextMenu(null);
+    setSelectedEvent(null);
+  };
+
+  const handleViewDetails = () => {
+    if (selectedEvent) {
+      navigate(`/job/${selectedEvent.id}`);
+    }
+    handleCloseContextMenu();
+  };
+
+  const handleUpdateStatus = async (newStatus: string) => {
+    if (!selectedEvent) return;
+
+    try {
+      setUpdatingJobId(selectedEvent.id);
+      const token = getAuthToken();
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/jobs/${selectedEvent.id}/status`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ status: newStatus }),
+        }
+      );
+
+      if (response.status === 401 || response.status === 403) {
+        setSnackbar({
+          open: true,
+          message: 'Unauthorized to update job status',
+          severity: 'error',
+        });
+        return;
+      }
+
+      if (response.ok) {
+        setSnackbar({
+          open: true,
+          message: `Job status updated to ${newStatus}`,
+          severity: 'success',
+        });
+        // Refresh the schedule
+        await fetchCoachSchedule();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setSnackbar({
+          open: true,
+          message: errorData.message || 'Failed to update job status',
+          severity: 'error',
+        });
+      }
+    } catch (error: any) {
+      console.error('Error updating job status:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to update job status',
+        severity: 'error',
+      });
+    } finally {
+      setUpdatingJobId(null);
+      handleCloseContextMenu();
+    }
+  };
+
+  const handleDeleteJob = async () => {
+    if (!selectedEvent) return;
+
+    if (
+      !window.confirm(
+        'Are you sure you want to delete this job? This action cannot be undone.'
+      )
+    ) {
+      handleCloseContextMenu();
+      return;
+    }
+
+    try {
+      setUpdatingJobId(selectedEvent.id);
+      const token = getAuthToken();
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/jobs/${selectedEvent.id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        }
+      );
+
+      if (response.status === 401 || response.status === 403) {
+        setSnackbar({
+          open: true,
+          message: 'Unauthorized to delete job',
+          severity: 'error',
+        });
+        return;
+      }
+
+      if (response.ok) {
+        setSnackbar({
+          open: true,
+          message: 'Job deleted successfully',
+          severity: 'success',
+        });
+        // Refresh the schedule
+        await fetchCoachSchedule();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setSnackbar({
+          open: true,
+          message: errorData.message || 'Failed to delete job',
+          severity: 'error',
+        });
+      }
+    } catch (error: any) {
+      console.error('Error deleting job:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to delete job',
+        severity: 'error',
+      });
+    } finally {
+      setUpdatingJobId(null);
+      handleCloseContextMenu();
+    }
   };
 
   const handleEventDrop = async (dropInfo: EventDropArg) => {
@@ -1195,18 +1417,18 @@ export function CoachSchedule() {
     return 'businessHours';
   };
 
+  // Get valid range - prevent selection of past dates (allow 2 days ago and future)
+  const getValidRange = () => {
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2); // 2 days ago
+    twoDaysAgo.setHours(0, 0, 0, 0);
+    return {
+      start: twoDaysAgo.toISOString().split('T')[0], // 2 days ago onwards
+    };
+  };
+
   return (
     <Container maxWidth='lg'>
-      <Box sx={{ mb: 3 }}>
-        <Button
-          startIcon={<ArrowBack />}
-          onClick={() => navigate(ROUTE_PATHS.home)}
-          sx={{ mb: 2 }}
-        >
-          Back to Home
-        </Button>
-      </Box>
-
       <SchedulePaper elevation={3}>
         <ScheduleTitle variant='h2' gutterBottom>
           {displayName}'s Schedule
@@ -1450,10 +1672,12 @@ export function CoachSchedule() {
             selectOverlap={false}
             businessHours={getBusinessHours()}
             selectConstraint={getSelectConstraint()}
+            validRange={getValidRange()}
             dayMaxEvents={true}
             weekends={true}
             select={handleDateSelect}
             eventClick={handleEventClick}
+            eventDidMount={handleEventDidMount}
             eventDrop={handleEventDrop}
             eventResize={handleEventResize}
             events={events}
@@ -1733,6 +1957,95 @@ export function CoachSchedule() {
           )}
         </DialogActions>
       </Dialog>
+
+      {/* Context Menu */}
+      <Menu
+        open={contextMenu !== null}
+        onClose={handleCloseContextMenu}
+        anchorReference='anchorPosition'
+        anchorPosition={
+          contextMenu !== null
+            ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
+            : undefined
+        }
+        PaperProps={{
+          sx: {
+            minWidth: 200,
+            borderRadius: 2,
+          },
+        }}
+      >
+        <MenuItem onClick={handleViewDetails}>
+          <ListItemIcon>
+            <Visibility fontSize='small' />
+          </ListItemIcon>
+          <ListItemText>View Details</ListItemText>
+        </MenuItem>
+        {canCreateEvents && (
+          <>
+            <Divider />
+            {isAdmin() && (
+              <>
+                <MenuItem
+                  onClick={() =>
+                    selectedEvent &&
+                    handleUpdateStatus(
+                      selectedEvent.extendedProps?.status === 'accepted'
+                        ? 'approved'
+                        : 'accepted'
+                    )
+                  }
+                  disabled={updatingJobId === selectedEvent?.id}
+                >
+                  <ListItemIcon>
+                    <CheckCircle fontSize='small' />
+                  </ListItemIcon>
+                  <ListItemText>
+                    {selectedEvent?.extendedProps?.status === 'accepted'
+                      ? 'Approve'
+                      : 'Accept'}
+                  </ListItemText>
+                </MenuItem>
+                <MenuItem
+                  onClick={() => handleUpdateStatus('completed')}
+                  disabled={updatingJobId === selectedEvent?.id}
+                >
+                  <ListItemIcon>
+                    <CheckCircle fontSize='small' color='success' />
+                  </ListItemIcon>
+                  <ListItemText>Mark as Completed</ListItemText>
+                </MenuItem>
+                <MenuItem
+                  onClick={() => handleUpdateStatus('cancelled')}
+                  disabled={updatingJobId === selectedEvent?.id}
+                >
+                  <ListItemIcon>
+                    <Cancel fontSize='small' color='warning' />
+                  </ListItemIcon>
+                  <ListItemText>Cancel Job</ListItemText>
+                </MenuItem>
+                <Divider />
+              </>
+            )}
+            <MenuItem
+              onClick={handleDeleteJob}
+              disabled={updatingJobId === selectedEvent?.id}
+              sx={{
+                color: 'error.main',
+                '&:hover': {
+                  backgroundColor: 'error.light',
+                  color: 'error.contrastText',
+                },
+              }}
+            >
+              <ListItemIcon>
+                <Delete fontSize='small' sx={{ color: 'error.main' }} />
+              </ListItemIcon>
+              <ListItemText>Delete Job</ListItemText>
+            </MenuItem>
+          </>
+        )}
+      </Menu>
 
       {/* Snackbar */}
       <Snackbar

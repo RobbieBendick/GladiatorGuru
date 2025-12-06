@@ -18,6 +18,7 @@ import BookOnlineIcon from '@mui/icons-material/BookOnline';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import SettingsIcon from '@mui/icons-material/Settings';
+import PeopleIcon from '@mui/icons-material/People';
 import { ToggleColorModeButton } from '../toggle-color-mode-button';
 import { ColorModeContext } from '../../app';
 import { ROUTE_PATHS } from '@/schemas/route-paths';
@@ -42,7 +43,6 @@ function ResponsiveNavBar() {
   const isBookingPage = currentPath === ROUTE_PATHS.booking;
   const isAuthPage =
     currentPath === ROUTE_PATHS.login || currentPath === ROUTE_PATHS.signup;
-  const isAdminLoginPage = currentPath === ROUTE_PATHS.adminLogin;
 
   const isMobile = useMediaQuery('(max-width: 899px)');
 
@@ -76,8 +76,8 @@ function ResponsiveNavBar() {
     }
   };
 
-  // Don't show navbar on auth pages or admin login page
-  if (isAuthPage || isAdminLoginPage) {
+  // Don't show navbar on auth pages
+  if (isAuthPage) {
     return null;
   }
 
@@ -437,19 +437,34 @@ function ResponsiveNavBar() {
                     }}
                   >
                     {user && user.role === 'admin' && (
-                      <MenuItem
-                        component={Link}
-                        to={ROUTE_PATHS.admin}
-                        onClick={handleMenuClose}
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          py: 1.5,
-                        }}
-                      >
-                        <DashboardIcon sx={{ mr: 1.5 }} />
-                        Admin Dashboard
-                      </MenuItem>
+                      <>
+                        <MenuItem
+                          component={Link}
+                          to={ROUTE_PATHS.admin}
+                          onClick={handleMenuClose}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            py: 1.5,
+                          }}
+                        >
+                          <DashboardIcon sx={{ mr: 1.5 }} />
+                          Admin Dashboard
+                        </MenuItem>
+                        <MenuItem
+                          component={Link}
+                          to='/admin/coaches'
+                          onClick={handleMenuClose}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            py: 1.5,
+                          }}
+                        >
+                          <PeopleIcon sx={{ mr: 1.5 }} />
+                          View Coaches
+                        </MenuItem>
+                      </>
                     )}
                     {user &&
                       (user.role === 'coach' || user.role === 'admin') && (

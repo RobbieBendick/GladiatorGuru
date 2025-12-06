@@ -233,41 +233,9 @@ export const convertTimeBetweenTimezones = (
     const month = date.getMonth();
     const day = date.getDate();
 
-    // Create a date string that we'll interpret in the source timezone
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(
-      day
-    ).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(
-      minutes
-    ).padStart(2, '0')}:00`;
-
-    // Create formatters to get the UTC time for this time in the source timezone
-    const sourceFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: fromTimezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    });
-
-    // Create a temporary date to get the UTC representation
-    // We'll create a date in local time, then use the formatter to see what it would be in source timezone
-    const tempDate = new Date(dateStr);
-
     // Get what this date/time represents in UTC when interpreted in source timezone
     // We need to create a date that, when formatted in source timezone, gives us our desired time
     // This is tricky - we'll use a different approach
-
-    // Create date components for the source timezone
-    const sourceDateParts = {
-      year,
-      month: month + 1,
-      day,
-      hour: hours,
-      minute: minutes,
-    };
 
     // Create a date string in ISO format
     const isoStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(

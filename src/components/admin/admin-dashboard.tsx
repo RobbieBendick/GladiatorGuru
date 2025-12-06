@@ -24,19 +24,21 @@ import {
   DialogActions,
   Chip,
   OutlinedInput,
+  Checkbox,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
-  Logout as LogoutIcon,
-  People as PeopleIcon,
   PersonAdd as PersonAddIcon,
+  DeleteSweep as DeleteSweepIcon,
+  Cancel as CancelIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { getAuthToken, removeAuthToken } from '../../config/auth';
 import { API_BASE_URL } from '../../config/api';
 import { formatDateRangeWithTimezone } from '../../utils/timezone';
+import { JOB_STATUS_FILTER_OPTIONS } from '../../constants/job-status';
 
 const DashboardPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -81,21 +83,28 @@ export function AdminDashboard() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>('active');
+  // Initialize status filter from localStorage or default to 'active'
+  const [statusFilter, setStatusFilter] = useState<string>(() => {
+    const savedFilter = localStorage.getItem('adminDashboardStatusFilter');
+    return savedFilter || 'active';
+  });
   const [updating, setUpdating] = useState<string | null>(null);
   const [assignCoachDialogOpen, setAssignCoachDialogOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [selectedCoachIds, setSelectedCoachIds] = useState<string[]>([]);
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
 
   const fetchJobs = async () => {
     try {
       setLoading(true);
       const token = getAuthToken();
 
-      // For 'active' filter, we need to fetch all jobs and filter client-side
+      // For 'all' and 'active' filters, we need to fetch all jobs and filter client-side
       // For other statuses, we can use the API filter
       const url =
-        statusFilter === 'active'
+        statusFilter === 'all' || statusFilter === 'active'
           ? `${API_BASE_URL}/api/admin/jobs`
           : `${API_BASE_URL}/api/admin/jobs?status=${statusFilter}`;
 
@@ -110,7 +119,7 @@ export function AdminDashboard() {
       if (response.status === 401 || response.status === 403) {
         // Unauthorized - redirect to login
         removeAuthToken();
-        navigate(ROUTE_PATHS.adminLogin);
+        navigate(ROUTE_PATHS.login);
         return;
       }
 
@@ -129,6 +138,7 @@ export function AdminDashboard() {
           );
           setJobs(activeJobs);
         } else {
+          // For 'all' or specific status, show all fetched jobs
           setJobs(fetchedJobs);
         }
       }
@@ -142,6 +152,13 @@ export function AdminDashboard() {
   useEffect(() => {
     fetchJobs();
     fetchCoaches();
+  }, [statusFilter]);
+
+  // Save status filter to localStorage whenever it changes
+  useEffect(() => {
+    if (statusFilter) {
+      localStorage.setItem('adminDashboardStatusFilter', statusFilter);
+    }
   }, [statusFilter]);
 
   const fetchCoaches = async () => {
@@ -207,7 +224,7 @@ export function AdminDashboard() {
 
       if (response.status === 401 || response.status === 403) {
         removeAuthToken();
-        navigate(ROUTE_PATHS.adminLogin);
+        navigate(ROUTE_PATHS.login);
         return;
       }
 
@@ -241,7 +258,7 @@ export function AdminDashboard() {
 
       if (response.status === 401 || response.status === 403) {
         removeAuthToken();
-        navigate(ROUTE_PATHS.adminLogin);
+        navigate(ROUTE_PATHS.login);
         return;
       }
 
@@ -255,9 +272,75 @@ export function AdminDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    removeAuthToken();
-    navigate(ROUTE_PATHS.adminLogin);
+  const handleToggleDeleteMode = () => {
+    setDeleteMode(!deleteMode);
+    setSelectedJobIds(new Set());
+  };
+
+  const handleToggleJobSelection = (jobId: string) => {
+    setSelectedJobIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(jobId)) {
+        newSet.delete(jobId);
+      } else {
+        newSet.add(jobId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedJobIds.size === jobs.length) {
+      setSelectedJobIds(new Set());
+    } else {
+      setSelectedJobIds(new Set(jobs.map(job => job._id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedJobIds.size === 0) return;
+
+    const jobIdsArray = Array.from(selectedJobIds);
+
+    try {
+      setUpdating('bulk');
+      const token = getAuthToken();
+
+      // Delete jobs in parallel
+      const deletePromises = jobIdsArray.map(jobId =>
+        fetch(`${API_BASE_URL}/api/admin/jobs/${jobId}`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        })
+      );
+
+      const responses = await Promise.all(deletePromises);
+
+      // Check for auth errors
+      const hasAuthError = responses.some(
+        r => r.status === 401 || r.status === 403
+      );
+
+      if (hasAuthError) {
+        removeAuthToken();
+        navigate(ROUTE_PATHS.login);
+        return;
+      }
+
+      // Refresh jobs list
+      await fetchJobs();
+      setBulkDeleteDialogOpen(false);
+      setSelectedJobIds(new Set());
+      setDeleteMode(false);
+    } catch (error) {
+      console.error('Error deleting jobs:', error);
+    } finally {
+      setUpdating(null);
+    }
   };
 
   const handleOpenAssignCoachDialog = (job: Job) => {
@@ -294,7 +377,7 @@ export function AdminDashboard() {
 
       if (response.status === 401 || response.status === 403) {
         removeAuthToken();
-        navigate(ROUTE_PATHS.adminLogin);
+        navigate(ROUTE_PATHS.login);
         return;
       }
 
@@ -330,29 +413,46 @@ export function AdminDashboard() {
       >
         <DashboardTitle variant='h2'>Admin Dashboard</DashboardTitle>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <Button
-            variant='outlined'
-            startIcon={<PeopleIcon />}
-            onClick={() => navigate('/admin/coaches')}
-          >
-            View Coaches
-          </Button>
-          <Button
-            variant='outlined'
-            startIcon={<RefreshIcon />}
-            onClick={fetchJobs}
-            disabled={loading}
-          >
-            Refresh
-          </Button>
-          <Button
-            variant='outlined'
-            startIcon={<LogoutIcon />}
-            onClick={handleLogout}
-            color='error'
-          >
-            Logout
-          </Button>
+          {deleteMode ? (
+            <>
+              <Button
+                variant='contained'
+                color='error'
+                startIcon={<DeleteSweepIcon />}
+                onClick={() => setBulkDeleteDialogOpen(true)}
+                disabled={selectedJobIds.size === 0 || updating === 'bulk'}
+              >
+                Delete Selected ({selectedJobIds.size})
+              </Button>
+              <Button
+                variant='outlined'
+                startIcon={<CancelIcon />}
+                onClick={handleToggleDeleteMode}
+                disabled={updating === 'bulk'}
+              >
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant='outlined'
+                startIcon={<DeleteSweepIcon />}
+                onClick={handleToggleDeleteMode}
+                color='error'
+              >
+                Delete Mode
+              </Button>
+              <Button
+                variant='outlined'
+                startIcon={<RefreshIcon />}
+                onClick={fetchJobs}
+                disabled={loading}
+              >
+                Refresh
+              </Button>
+            </>
+          )}
         </Box>
       </Box>
 
@@ -364,12 +464,11 @@ export function AdminDashboard() {
             onChange={e => setStatusFilter(e.target.value)}
             label='Filter by Status'
           >
-            <MenuItem value='active'>Active</MenuItem>
-            <MenuItem value='pending'>Pending</MenuItem>
-            <MenuItem value='accepted'>Accepted</MenuItem>
-            <MenuItem value='approved'>Approved</MenuItem>
-            <MenuItem value='completed'>Completed</MenuItem>
-            <MenuItem value='cancelled'>Cancelled</MenuItem>
+            {JOB_STATUS_FILTER_OPTIONS.map(option => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
       </Box>
@@ -392,6 +491,20 @@ export function AdminDashboard() {
             <Table>
               <TableHead>
                 <TableRow>
+                  {deleteMode && (
+                    <TableCell padding='checkbox'>
+                      <Checkbox
+                        indeterminate={
+                          selectedJobIds.size > 0 &&
+                          selectedJobIds.size < jobs.length
+                        }
+                        checked={
+                          jobs.length > 0 && selectedJobIds.size === jobs.length
+                        }
+                        onChange={handleSelectAll}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell>Character</TableCell>
                   <TableCell>Realm</TableCell>
                   <TableCell>Version</TableCell>
@@ -403,21 +516,39 @@ export function AdminDashboard() {
                   <TableCell>Goal</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Coaches</TableCell>
-                  <TableCell>Actions</TableCell>
+                  {!deleteMode && <TableCell>Actions</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {jobs.map(job => (
                   <TableRow
                     key={job._id}
-                    onClick={() => navigate(`/job/${job._id}`)}
+                    onClick={
+                      deleteMode ? undefined : () => navigate(`/job/${job._id}`)
+                    }
                     sx={{
-                      cursor: 'pointer',
+                      cursor: deleteMode ? 'default' : 'pointer',
+                      backgroundColor: selectedJobIds.has(job._id)
+                        ? 'action.selected'
+                        : 'transparent',
                       '&:hover': {
-                        backgroundColor: 'action.hover',
+                        backgroundColor: deleteMode
+                          ? selectedJobIds.has(job._id)
+                            ? 'action.selected'
+                            : 'action.hover'
+                          : 'action.hover',
                       },
                     }}
                   >
+                    {deleteMode && (
+                      <TableCell padding='checkbox'>
+                        <Checkbox
+                          checked={selectedJobIds.has(job._id)}
+                          onChange={() => handleToggleJobSelection(job._id)}
+                          onClick={e => e.stopPropagation()}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell>{job.characterName}</TableCell>
                     <TableCell>{job.characterRealm}</TableCell>
                     <TableCell>{job.version}</TableCell>
@@ -488,32 +619,34 @@ export function AdminDashboard() {
                         )}
                       </Box>
                     </TableCell>
-                    <TableCell
-                      onClick={e => e.stopPropagation()}
-                      sx={{ cursor: 'default' }}
-                    >
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Button
-                          variant='outlined'
-                          color='primary'
-                          onClick={() => handleOpenAssignCoachDialog(job)}
-                          disabled={updating === job._id}
-                          size='small'
-                          startIcon={<PersonAddIcon />}
-                          sx={{ textTransform: 'none' }}
-                        >
-                          Assign
-                        </Button>
-                        <IconButton
-                          color='error'
-                          onClick={() => handleDelete(job._id)}
-                          disabled={updating === job._id}
-                          size='small'
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Box>
-                    </TableCell>
+                    {!deleteMode && (
+                      <TableCell
+                        onClick={e => e.stopPropagation()}
+                        sx={{ cursor: 'default' }}
+                      >
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Button
+                            variant='outlined'
+                            color='primary'
+                            onClick={() => handleOpenAssignCoachDialog(job)}
+                            disabled={updating === job._id}
+                            size='small'
+                            startIcon={<PersonAddIcon />}
+                            sx={{ textTransform: 'none' }}
+                          >
+                            Assign
+                          </Button>
+                          <IconButton
+                            color='error'
+                            onClick={() => handleDelete(job._id)}
+                            disabled={updating === job._id}
+                            size='small'
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Box>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -583,6 +716,54 @@ export function AdminDashboard() {
             disabled={updating === selectedJob?._id}
           >
             Assign
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog
+        open={bulkDeleteDialogOpen}
+        onClose={() => setBulkDeleteDialogOpen(false)}
+        maxWidth='sm'
+        fullWidth
+      >
+        <DialogTitle>Delete Selected Jobs</DialogTitle>
+        <DialogContent>
+          <Typography variant='body1' sx={{ mb: 2 }}>
+            Are you sure you want to delete {selectedJobIds.size} job
+            {selectedJobIds.size !== 1 ? 's' : ''}? This action cannot be
+            undone.
+          </Typography>
+          <Typography variant='body2' color='error'>
+            This will permanently delete the selected job
+            {selectedJobIds.size !== 1 ? 's' : ''}.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setBulkDeleteDialogOpen(false)}
+            disabled={updating === 'bulk'}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleBulkDelete}
+            variant='contained'
+            color='error'
+            disabled={updating === 'bulk'}
+            startIcon={
+              updating === 'bulk' ? (
+                <CircularProgress size={16} color='inherit' />
+              ) : (
+                <DeleteIcon />
+              )
+            }
+          >
+            {updating === 'bulk'
+              ? 'Deleting...'
+              : `Delete ${selectedJobIds.size} Job${
+                  selectedJobIds.size !== 1 ? 's' : ''
+                }`}
           </Button>
         </DialogActions>
       </Dialog>

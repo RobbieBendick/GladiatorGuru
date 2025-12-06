@@ -12,10 +12,11 @@ export const ROUTE_PATHS: { [key: string]: string } = {
   login: '/login',
   signup: '/signup',
   admin: '/admin',
-  adminLogin: '/admin/login',
   coach: '/coach',
   coachSchedule: '/:id/schedule',
   jobDetails: '/job/:id',
   discordCallback: '/auth/discord/callback',
   settings: '/settings',
+  privacyPolicy: '/privacy-policy',
+  termsOfService: '/terms-of-service',
 };
