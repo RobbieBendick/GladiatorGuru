@@ -53,6 +53,9 @@ function ResponsiveNavBar() {
   const isBookingPage = currentPath === ROUTE_PATHS.booking;
   const isAuthPage =
     currentPath === ROUTE_PATHS.login || currentPath === ROUTE_PATHS.signup;
+  // Check if we're on a schedule route (e.g., /:id/schedule)
+  // The route pattern is /:id/schedule, so actual paths will be like /123/schedule
+  const isScheduleRoute = currentPath.endsWith('/schedule');
 
   const isMobile = useMediaQuery('(max-width: 899px)');
 
@@ -247,7 +250,7 @@ function ResponsiveNavBar() {
                         </Box>
                       </MenuItem>
                     )}
-                    {canAccessCustomers && (
+                    {isScheduleRoute && canAccessCustomers && (
                       <MenuItem
                         onClick={() => {
                           setDrawerOpen(!drawerOpen);
@@ -446,7 +449,7 @@ function ResponsiveNavBar() {
                 </>
               ) : (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  {canAccessCustomers && (
+                  {isScheduleRoute && canAccessCustomers && (
                     <IconButton
                       onClick={() => setDrawerOpen(!drawerOpen)}
                       sx={{
@@ -708,37 +711,39 @@ function ResponsiveNavBar() {
                           />
                           View Coaches
                         </MenuItem>
-                        <MenuItem
-                          component={Link}
-                          to={ROUTE_PATHS.customerManagement}
-                          onClick={handleMenuClose}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            py: 1.5,
-                            px: 2,
-                            mx: 0.75,
-                            borderRadius: 1.5,
-                            transition: 'all 0.2s ease-in-out',
-                            '&:hover': {
-                              backgroundColor: theme =>
-                                alpha(
-                                  theme.palette.text.secondary,
-                                  theme.palette.mode === 'dark' ? 0.15 : 0.08
-                                ),
-                              transform: 'translateX(4px)',
-                            },
-                          }}
-                        >
-                          <AccountBalanceIcon
+                        {isScheduleRoute && canAccessCustomers && (
+                          <MenuItem
+                            component={Link}
+                            to={ROUTE_PATHS.customerManagement}
+                            onClick={handleMenuClose}
                             sx={{
-                              mr: 1.5,
-                              color: 'text.secondary',
-                              fontSize: 20,
+                              display: 'flex',
+                              alignItems: 'center',
+                              py: 1.5,
+                              px: 2,
+                              mx: 0.75,
+                              borderRadius: 1.5,
+                              transition: 'all 0.2s ease-in-out',
+                              '&:hover': {
+                                backgroundColor: theme =>
+                                  alpha(
+                                    theme.palette.text.secondary,
+                                    theme.palette.mode === 'dark' ? 0.15 : 0.08
+                                  ),
+                                transform: 'translateX(4px)',
+                              },
                             }}
-                          />
-                          Customer Management
-                        </MenuItem>
+                          >
+                            <AccountBalanceIcon
+                              sx={{
+                                mr: 1.5,
+                                color: 'text.secondary',
+                                fontSize: 20,
+                              }}
+                            />
+                            Customer Management
+                          </MenuItem>
+                        )}
                       </>
                     )}
                     {user &&
@@ -830,37 +835,41 @@ function ResponsiveNavBar() {
                             />
                             My Schedule
                           </MenuItem>
-                          <MenuItem
-                            component={Link}
-                            to={ROUTE_PATHS.customerManagement}
-                            onClick={handleMenuClose}
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              py: 1.5,
-                              px: 2,
-                              mx: 0.75,
-                              borderRadius: 1.5,
-                              transition: 'all 0.2s ease-in-out',
-                              '&:hover': {
-                                backgroundColor: theme =>
-                                  alpha(
-                                    theme.palette.text.secondary,
-                                    theme.palette.mode === 'dark' ? 0.15 : 0.08
-                                  ),
-                                transform: 'translateX(4px)',
-                              },
-                            }}
-                          >
-                            <AccountBalanceIcon
+                          {isScheduleRoute && canAccessCustomers && (
+                            <MenuItem
+                              component={Link}
+                              to={ROUTE_PATHS.customerManagement}
+                              onClick={handleMenuClose}
                               sx={{
-                                mr: 1.5,
-                                color: 'text.secondary',
-                                fontSize: 20,
+                                display: 'flex',
+                                alignItems: 'center',
+                                py: 1.5,
+                                px: 2,
+                                mx: 0.75,
+                                borderRadius: 1.5,
+                                transition: 'all 0.2s ease-in-out',
+                                '&:hover': {
+                                  backgroundColor: theme =>
+                                    alpha(
+                                      theme.palette.text.secondary,
+                                      theme.palette.mode === 'dark'
+                                        ? 0.15
+                                        : 0.08
+                                    ),
+                                  transform: 'translateX(4px)',
+                                },
                               }}
-                            />
-                            Customer Management
-                          </MenuItem>
+                            >
+                              <AccountBalanceIcon
+                                sx={{
+                                  mr: 1.5,
+                                  color: 'text.secondary',
+                                  fontSize: 20,
+                                }}
+                              />
+                              Customer Management
+                            </MenuItem>
+                          )}
                         </>
                       )}
                     {user && (

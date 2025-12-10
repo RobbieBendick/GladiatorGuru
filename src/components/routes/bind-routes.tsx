@@ -65,7 +65,7 @@ export function BindRoutes(props: { children?: React.ReactNode }): JSX.Element {
           <Route
             path={ROUTE_PATHS.admin}
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['admin']}>
                 <AdminDashboard />
               </ProtectedRoute>
             }
