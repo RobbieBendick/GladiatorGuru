@@ -906,31 +906,6 @@ export function BookingForm() {
     return baseColor;
   };
 
-  // Calculate total price
-  // Get discount for hours
-  const getDiscount = (hours: number): number => {
-    if (hours === 3) return 0.1; // 10% discount for 3 hours
-    if (hours === 4) return 0.1; // 10% discount for 4 hours
-    if (hours === 5) return 0.15; // 15% discount for 5 hours
-    return 0;
-  };
-
-  const calculateTotalPrice = (): number => {
-    // Price calculation removed - prices are discussed during consultation
-    return 0;
-  };
-
-  // Calculate price for a specific number of hours
-  const calculatePriceForHours = (hours: number): number => {
-    const coaches = parseInt(formData.coaches, 10) || 1;
-    const pricePerHour = 30;
-    const basePrice = pricePerHour * coaches * hours;
-    const discount = getDiscount(hours);
-    return basePrice * (1 - discount);
-  };
-
-  const totalPrice = calculateTotalPrice();
-
   // Validate promo code
   const validatePromoCode = async (code: string) => {
     if (!code.trim()) {
@@ -2392,9 +2367,6 @@ export function BookingForm() {
               >
                 {[1, 2, 3, 4, 5].map(hours => {
                   const isSelected = formData.hours === String(hours);
-                  const price = calculatePriceForHours(hours);
-                  const discount = getDiscount(hours);
-                  const hasDiscount = discount > 0;
                   return (
                     <ToggleButton
                       key={hours}

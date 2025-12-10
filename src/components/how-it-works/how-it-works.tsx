@@ -163,7 +163,7 @@ const steps = [
     icon: '💬',
     label: 'We Contact You',
     description:
-      "Within 24 hours, we'll reach out to you via Discord to confirm your booking details, discuss your goals, and answer any questions you may have. If it's your first time, your first booking will be a consultation free of charge to understand your personalized goals and needs.",
+      "Within 24 hours, we'll reach out to you via Discord to confirm your booking details, discuss your goals, and answer any questions you may have. If it's your first time, your first booking will be a consultation to understand your personalized goals and needs. During this consultation, we'll also determine the pricing for your coaching session based on your specific requirements.",
   },
   {
     icon: '📅',

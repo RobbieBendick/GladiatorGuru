@@ -22,6 +22,14 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText as MuiListItemText,
+  IconButton,
+  Avatar,
+  Chip,
 } from '@mui/material';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -33,12 +41,15 @@ import {
   DateSelectArg,
   EventDropArg,
 } from '@fullcalendar/core';
+import { DateClickArg } from '@fullcalendar/interaction';
 import {
   ArrowBack,
   Visibility,
   Delete,
   Cancel,
   CheckCircle,
+  ChevronLeft,
+  DragIndicator,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
@@ -52,6 +63,7 @@ import {
   convertTimeBetweenTimezones,
 } from '../../utils/timezone';
 import { User, AvailabilitySlot, useUser } from '../../contexts/UserContext';
+import { useCustomerDrawer } from '../../contexts/CustomerDrawerContext';
 import {
   isTimeWithinAvailability,
   formatAvailabilityByDay,
@@ -172,6 +184,14 @@ interface Coach extends User {
   coachAlias?: string;
 }
 
+interface Customer {
+  discordUsername: string;
+  characterName: string;
+  characterRealm: string;
+  lastBookingDate: Date;
+  credit?: number; // Credit in minutes
+}
+
 export function CoachSchedule() {
   const navigate = useNavigate();
   const theme = useTheme();
@@ -240,6 +260,12 @@ export function CoachSchedule() {
   >(new Map());
   // Track pending update IDs per event to prevent stale updates
   const pendingUpdateIdsRef = useRef<Map<string, number>>(new Map());
+  // Customer drawer state
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+  const { drawerOpen, setDrawerOpen } = useCustomerDrawer();
+  const [draggedCustomer, setDraggedCustomer] = useState<Customer | null>(null);
+  const calendarContainerRef = useRef<HTMLDivElement>(null);
 
   // Helper function to show snackbar with proper key update for remounting
   const showSnackbar = (
@@ -264,6 +290,11 @@ export function CoachSchedule() {
     // Check if user can create events (admin or the coach whose schedule it is)
     const userCanCreateEvents = userIsAdmin || !!userIsCoach;
     setCanCreateEvents(!!userCanCreateEvents);
+
+    // Fetch customers if user can create events
+    if (userCanCreateEvents) {
+      fetchCustomers();
+    }
   }, [id]);
 
   // Cache currentView to localStorage whenever it changes
@@ -293,6 +324,216 @@ export function CoachSchedule() {
       }));
     }
   }, [showTimeDialog, isAdminMode, user?.discordUsername]);
+
+  // Attach drop handler to document to catch drops anywhere on the calendar
+  useEffect(() => {
+    if (!canCreateEvents) return;
+
+    const container = calendarContainerRef.current;
+    if (!container) return;
+
+    const handleDrop = (e: DragEvent) => {
+      // Only handle if we're dragging a customer
+      if (!draggedCustomer) return;
+
+      // Check if drop is within the calendar container
+      const containerRect = container.getBoundingClientRect();
+      if (
+        e.clientX < containerRect.left ||
+        e.clientX > containerRect.right ||
+        e.clientY < containerRect.top ||
+        e.clientY > containerRect.bottom
+      ) {
+        setDraggedCustomer(null);
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+      // Get the calendar element - try timegrid first, then daygrid
+      let calendarEl = container.querySelector(
+        '.fc-timegrid-body'
+      ) as HTMLElement;
+
+      // If not in timegrid view, try daygrid
+      if (!calendarEl) {
+        calendarEl = container.querySelector('.fc-daygrid-body') as HTMLElement;
+      }
+
+      if (!calendarEl) {
+        setDraggedCustomer(null);
+        return;
+      }
+
+      // Try to use FullCalendar's API first - most reliable
+      const calendarApi = (window as any).calendarApi;
+      if (calendarApi) {
+        try {
+          const point = { x: e.clientX, y: e.clientY };
+          const date = calendarApi.dateFromPoint(point);
+          if (date) {
+            handleCustomerDrop(draggedCustomer, date);
+            return;
+          }
+        } catch (err) {
+          console.error('Error getting date from point:', err);
+        }
+      }
+
+      // Fallback: Manual calculation from DOM
+      const rect = calendarEl.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      // Find which column (day) was dropped on
+      const cols = Array.from(
+        calendarEl.querySelectorAll('.fc-timegrid-col, .fc-daygrid-day')
+      ) as HTMLElement[];
+
+      if (cols.length === 0) {
+        setDraggedCustomer(null);
+        return;
+      }
+
+      let targetCol: HTMLElement | null = null;
+      let minDistance = Infinity;
+
+      cols.forEach((col: HTMLElement) => {
+        const colRect = col.getBoundingClientRect();
+        const colLeft = colRect.left - rect.left;
+        const colRight = colRect.right - rect.left;
+
+        if (x >= colLeft && x <= colRight) {
+          const distance = Math.abs(x - (colLeft + colRight) / 2);
+          if (distance < minDistance) {
+            minDistance = distance;
+            targetCol = col;
+          }
+        }
+      });
+
+      if (!targetCol) {
+        setDraggedCustomer(null);
+        return;
+      }
+
+      const targetColElement = targetCol as HTMLElement;
+      let dateStr = targetColElement.getAttribute('data-date');
+
+      if (!dateStr) {
+        const calendarApi = (window as any).calendarApi;
+        if (calendarApi) {
+          try {
+            const view = calendarApi.view;
+            const activeStart = view.activeStart;
+            const dayIndex = cols.indexOf(targetColElement);
+            if (dayIndex >= 0) {
+              const dropDate = new Date(activeStart);
+              dropDate.setDate(activeStart.getDate() + dayIndex);
+              dateStr = dropDate.toISOString().split('T')[0];
+            }
+          } catch (err) {
+            console.error('Error getting date from view:', err);
+          }
+        }
+      }
+
+      if (!dateStr) {
+        setDraggedCustomer(null);
+        return;
+      }
+
+      // Find which time slot was dropped on (for timegrid view)
+      const slots = Array.from(
+        targetColElement.querySelectorAll('.fc-timegrid-slot')
+      ) as HTMLElement[];
+
+      let dropDate: Date;
+
+      if (slots.length > 0) {
+        // Timegrid view - calculate exact time from slot position
+        let targetSlot: HTMLElement | null = null;
+        let minSlotDistance = Infinity;
+
+        slots.forEach((slot: HTMLElement) => {
+          const slotRect = slot.getBoundingClientRect();
+          const slotTop = slotRect.top - rect.top;
+          const slotBottom = slotRect.bottom - rect.top;
+
+          if (y >= slotTop && y <= slotBottom) {
+            const distance = Math.abs(y - (slotTop + slotBottom) / 2);
+            if (distance < minSlotDistance) {
+              minSlotDistance = distance;
+              targetSlot = slot;
+            }
+          }
+        });
+
+        if (targetSlot) {
+          // Calculate exact time from slot position
+          const slotIndex = slots.indexOf(targetSlot);
+          if (slotIndex >= 0) {
+            const slotRect = (
+              targetSlot as HTMLElement
+            ).getBoundingClientRect();
+            const slotHeight = slotRect.height;
+            const slotTop = slotRect.top - rect.top;
+            const slotOffset = y - slotTop;
+            const slotRatio = slotOffset / slotHeight;
+
+            // Assuming 30-minute slots starting from 00:00
+            const slotDuration = 30; // minutes
+            const totalMinutes =
+              slotIndex * slotDuration + slotRatio * slotDuration;
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = Math.floor((totalMinutes % 60) / 30) * 30; // Round to nearest 30 minutes
+
+            // Create date in local timezone properly
+            const [year, month, day] = dateStr.split('-').map(Number);
+            dropDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+            handleCustomerDrop(draggedCustomer, dropDate);
+            return;
+          }
+        }
+      }
+
+      // Daygrid view or fallback - use middle of day (noon)
+      const [year, month, day] = dateStr.split('-').map(Number);
+      dropDate = new Date(year, month - 1, day, 12, 0, 0, 0);
+      handleCustomerDrop(draggedCustomer, dropDate);
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      if (draggedCustomer) {
+        // Check if over calendar container
+        const containerRect = container.getBoundingClientRect();
+        if (
+          e.clientX >= containerRect.left &&
+          e.clientX <= containerRect.right &&
+          e.clientY >= containerRect.top &&
+          e.clientY <= containerRect.bottom
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          if (e.dataTransfer) {
+            e.dataTransfer.dropEffect = 'move';
+          }
+        }
+      }
+    };
+
+    // Use capture phase and attach to document to catch all drops
+    document.addEventListener('drop', handleDrop, true);
+    document.addEventListener('dragover', handleDragOver, true);
+
+    return () => {
+      document.removeEventListener('drop', handleDrop, true);
+      document.removeEventListener('dragover', handleDragOver, true);
+    };
+  }, [draggedCustomer, canCreateEvents]);
 
   const fetchCoachSchedule = async () => {
     try {
@@ -476,6 +717,42 @@ export function CoachSchedule() {
     } catch (err: any) {
       console.error('Error fetching coach jobs:', err);
       setError(err.message || 'Failed to load jobs');
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      setCustomersLoading(true);
+      const token = getAuthToken();
+      if (!token) {
+        setCustomersLoading(false);
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/customers`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const customersData = data.data || [];
+        // Convert lastBookingDate strings to Date objects
+        const customers = customersData.map((customer: any) => ({
+          ...customer,
+          lastBookingDate: new Date(customer.lastBookingDate),
+        }));
+        setCustomers(customers);
+      } else {
+        console.error('Failed to fetch customers:', response.status);
+      }
+    } catch (err: any) {
+      console.error('Error fetching customers:', err);
+    } finally {
+      setCustomersLoading(false);
     }
   };
 
@@ -1041,6 +1318,23 @@ export function CoachSchedule() {
     }
   };
 
+  // Format credit from minutes to readable format (e.g., "4h 30m")
+  const formatCredit = (minutes: number | undefined): string => {
+    if (minutes === undefined || minutes === null || minutes === 0) {
+      return '0m';
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+
+    if (hours === 0) {
+      return `${remainingMinutes}m`;
+    } else if (remainingMinutes === 0) {
+      return `${hours}h`;
+    } else {
+      return `${hours}h ${remainingMinutes}m`;
+    }
+  };
+
   const handleCloseTimeDialog = () => {
     setShowTimeDialog(false);
     setSelectedTimeRange(null);
@@ -1409,12 +1703,298 @@ export function CoachSchedule() {
     };
   };
 
+  // Handle customer drop on calendar - create booking directly
+  const handleCustomerDrop = async (customer: Customer, date: Date) => {
+    if (!id) return;
+
+    // Default to 1 hour duration
+    const startDate = new Date(date);
+    const endDate = new Date(startDate);
+    endDate.setHours(endDate.getHours() + 1);
+
+    console.log('Creating booking:', {
+      customer: customer.discordUsername,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      startLocal: startDate.toString(),
+      endLocal: endDate.toString(),
+    });
+
+    try {
+      setIsSubmitting(true);
+      const token = getAuthToken();
+
+      const startISO = startDate.toISOString();
+      const endISO = endDate.toISOString();
+
+      // Create booking directly
+      const response = await fetch(`${API_BASE_URL}/api/admin/jobs`, {
+        method: 'POST',
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          characterName: customer.characterName,
+          characterRealm: customer.characterRealm,
+          discordUsername: customer.discordUsername,
+          availabilityStartDateTime: startISO,
+          availabilityEndDateTime: endISO,
+          hours: '1',
+          coachIds: [id],
+          status: 'accepted',
+          version: 'MOP', // Default version
+          bracket: '',
+          characterClass: '',
+          characterSpec: '',
+          goal: '',
+        }),
+      });
+
+      if (response.ok) {
+        await response.json().catch(() => ({}));
+        showSnackbar('Booking created successfully', 'success');
+        setDrawerOpen(false);
+        // Refresh the calendar - add small delay to ensure backend has processed
+        setTimeout(async () => {
+          await fetchCoachSchedule();
+          // Force calendar to refresh events
+          const calendarApi = (window as any).calendarApi;
+          if (calendarApi) {
+            try {
+              calendarApi.refetchEvents();
+            } catch (err) {
+              console.error('Error refreshing calendar:', err);
+            }
+          }
+        }, 500);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        showSnackbar(errorData.message || 'Failed to create booking', 'error');
+      }
+    } catch (err: any) {
+      console.error('Error creating booking:', err);
+      showSnackbar('Failed to create booking', 'error');
+    } finally {
+      setIsSubmitting(false);
+      setDraggedCustomer(null);
+    }
+  };
+
+  // Handle date click - if customer is being dragged, create booking (fallback)
+  const handleDateClick = (clickInfo: DateClickArg) => {
+    if (draggedCustomer && canCreateEvents) {
+      handleCustomerDrop(draggedCustomer, clickInfo.date);
+    }
+  };
+
+  const drawerWidth = 320;
+
   return (
     <Container maxWidth='lg'>
+      {/* Customer Drawer */}
+      {canCreateEvents && (
+        <Drawer
+          anchor='right'
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          sx={{
+            '& .MuiDrawer-paper': {
+              width: drawerWidth,
+              boxSizing: 'border-box',
+              backgroundColor:
+                theme.palette.mode === 'light'
+                  ? theme.palette.background.paper
+                  : alpha(theme.palette.background.paper, 0.95),
+            },
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              p: 2,
+              borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+            }}
+          >
+            <Typography variant='h6' sx={{ fontWeight: 600 }}>
+              Recent Customers
+            </Typography>
+            <IconButton onClick={() => setDrawerOpen(false)} size='small'>
+              <ChevronLeft />
+            </IconButton>
+          </Box>
+          <Box sx={{ overflow: 'auto', flex: 1 }}>
+            {customersLoading ? (
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  p: 4,
+                }}
+              >
+                <CircularProgress />
+              </Box>
+            ) : customers.length === 0 ? (
+              <Box sx={{ p: 3, textAlign: 'center' }}>
+                <Typography variant='body2' color='text.secondary'>
+                  No customers yet
+                </Typography>
+              </Box>
+            ) : (
+              <List>
+                {customers.map((customer, index) => (
+                  <ListItem
+                    key={`${customer.discordUsername}-${index}`}
+                    disablePadding
+                    sx={{
+                      borderBottom: `1px solid ${alpha(
+                        theme.palette.divider,
+                        0.1
+                      )}`,
+                    }}
+                  >
+                    <ListItemButton
+                      sx={{
+                        py: 1.5,
+                        px: 2,
+                        '&:hover': {
+                          backgroundColor: alpha(
+                            theme.palette.primary.main,
+                            0.08
+                          ),
+                        },
+                      }}
+                      draggable
+                      onDragStart={e => {
+                        setDraggedCustomer(customer);
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData(
+                          'text/plain',
+                          JSON.stringify(customer)
+                        );
+                        // Add visual feedback
+                        if (e.dataTransfer) {
+                          e.dataTransfer.effectAllowed = 'move';
+                        }
+                      }}
+                      onDragEnd={() => {
+                        // Don't clear here - let the drop handler do it
+                      }}
+                    >
+                      <Avatar
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          mr: 2,
+                          bgcolor: theme.palette.primary.main,
+                          fontSize: '0.875rem',
+                        }}
+                      >
+                        {customer.discordUsername.charAt(0).toUpperCase()}
+                      </Avatar>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <MuiListItemText
+                          primary={
+                            <Typography
+                              variant='body1'
+                              sx={{
+                                fontWeight: 600,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {customer.discordUsername}
+                            </Typography>
+                          }
+                          secondary={
+                            <Box>
+                              <Typography
+                                variant='caption'
+                                color='text.secondary'
+                                sx={{
+                                  display: 'block',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {customer.characterName} -{' '}
+                                {customer.characterRealm}
+                              </Typography>
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  gap: 0.5,
+                                  mt: 0.5,
+                                  flexWrap: 'wrap',
+                                }}
+                              >
+                                <Chip
+                                  label={`Last: ${new Date(
+                                    customer.lastBookingDate
+                                  ).toLocaleDateString()}`}
+                                  size='small'
+                                  sx={{
+                                    height: 20,
+                                    fontSize: '0.7rem',
+                                  }}
+                                />
+                                <Chip
+                                  label={`Credit: ${formatCredit(
+                                    customer.credit
+                                  )}`}
+                                  size='small'
+                                  color={
+                                    (customer.credit || 0) > 0
+                                      ? 'success'
+                                      : 'default'
+                                  }
+                                  sx={{
+                                    height: 20,
+                                    fontSize: '0.7rem',
+                                  }}
+                                />
+                              </Box>
+                            </Box>
+                          }
+                        />
+                      </Box>
+                      <DragIndicator
+                        sx={{
+                          color: 'text.secondary',
+                          opacity: 0.5,
+                          ml: 1,
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Box>
+        </Drawer>
+      )}
+
       <SchedulePaper elevation={3}>
-        <ScheduleTitle variant='h2' gutterBottom>
-          {displayName}'s Schedule
-        </ScheduleTitle>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 2,
+            flexWrap: 'wrap',
+            gap: 2,
+          }}
+        >
+          <ScheduleTitle variant='h2' gutterBottom sx={{ mb: 0 }}>
+            {displayName}'s Schedule
+          </ScheduleTitle>
+        </Box>
         <Typography
           variant='body1'
           color='text.secondary'
@@ -1560,6 +2140,7 @@ export function CoachSchedule() {
         )}
 
         <Box
+          ref={calendarContainerRef}
           sx={{
             overflowX: 'auto',
             overflowY: 'visible',
@@ -1701,9 +2282,21 @@ export function CoachSchedule() {
               WebkitOverflowScrolling: 'touch',
               touchAction: 'pan-y',
             },
+            // Drop zone styling when dragging customer
+            ...(draggedCustomer && {
+              '& .fc-timegrid-col': {
+                backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                cursor: 'pointer',
+              },
+            }),
           }}
         >
           <FullCalendar
+            ref={calendarRef => {
+              if (calendarRef) {
+                (window as any).calendarApi = calendarRef.getApi();
+              }
+            }}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
             initialView={currentView}
             headerToolbar={{
@@ -1736,6 +2329,7 @@ export function CoachSchedule() {
             dayMaxEvents={true}
             weekends={true}
             select={handleDateSelect}
+            dateClick={handleDateClick}
             eventClick={handleEventClick}
             eventDidMount={handleEventDidMount}
             eventDrop={handleEventDrop}

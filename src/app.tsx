@@ -10,6 +10,7 @@ import { createContext, useEffect, useMemo, useState } from 'react';
 import { BindRoutes } from './components/routes/bind-routes';
 import { HashRouter } from 'react-router-dom';
 import { UserProvider } from './contexts/UserContext';
+import { CustomerDrawerProvider } from './contexts/CustomerDrawerContext';
 
 const getDesignTokens = (mode: PaletteMode) => {
   const textPrimary = mode === 'light' ? grey[900] : '#fff';
@@ -118,9 +119,11 @@ function App() {
       <ColorModeContext.Provider value={colorMode}>
         <ThemeProvider theme={theme}>
           <UserProvider>
-            <HashRouter>
-              <BindRoutes />
-            </HashRouter>
+            <CustomerDrawerProvider>
+              <HashRouter>
+                <BindRoutes />
+              </HashRouter>
+            </CustomerDrawerProvider>
           </UserProvider>
         </ThemeProvider>
       </ColorModeContext.Provider>

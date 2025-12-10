@@ -14,18 +14,9 @@ import {
   Snackbar,
   Alert,
   Divider,
-  FormControlLabel,
-  Switch,
   Chip,
 } from '@mui/material';
-import {
-  Save,
-  Person,
-  Notifications,
-  Schedule,
-  Add,
-  Delete,
-} from '@mui/icons-material';
+import { Save, Person, Schedule, Add, Delete } from '@mui/icons-material';
 import { MenuItem, Select, FormControl, InputLabel } from '@mui/material';
 import { AvailabilitySlot } from '../../contexts/UserContext';
 import { API_BASE_URL } from '../../config/api';
@@ -74,13 +65,7 @@ export function Settings() {
   const [tabValue, setTabValue] = useState(0);
   const [coachAlias, setCoachAlias] = useState('');
   const [originalCoachAlias, setOriginalCoachAlias] = useState('');
-  const [discordNotifications, setDiscordNotifications] = useState(true);
-  const [jobAssignmentNotifications, setJobAssignmentNotifications] =
-    useState(true);
-  const [originalNotifications, setOriginalNotifications] = useState({
-    discord: true,
-    jobAssignment: true,
-  });
+
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [originalAvailability, setOriginalAvailability] = useState<
     AvailabilitySlot[]
@@ -112,9 +97,7 @@ export function Settings() {
 
   // Check if there are any changes
   const hasProfileChanges = coachAlias.trim() !== originalCoachAlias;
-  const hasNotificationChanges =
-    discordNotifications !== originalNotifications.discord ||
-    jobAssignmentNotifications !== originalNotifications.jobAssignment;
+
   const hasAvailabilityChanges =
     JSON.stringify(availability) !== JSON.stringify(originalAvailability);
 
@@ -260,100 +243,6 @@ export function Settings() {
       setLoading(false);
     }
   };
-
-  const handleSaveNotifications = async () => {
-    try {
-      setLoading(true);
-      const token = getAuthToken();
-
-      if (!token) {
-        setSnackbar({
-          open: true,
-          message: 'You must be logged in to update your preferences',
-          severity: 'error',
-        });
-        return;
-      }
-
-      // Check if user has Discord connected
-      if (discordNotifications && !user?.discordId) {
-        setSnackbar({
-          open: true,
-          message:
-            'Please connect your Discord account to receive Discord notifications. You can do this by logging in with Discord.',
-          severity: 'warning',
-        });
-        return;
-      }
-
-      // Save notification preferences to localStorage
-      localStorage.setItem(
-        'notification_preferences',
-        JSON.stringify({
-          discord: discordNotifications,
-          jobAssignment: jobAssignmentNotifications,
-        })
-      );
-
-      setSnackbar({
-        open: true,
-        message: 'Notification preferences saved!',
-        severity: 'success',
-      });
-
-      setOriginalNotifications({
-        discord: discordNotifications,
-        jobAssignment: jobAssignmentNotifications,
-      });
-
-      await refreshUser();
-    } catch (error: any) {
-      console.error('Error updating notifications:', error);
-      setSnackbar({
-        open: true,
-        message: 'An error occurred. Please try again.',
-        severity: 'error',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    // Load notification preferences from localStorage
-    const savedPrefs = localStorage.getItem('notification_preferences');
-    if (savedPrefs) {
-      try {
-        const prefs = JSON.parse(savedPrefs);
-        // Check if user has Discord connected
-        const hasDiscord = !!user?.discordId;
-        setDiscordNotifications(prefs.discord ?? hasDiscord);
-        setJobAssignmentNotifications(prefs.jobAssignment ?? true);
-        setOriginalNotifications({
-          discord: prefs.discord ?? hasDiscord,
-          jobAssignment: prefs.jobAssignment ?? true,
-        });
-      } catch (e) {
-        // Invalid JSON, use defaults based on Discord connection
-        const hasDiscord = !!user?.discordId;
-        setDiscordNotifications(hasDiscord);
-        setJobAssignmentNotifications(true);
-        setOriginalNotifications({
-          discord: hasDiscord,
-          jobAssignment: true,
-        });
-      }
-    } else {
-      // No saved preferences, use defaults based on Discord connection
-      const hasDiscord = !!user?.discordId;
-      setDiscordNotifications(hasDiscord);
-      setJobAssignmentNotifications(true);
-      setOriginalNotifications({
-        discord: hasDiscord,
-        jobAssignment: true,
-      });
-    }
-  }, [user]);
 
   return (
     <Container maxWidth='md' sx={{ px: { xs: 1, md: 3 } }} disableGutters>

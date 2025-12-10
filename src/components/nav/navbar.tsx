@@ -22,6 +22,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PeopleIcon from '@mui/icons-material/People';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import { ToggleColorModeButton } from '../toggle-color-mode-button';
 import { ColorModeContext } from '../../app';
 import { ROUTE_PATHS } from '@/schemas/route-paths';
@@ -30,15 +31,21 @@ import { useUser } from '../../contexts/UserContext';
 import { useState } from 'react';
 import { initiateDiscordOAuth } from '../../config/discord-oauth';
 import DashboardIcon from '@mui/icons-material/Dashboard';
+import { useCustomerDrawer } from '../../contexts/CustomerDrawerContext';
+import { isAdmin } from '../../config/auth';
 
 function ResponsiveNavBar() {
   const { mode, toggleColorMode } = useContext(ColorModeContext);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, loading, logout } = useUser();
+  const { drawerOpen, setDrawerOpen } = useCustomerDrawer();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [mobileMenuAnchorEl, setMobileMenuAnchorEl] =
     useState<null | HTMLElement>(null);
+
+  // Check if user can access customer drawer (admin or coach)
+  const canAccessCustomers = user && (isAdmin() || user.role === 'coach');
 
   // HashRouter provides pathname without the hash prefix
   const currentPath = location.pathname;
@@ -240,6 +247,46 @@ function ResponsiveNavBar() {
                         </Box>
                       </MenuItem>
                     )}
+                    {canAccessCustomers && (
+                      <MenuItem
+                        onClick={() => {
+                          setDrawerOpen(!drawerOpen);
+                          handleMobileMenuClose();
+                        }}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          py: 1.5,
+                          px: 2,
+                          mx: 0.75,
+                          borderRadius: 1.5,
+                          color: 'text.primary',
+                          backgroundColor: drawerOpen
+                            ? theme =>
+                                alpha(
+                                  theme.palette.primary.main,
+                                  theme.palette.mode === 'dark' ? 0.15 : 0.08
+                                )
+                            : 'transparent',
+                          transition: 'all 0.2s ease-in-out',
+                          '&:hover': {
+                            backgroundColor: theme =>
+                              alpha(
+                                theme.palette.primary.main,
+                                theme.palette.mode === 'dark' ? 0.15 : 0.08
+                              ),
+                            transform: 'translateX(4px)',
+                          },
+                        }}
+                      >
+                        <PeopleIcon
+                          sx={{ mr: 1.5, color: 'primary.main', fontSize: 20 }}
+                        />
+                        <Box sx={{ flex: 1, textAlign: 'center', ml: -1.5 }}>
+                          {drawerOpen ? 'Hide Customers' : 'Customers'}
+                        </Box>
+                      </MenuItem>
+                    )}
                     {!isBookingPage && (
                       <MenuItem
                         onClick={() => {
@@ -399,6 +446,25 @@ function ResponsiveNavBar() {
                 </>
               ) : (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  {canAccessCustomers && (
+                    <IconButton
+                      onClick={() => setDrawerOpen(!drawerOpen)}
+                      sx={{
+                        color: 'white',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        backgroundColor: drawerOpen
+                          ? 'rgba(255, 255, 255, 0.15)'
+                          : 'transparent',
+                        '&:hover': {
+                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                          borderColor: 'rgba(255, 255, 255, 0.5)',
+                        },
+                      }}
+                      title='Customers'
+                    >
+                      <PeopleIcon />
+                    </IconButton>
+                  )}
                   {!isBookingPage && (
                     <Button
                       variant='outlined'
@@ -642,6 +708,37 @@ function ResponsiveNavBar() {
                           />
                           View Coaches
                         </MenuItem>
+                        <MenuItem
+                          component={Link}
+                          to={ROUTE_PATHS.customerManagement}
+                          onClick={handleMenuClose}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            py: 1.5,
+                            px: 2,
+                            mx: 0.75,
+                            borderRadius: 1.5,
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                              backgroundColor: theme =>
+                                alpha(
+                                  theme.palette.text.secondary,
+                                  theme.palette.mode === 'dark' ? 0.15 : 0.08
+                                ),
+                              transform: 'translateX(4px)',
+                            },
+                          }}
+                        >
+                          <AccountBalanceIcon
+                            sx={{
+                              mr: 1.5,
+                              color: 'text.secondary',
+                              fontSize: 20,
+                            }}
+                          />
+                          Customer Management
+                        </MenuItem>
                       </>
                     )}
                     {user &&
@@ -732,6 +829,37 @@ function ResponsiveNavBar() {
                               }}
                             />
                             My Schedule
+                          </MenuItem>
+                          <MenuItem
+                            component={Link}
+                            to={ROUTE_PATHS.customerManagement}
+                            onClick={handleMenuClose}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              py: 1.5,
+                              px: 2,
+                              mx: 0.75,
+                              borderRadius: 1.5,
+                              transition: 'all 0.2s ease-in-out',
+                              '&:hover': {
+                                backgroundColor: theme =>
+                                  alpha(
+                                    theme.palette.text.secondary,
+                                    theme.palette.mode === 'dark' ? 0.15 : 0.08
+                                  ),
+                                transform: 'translateX(4px)',
+                              },
+                            }}
+                          >
+                            <AccountBalanceIcon
+                              sx={{
+                                mr: 1.5,
+                                color: 'text.secondary',
+                                fontSize: 20,
+                              }}
+                            />
+                            Customer Management
                           </MenuItem>
                         </>
                       )}
