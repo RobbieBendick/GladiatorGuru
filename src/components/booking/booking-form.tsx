@@ -26,7 +26,7 @@ import {
   DialogActions,
   IconButton,
 } from '@mui/material';
-import { Send, Delete } from '@mui/icons-material';
+import { Send, Delete, CheckCircle, Cancel } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { API_BASE_URL } from '../../config/api';
@@ -330,6 +330,7 @@ interface BookingFormData {
   availabilityEndTime: string;
   discordUsername: string;
   goal: string;
+  promoCode: string;
 }
 
 export function BookingForm() {
@@ -350,12 +351,20 @@ export function BookingForm() {
     availabilityEndTime: '',
     discordUsername: user?.discordUsername || '',
     goal: '',
+    promoCode: '',
   });
 
   const [errors, setErrors] = useState<
     Partial<Record<keyof BookingFormData, string>>
   >({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [promoCodeValid, setPromoCodeValid] = useState<{
+    isValid: boolean;
+    discountPercent?: number;
+    creatorName?: string;
+    error?: string;
+  } | null>(null);
+  const [isValidatingPromoCode, setIsValidatingPromoCode] = useState(false);
   const [savedCharacters, setSavedCharacters] = useState<SavedCharacter[]>([]);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -907,15 +916,8 @@ export function BookingForm() {
   };
 
   const calculateTotalPrice = (): number => {
-    if (!formData.hours) return 0;
-
-    const coaches = parseInt(formData.coaches, 10) || 1;
-    const hours = parseInt(formData.hours, 10) || 0;
-
-    const pricePerHour = 30;
-    const basePrice = pricePerHour * coaches * hours;
-    const discount = getDiscount(hours);
-    return basePrice * (1 - discount);
+    // Price calculation removed - prices are discussed during consultation
+    return 0;
   };
 
   // Calculate price for a specific number of hours
@@ -928,6 +930,85 @@ export function BookingForm() {
   };
 
   const totalPrice = calculateTotalPrice();
+
+  // Validate promo code
+  const validatePromoCode = async (code: string) => {
+    if (!code.trim()) {
+      setPromoCodeValid(null);
+      return;
+    }
+
+    // User must be logged in with Discord
+    if (!user || !user.discordId) {
+      setPromoCodeValid({
+        isValid: false,
+        error:
+          'You must be logged in with a Discord account to use promo codes',
+      });
+      return;
+    }
+
+    setIsValidatingPromoCode(true);
+
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        setPromoCodeValid({
+          isValid: false,
+          error: 'You must be logged in to use promo codes',
+        });
+        setIsValidatingPromoCode(false);
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/promo-codes/validate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify({ code: code.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.data) {
+        setPromoCodeValid({
+          isValid: true,
+          discountPercent: data.data.discountPercent,
+          creatorName: data.data.creatorName,
+        });
+      } else {
+        setPromoCodeValid({
+          isValid: false,
+          error: data.errorMessage || 'Invalid promo code',
+        });
+      }
+    } catch (error: any) {
+      console.error('Error validating promo code:', error);
+      setPromoCodeValid({
+        isValid: false,
+        error: 'Failed to validate promo code. Please try again.',
+      });
+    } finally {
+      setIsValidatingPromoCode(false);
+    }
+  };
+
+  // Handle promo code change with debounce
+  useEffect(() => {
+    if (!formData.promoCode.trim()) {
+      setPromoCodeValid(null);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      validatePromoCode(formData.promoCode);
+    }, 500); // Debounce for 500ms
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.promoCode, user]);
 
   // MenuProps for select dropdowns with white background in light mode
   const getMenuProps = () => ({
@@ -1311,6 +1392,7 @@ export function BookingForm() {
         availabilityEndDateTime,
         discordUsername: formData.discordUsername.trim(),
         goal: formData.goal?.trim() || '',
+        promoCode: formData.promoCode.trim() || undefined,
       };
 
       console.log('Submitting data:', submitData);
@@ -1401,34 +1483,12 @@ export function BookingForm() {
         >
           Book your Coaching Session
         </FormTitle>
-        <Box sx={{ mb: 2 }}>
-          <Typography
-            variant='h6'
-            sx={{
-              fontWeight: 700,
-              fontSize: '1.25rem',
-              color: 'primary.main',
-              mb: 0.5,
-            }}
-          >
-            $30/hr per coach
-          </Typography>
-          {totalPrice > 0 && (
-            <Typography
-              variant='h5'
-              sx={{
-                fontWeight: 700,
-                fontSize: '1.5rem',
-                color: 'primary.main',
-              }}
-            >
-              Total: ${totalPrice}
-            </Typography>
-          )}
-        </Box>
+        <Box sx={{ mb: 2 }}></Box>
         <Typography variant='body1' color='text.secondary' sx={{ mb: 3 }}>
-          Fill out the form below to request a coaching session. We'll contact
-          you via Discord to confirm details.
+          Fill out the form below to request a coaching session. If it's your
+          first time, your first booking will be a consultation free of charge
+          to understand your personalized goals and needs. We'll contact you via
+          Discord to confirm details.
         </Typography>
 
         <form onSubmit={handleSubmit}>
@@ -2377,31 +2437,8 @@ export function BookingForm() {
                         )}
                       </Box>
                       <Box sx={{ flex: 1, textAlign: 'left' }}>
-                        <Typography>
-                          {hours} Hour Session
-                          {hasDiscount && (
-                            <Typography
-                              component='span'
-                              sx={{
-                                ml: 1,
-                                fontSize: '0.875rem',
-                                color: theme.palette.primary.main,
-                                fontWeight: 600,
-                              }}
-                            >
-                              ({Math.round(discount * 100)}% discount)
-                            </Typography>
-                          )}
-                        </Typography>
+                        <Typography>{hours} Hour Session</Typography>
                       </Box>
-                      <Typography
-                        sx={{
-                          fontWeight: 600,
-                          color: theme.palette.primary.main,
-                        }}
-                      >
-                        ${Math.round(price)}
-                      </Typography>
                     </ToggleButton>
                   );
                 })}
@@ -2683,6 +2720,80 @@ export function BookingForm() {
                 }}
               />
             </Grid>
+
+            {/* Promo Code - Only show if user hasn't used one yet */}
+            {!user?.usedPromoCode && (
+              <Grid item xs={12}>
+                <Typography
+                  variant='h6'
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '1.25rem',
+                    mb: 1,
+                    mt: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                >
+                  🎟️ Promo Code (Optional)
+                </Typography>
+                <StyledTextField
+                  fullWidth
+                  label='Promo Code'
+                  value={formData.promoCode}
+                  onChange={e => {
+                    const event = e as React.ChangeEvent<HTMLInputElement>;
+                    handleChange('promoCode')(event);
+                  }}
+                  error={
+                    !!errors.promoCode ||
+                    (promoCodeValid !== null && !promoCodeValid.isValid)
+                  }
+                  helperText={
+                    errors.promoCode ||
+                    (promoCodeValid?.isValid
+                      ? `✅ Valid promo code from ${promoCodeValid.creatorName}! We'll apply your ${promoCodeValid.discountPercent}% discount when we discuss pricing during your consultation.`
+                      : promoCodeValid?.error ||
+                        (isValidatingPromoCode
+                          ? 'Validating...'
+                          : 'Enter a promo code to get a discount on your first purchase'))
+                  }
+                  placeholder='Enter promo code'
+                  InputProps={{
+                    endAdornment: isValidatingPromoCode ? (
+                      <InputAdornment position='end'>
+                        <CircularProgress size={20} />
+                      </InputAdornment>
+                    ) : promoCodeValid?.isValid ? (
+                      <InputAdornment position='end'>
+                        <CheckCircle sx={{ color: 'success.main' }} />
+                      </InputAdornment>
+                    ) : promoCodeValid && !promoCodeValid.isValid ? (
+                      <InputAdornment position='end'>
+                        <Cancel sx={{ color: 'error.main' }} />
+                      </InputAdornment>
+                    ) : null,
+                  }}
+                  FormHelperTextProps={{
+                    sx: {
+                      marginLeft: 0,
+                      color: promoCodeValid?.isValid
+                        ? 'success.main'
+                        : promoCodeValid && !promoCodeValid.isValid
+                        ? 'error.main'
+                        : 'text.secondary',
+                    },
+                  }}
+                />
+                {!user || !user.discordId ? (
+                  <FormHelperText sx={{ mt: 1, color: 'text.secondary' }}>
+                    💡 You must be logged in with a connected Discord account to
+                    use promo codes
+                  </FormHelperText>
+                ) : null}
+              </Grid>
+            )}
 
             {/* Submit Button */}
             <Grid item xs={12}>

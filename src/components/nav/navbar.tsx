@@ -7,6 +7,9 @@ import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import Divider from '@mui/material/Divider';
+import Typography from '@mui/material/Typography';
+import { alpha } from '@mui/material/styles';
 import Chip from '@mui/material/Chip';
 import { useMediaQuery } from '@mui/material';
 import IconButton from '@mui/material/IconButton';
@@ -179,10 +182,23 @@ function ResponsiveNavBar() {
                     }}
                     PaperProps={{
                       sx: {
-                        mt: 1,
-                        minWidth: 200,
-                        borderRadius: 2,
+                        mt: 1.5,
+                        minWidth: 240,
+                        borderRadius: 3,
+                        boxShadow: theme =>
+                          theme.palette.mode === 'dark'
+                            ? '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)'
+                            : '0 8px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+                        overflow: 'hidden',
+                        backdropFilter: 'blur(20px)',
+                        backgroundColor: theme =>
+                          theme.palette.mode === 'dark'
+                            ? alpha(theme.palette.background.paper, 0.8)
+                            : alpha(theme.palette.background.paper, 0.95),
                       },
+                    }}
+                    MenuListProps={{
+                      sx: { py: 0.5 },
                     }}
                   >
                     {!user && (
@@ -194,11 +210,18 @@ function ResponsiveNavBar() {
                         sx={{
                           display: 'flex',
                           alignItems: 'center',
-                          py: 1.5,
+                          py: 1.75,
+                          px: 2,
+                          mx: 0.75,
+                          my: 0.5,
+                          borderRadius: 2,
                           backgroundColor: '#5865F2',
                           color: 'white',
+                          transition: 'all 0.2s ease-in-out',
                           '&:hover': {
                             backgroundColor: '#4752C4',
+                            transform: 'translateY(-1px)',
+                            boxShadow: '0 4px 12px rgba(88, 101, 242, 0.4)',
                           },
                         }}
                       >
@@ -227,11 +250,23 @@ function ResponsiveNavBar() {
                           display: 'flex',
                           alignItems: 'center',
                           py: 1.5,
+                          px: 2,
+                          mx: 0.75,
+                          borderRadius: 1.5,
                           color: 'text.primary',
+                          transition: 'all 0.2s ease-in-out',
+                          '&:hover': {
+                            backgroundColor: theme =>
+                              alpha(
+                                theme.palette.primary.main,
+                                theme.palette.mode === 'dark' ? 0.15 : 0.08
+                              ),
+                            transform: 'translateX(4px)',
+                          },
                         }}
                       >
                         <BookOnlineIcon
-                          sx={{ mr: 1.5, color: 'text.primary' }}
+                          sx={{ mr: 1.5, color: 'primary.main', fontSize: 20 }}
                         />
                         <Box sx={{ flex: 1, textAlign: 'center', ml: -1.5 }}>
                           Book a Coach
@@ -241,21 +276,44 @@ function ResponsiveNavBar() {
                     {user &&
                       user.role === 'user' &&
                       currentPath !== ROUTE_PATHS.pastBookings && (
-                        <MenuItem
-                          component={Link}
-                          to={ROUTE_PATHS.pastBookings}
-                          onClick={handleMobileMenuClose}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            py: 1.5,
-                          }}
-                        >
-                          <HistoryIcon sx={{ mr: 1.5 }} />
-                          <Box sx={{ flex: 1, textAlign: 'center', ml: -1.5 }}>
-                            Current Bookings
-                          </Box>
-                        </MenuItem>
+                        <>
+                          <Divider sx={{ my: 0.5 }} />
+                          <MenuItem
+                            component={Link}
+                            to={ROUTE_PATHS.pastBookings}
+                            onClick={handleMobileMenuClose}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              py: 1.5,
+                              px: 2,
+                              mx: 0.75,
+                              borderRadius: 1.5,
+                              transition: 'all 0.2s ease-in-out',
+                              '&:hover': {
+                                backgroundColor: theme =>
+                                  alpha(
+                                    theme.palette.text.secondary,
+                                    theme.palette.mode === 'dark' ? 0.15 : 0.08
+                                  ),
+                                transform: 'translateX(4px)',
+                              },
+                            }}
+                          >
+                            <HistoryIcon
+                              sx={{
+                                mr: 1.5,
+                                color: 'text.secondary',
+                                fontSize: 20,
+                              }}
+                            />
+                            <Box
+                              sx={{ flex: 1, textAlign: 'center', ml: -1.5 }}
+                            >
+                              Current Bookings
+                            </Box>
+                          </MenuItem>
+                        </>
                       )}
                     {user && (
                       <MenuItem
@@ -266,14 +324,33 @@ function ResponsiveNavBar() {
                           display: 'flex',
                           alignItems: 'center',
                           py: 1.5,
+                          px: 2,
+                          mx: 0.75,
+                          borderRadius: 1.5,
+                          transition: 'all 0.2s ease-in-out',
+                          '&:hover': {
+                            backgroundColor: theme =>
+                              alpha(
+                                theme.palette.text.secondary,
+                                theme.palette.mode === 'dark' ? 0.15 : 0.08
+                              ),
+                            transform: 'translateX(4px)',
+                          },
                         }}
                       >
-                        <SettingsIcon sx={{ mr: 1.5 }} />
+                        <SettingsIcon
+                          sx={{
+                            mr: 1.5,
+                            color: 'text.secondary',
+                            fontSize: 20,
+                          }}
+                        />
                         <Box sx={{ flex: 1, textAlign: 'center', ml: -1.5 }}>
                           Settings
                         </Box>
                       </MenuItem>
                     )}
+                    <Divider sx={{ my: 0.5 }} />
                     <MenuItem
                       onClick={() => {
                         toggleColorMode();
@@ -283,12 +360,36 @@ function ResponsiveNavBar() {
                         display: 'flex',
                         alignItems: 'center',
                         py: 1.5,
+                        px: 2,
+                        mx: 0.75,
+                        borderRadius: 1.5,
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          backgroundColor: theme =>
+                            alpha(
+                              theme.palette.text.secondary,
+                              theme.palette.mode === 'dark' ? 0.15 : 0.08
+                            ),
+                          transform: 'translateX(4px)',
+                        },
                       }}
                     >
                       {mode === 'light' ? (
-                        <Brightness2Icon sx={{ mr: 1.5 }} />
+                        <Brightness2Icon
+                          sx={{
+                            mr: 1.5,
+                            color: 'text.secondary',
+                            fontSize: 20,
+                          }}
+                        />
                       ) : (
-                        <LightMode sx={{ mr: 1.5 }} />
+                        <LightMode
+                          sx={{
+                            mr: 1.5,
+                            color: 'text.secondary',
+                            fontSize: 20,
+                          }}
+                        />
                       )}
                       <Box sx={{ flex: 1, textAlign: 'center', ml: -1.5 }}>
                         {mode === 'light' ? 'Dark Mode' : 'Light Mode'}
@@ -435,9 +536,50 @@ function ResponsiveNavBar() {
                       vertical: 'top',
                       horizontal: 'right',
                     }}
+                    PaperProps={{
+                      sx: {
+                        mt: 1.5,
+                        minWidth: 240,
+                        borderRadius: 3,
+                        boxShadow: theme =>
+                          theme.palette.mode === 'dark'
+                            ? '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)'
+                            : '0 8px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+                        overflow: 'hidden',
+                        backdropFilter: 'blur(20px)',
+                        backgroundColor: theme =>
+                          theme.palette.mode === 'dark'
+                            ? alpha(theme.palette.background.paper, 0.8)
+                            : alpha(theme.palette.background.paper, 0.95),
+                      },
+                    }}
+                    MenuListProps={{
+                      sx: { py: 0.5 },
+                    }}
                   >
                     {user && user.role === 'admin' && (
                       <>
+                        <Box
+                          sx={{
+                            px: 2.5,
+                            py: 1,
+                            mt: 0.5,
+                            mb: 0.25,
+                          }}
+                        >
+                          <Typography
+                            variant='caption'
+                            sx={{
+                              color: 'text.secondary',
+                              fontWeight: 600,
+                              fontSize: '0.7rem',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                            }}
+                          >
+                            Admin
+                          </Typography>
+                        </Box>
                         <MenuItem
                           component={Link}
                           to={ROUTE_PATHS.admin}
@@ -446,9 +588,27 @@ function ResponsiveNavBar() {
                             display: 'flex',
                             alignItems: 'center',
                             py: 1.5,
+                            px: 2,
+                            mx: 0.75,
+                            borderRadius: 1.5,
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                              backgroundColor: theme =>
+                                alpha(
+                                  theme.palette.text.secondary,
+                                  theme.palette.mode === 'dark' ? 0.15 : 0.08
+                                ),
+                              transform: 'translateX(4px)',
+                            },
                           }}
                         >
-                          <DashboardIcon sx={{ mr: 1.5 }} />
+                          <DashboardIcon
+                            sx={{
+                              mr: 1.5,
+                              color: 'text.secondary',
+                              fontSize: 20,
+                            }}
+                          />
                           Admin Dashboard
                         </MenuItem>
                         <MenuItem
@@ -459,86 +619,236 @@ function ResponsiveNavBar() {
                             display: 'flex',
                             alignItems: 'center',
                             py: 1.5,
+                            px: 2,
+                            mx: 0.75,
+                            borderRadius: 1.5,
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                              backgroundColor: theme =>
+                                alpha(
+                                  theme.palette.text.secondary,
+                                  theme.palette.mode === 'dark' ? 0.15 : 0.08
+                                ),
+                              transform: 'translateX(4px)',
+                            },
                           }}
                         >
-                          <PeopleIcon sx={{ mr: 1.5 }} />
+                          <PeopleIcon
+                            sx={{
+                              mr: 1.5,
+                              color: 'text.secondary',
+                              fontSize: 20,
+                            }}
+                          />
                           View Coaches
                         </MenuItem>
                       </>
                     )}
                     {user &&
                       (user.role === 'coach' || user.role === 'admin') && (
-                        <MenuItem
-                          component={Link}
-                          to={ROUTE_PATHS.coach}
-                          onClick={handleMenuClose}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            py: 1.5,
-                          }}
-                        >
-                          <DashboardIcon sx={{ mr: 1.5 }} />
-                          Coach Dashboard
-                        </MenuItem>
-                      )}
-                    {user &&
-                      (user.role === 'coach' || user.role === 'admin') && (
-                        <MenuItem
-                          component={Link}
-                          to={`/${user.id}/schedule`}
-                          onClick={handleMenuClose}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            py: 1.5,
-                          }}
-                        >
-                          <ScheduleIcon sx={{ mr: 1.5 }} />
-                          My Schedule
-                        </MenuItem>
-                      )}
-                    {user &&
-                      user.role === 'user' &&
-                      currentPath !== ROUTE_PATHS.pastBookings && (
-                        <MenuItem
-                          component={Link}
-                          to={ROUTE_PATHS.pastBookings}
-                          onClick={handleMenuClose}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            py: 1.5,
-                          }}
-                        >
-                          <HistoryIcon sx={{ mr: 1.5 }} />
-                          Current Bookings
-                        </MenuItem>
+                        <>
+                          {user.role === 'admin' && (
+                            <Divider sx={{ my: 0.5 }} />
+                          )}
+                          <Box
+                            sx={{
+                              px: 2.5,
+                              py: 1,
+                              mt: user.role === 'admin' ? 0.5 : 0.5,
+                              mb: 0.25,
+                            }}
+                          >
+                            <Typography
+                              variant='caption'
+                              sx={{
+                                color: 'text.secondary',
+                                fontWeight: 600,
+                                fontSize: '0.7rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                              }}
+                            >
+                              Coach
+                            </Typography>
+                          </Box>
+                          <MenuItem
+                            component={Link}
+                            to={ROUTE_PATHS.coach}
+                            onClick={handleMenuClose}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              py: 1.5,
+                              px: 2,
+                              mx: 0.75,
+                              borderRadius: 1.5,
+                              transition: 'all 0.2s ease-in-out',
+                              '&:hover': {
+                                backgroundColor: theme =>
+                                  alpha(
+                                    theme.palette.text.secondary,
+                                    theme.palette.mode === 'dark' ? 0.15 : 0.08
+                                  ),
+                                transform: 'translateX(4px)',
+                              },
+                            }}
+                          >
+                            <DashboardIcon
+                              sx={{
+                                mr: 1.5,
+                                color: 'text.secondary',
+                                fontSize: 20,
+                              }}
+                            />
+                            Coach Dashboard
+                          </MenuItem>
+                          <MenuItem
+                            component={Link}
+                            to={`/${user.id}/schedule`}
+                            onClick={handleMenuClose}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              py: 1.5,
+                              px: 2,
+                              mx: 0.75,
+                              borderRadius: 1.5,
+                              transition: 'all 0.2s ease-in-out',
+                              '&:hover': {
+                                backgroundColor: theme =>
+                                  alpha(
+                                    theme.palette.text.secondary,
+                                    theme.palette.mode === 'dark' ? 0.15 : 0.08
+                                  ),
+                                transform: 'translateX(4px)',
+                              },
+                            }}
+                          >
+                            <ScheduleIcon
+                              sx={{
+                                mr: 1.5,
+                                color: 'text.secondary',
+                                fontSize: 20,
+                              }}
+                            />
+                            My Schedule
+                          </MenuItem>
+                        </>
                       )}
                     {user && (
-                      <MenuItem
-                        component={Link}
-                        to={ROUTE_PATHS.settings}
-                        onClick={handleMenuClose}
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          py: 1.5,
-                        }}
-                      >
-                        <SettingsIcon sx={{ mr: 1.5 }} />
-                        Settings
-                      </MenuItem>
+                      <>
+                        <Divider sx={{ my: 0.5 }} />
+                        <Box
+                          sx={{
+                            px: 2.5,
+                            py: 1,
+                            mt: 0.5,
+                            mb: 0.25,
+                          }}
+                        >
+                          <Typography
+                            variant='caption'
+                            sx={{
+                              color: 'text.secondary',
+                              fontWeight: 600,
+                              fontSize: '0.7rem',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                            }}
+                          >
+                            Account
+                          </Typography>
+                        </Box>
+                        {user.role === 'user' &&
+                          currentPath !== ROUTE_PATHS.pastBookings && (
+                            <MenuItem
+                              component={Link}
+                              to={ROUTE_PATHS.pastBookings}
+                              onClick={handleMenuClose}
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                py: 1.5,
+                                px: 2,
+                                mx: 0.75,
+                                borderRadius: 1.5,
+                                transition: 'all 0.2s ease-in-out',
+                                '&:hover': {
+                                  backgroundColor: theme =>
+                                    alpha(
+                                      theme.palette.text.secondary,
+                                      theme.palette.mode === 'dark'
+                                        ? 0.15
+                                        : 0.08
+                                    ),
+                                  transform: 'translateX(4px)',
+                                },
+                              }}
+                            >
+                              <HistoryIcon
+                                sx={{
+                                  mr: 1.5,
+                                  color: 'text.secondary',
+                                  fontSize: 20,
+                                }}
+                              />
+                              Current Bookings
+                            </MenuItem>
+                          )}
+                        <MenuItem
+                          component={Link}
+                          to={ROUTE_PATHS.settings}
+                          onClick={handleMenuClose}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            py: 1.5,
+                            px: 2,
+                            mx: 0.75,
+                            borderRadius: 1.5,
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                              backgroundColor: theme =>
+                                alpha(
+                                  theme.palette.text.secondary,
+                                  theme.palette.mode === 'dark' ? 0.15 : 0.08
+                                ),
+                              transform: 'translateX(4px)',
+                            },
+                          }}
+                        >
+                          <SettingsIcon
+                            sx={{
+                              mr: 1.5,
+                              color: 'text.secondary',
+                              fontSize: 20,
+                            }}
+                          />
+                          Settings
+                        </MenuItem>
+                      </>
                     )}
+                    <Divider sx={{ my: 0.5 }} />
                     <MenuItem
                       onClick={handleLogout}
                       sx={{
                         display: 'flex',
                         alignItems: 'center',
                         py: 1.5,
+                        px: 2,
+                        mx: 0.75,
+                        mb: 0.5,
+                        borderRadius: 1.5,
+                        color: 'error.main',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          backgroundColor: theme =>
+                            alpha(theme.palette.error.main, 0.1),
+                          transform: 'translateX(4px)',
+                        },
                       }}
                     >
-                      <LogoutIcon sx={{ mr: 1.5 }} />
+                      <LogoutIcon sx={{ mr: 1.5, fontSize: 20 }} />
                       Logout
                     </MenuItem>
                   </Menu>

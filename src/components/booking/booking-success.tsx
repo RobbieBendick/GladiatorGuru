@@ -11,7 +11,6 @@ import { CheckCircle } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import { styled, keyframes } from '@mui/material/styles';
-import { DISCORD_SERVER_INVITE_URL } from '../../config/discord-server';
 
 // Animation for success icon
 const scaleIn = keyframes`
@@ -94,63 +93,6 @@ export function BookingSuccess() {
             Thank you for your booking request. We'll contact you via Discord as
             soon as possible to confirm the details and schedule your session.
           </Typography>
-
-          {/* Discord Server Invite Section */}
-          <Box
-            sx={{
-              mb: 4,
-              p: 3,
-              borderRadius: 2,
-              backgroundColor: alpha('#5865F2', 0.1),
-              border: `1px solid ${alpha('#5865F2', 0.2)}`,
-              animation: `${fadeIn} 0.8s ease-out 0.6s both`,
-            }}
-          >
-            <Typography
-              variant='h6'
-              sx={{
-                mb: 1,
-                fontWeight: 600,
-                color: 'text.primary',
-              }}
-            >
-              Get Instant Notifications
-            </Typography>
-            <Typography
-              variant='body2'
-              color='text.secondary'
-              sx={{ mb: 3, lineHeight: 1.6 }}
-            >
-              Join our Discord server to receive instant notifications about
-              your coaching sessions and stay updated on your booking status.
-            </Typography>
-            <Button
-              variant='contained'
-              startIcon={
-                <Box
-                  component='img'
-                  src='/discord.png'
-                  alt='Discord'
-                  sx={{
-                    width: 22,
-                    height: 22,
-                    objectFit: 'contain',
-                  }}
-                />
-              }
-              href={DISCORD_SERVER_INVITE_URL}
-              target='_blank'
-              rel='noopener noreferrer'
-              sx={{
-                backgroundColor: '#5865F2',
-                '&:hover': {
-                  backgroundColor: '#4752C4',
-                },
-              }}
-            >
-              Join Discord Server
-            </Button>
-          </Box>
 
           <Divider sx={{ my: 4 }} />
 

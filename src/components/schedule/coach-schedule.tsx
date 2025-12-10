@@ -7,6 +7,7 @@ import {
   alpha,
   styled,
   useTheme,
+  useMediaQuery,
   CircularProgress,
   Button,
   Dialog,
@@ -92,23 +93,35 @@ const getLastDiscordUsername = (): string => {
 };
 
 const SchedulePaper = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(4),
+  padding: theme.spacing(2, 1),
   borderRadius: theme.shape.borderRadius * 3,
   backgroundColor:
     theme.palette.mode === 'light'
       ? alpha(theme.palette.background.default, 0.8)
       : alpha(theme.palette.background.default, 0.5),
   border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+  [theme.breakpoints.up('sm')]: {
+    padding: theme.spacing(3, 2),
+  },
+  [theme.breakpoints.up('md')]: {
+    padding: theme.spacing(4),
+  },
 }));
 
 const ScheduleTitle = styled(Typography)(({ theme }) => ({
-  fontSize: '2.5rem',
+  fontSize: '1.75rem',
   fontWeight: 700,
   marginBottom: theme.spacing(1),
   background: theme.palette.text.primary,
   backgroundClip: 'text',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
+  [theme.breakpoints.up('sm')]: {
+    fontSize: '2rem',
+  },
+  [theme.breakpoints.up('md')]: {
+    fontSize: '2.5rem',
+  },
 }));
 
 interface CalendarEvent {
@@ -162,6 +175,7 @@ interface Coach extends User {
 export function CoachSchedule() {
   const navigate = useNavigate();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { id } = useParams<{ id: string }>();
   const { user } = useUser();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -184,6 +198,7 @@ export function CoachSchedule() {
     message: string;
     severity?: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, message: '', severity: 'error' });
+  const [snackbarKey, setSnackbarKey] = useState(0);
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [canCreateEvents, setCanCreateEvents] = useState(false);
   const [adminFormData, setAdminFormData] = useState<{
@@ -201,10 +216,12 @@ export function CoachSchedule() {
     discordUsername: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Initialize currentView from localStorage or default to 'timeGridWeek'
+  // Initialize currentView from localStorage or default based on screen size
   const [currentView, setCurrentView] = useState<string>(() => {
     const cachedView = localStorage.getItem('coachScheduleView');
-    return cachedView || 'timeGridWeek';
+    if (cachedView) return cachedView;
+    // Default to day view on mobile, week view on larger screens
+    return 'timeGridWeek';
   });
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -223,6 +240,16 @@ export function CoachSchedule() {
   >(new Map());
   // Track pending update IDs per event to prevent stale updates
   const pendingUpdateIdsRef = useRef<Map<string, number>>(new Map());
+
+  // Helper function to show snackbar with proper key update for remounting
+  const showSnackbar = (
+    message: string,
+    severity: 'success' | 'error' | 'warning' | 'info' = 'success'
+  ) => {
+    // Increment key to force remount when message changes
+    setSnackbarKey(prev => prev + 1);
+    setSnackbar({ open: true, message, severity });
+  };
 
   useEffect(() => {
     fetchCoachSchedule();
@@ -473,12 +500,10 @@ export function CoachSchedule() {
 
     // Show warning if duration exceeds 5 hours, but don't show dialog
     if (durationHours > 5) {
-      setSnackbar({
-        open: true,
-        message:
-          'Maximum selection time is 5 hours. Please select a shorter time range.',
-        severity: 'error',
-      });
+      showSnackbar(
+        'Maximum selection time is 5 hours. Please select a shorter time range.',
+        'error'
+      );
       selectInfo.view.calendar.unselect();
       return;
     }
@@ -496,11 +521,10 @@ export function CoachSchedule() {
       const timezoneNote = coachTimezone
         ? ` (availability is in ${coachTimezone})`
         : '';
-      setSnackbar({
-        open: true,
-        message: `This time slot is outside of the coach's availability${timezoneNote}. Please select a time within their available hours.`,
-        severity: 'error',
-      });
+      showSnackbar(
+        `This time slot is outside of the coach's availability${timezoneNote}. Please select a time within their available hours.`,
+        'error'
+      );
       selectInfo.view.calendar.unselect();
       return;
     }
@@ -638,37 +662,24 @@ export function CoachSchedule() {
       );
 
       if (response.status === 401 || response.status === 403) {
-        setSnackbar({
-          open: true,
-          message: 'Unauthorized to update job status',
-          severity: 'error',
-        });
+        showSnackbar('Unauthorized to update job status', 'error');
         return;
       }
 
       if (response.ok) {
-        setSnackbar({
-          open: true,
-          message: `Job status updated to ${newStatus}`,
-          severity: 'success',
-        });
+        showSnackbar(`Job status updated to ${newStatus}`, 'success');
         // Refresh the schedule
         await fetchCoachSchedule();
       } else {
         const errorData = await response.json().catch(() => ({}));
-        setSnackbar({
-          open: true,
-          message: errorData.message || 'Failed to update job status',
-          severity: 'error',
-        });
+        showSnackbar(
+          errorData.message || 'Failed to update job status',
+          'error'
+        );
       }
     } catch (error: any) {
       console.error('Error updating job status:', error);
-      setSnackbar({
-        open: true,
-        message: 'Failed to update job status',
-        severity: 'error',
-      });
+      showSnackbar('Failed to update job status', 'error');
     } finally {
       setUpdatingJobId(null);
       handleCloseContextMenu();
@@ -704,37 +715,21 @@ export function CoachSchedule() {
       );
 
       if (response.status === 401 || response.status === 403) {
-        setSnackbar({
-          open: true,
-          message: 'Unauthorized to delete job',
-          severity: 'error',
-        });
+        showSnackbar('Unauthorized to delete job', 'error');
         return;
       }
 
       if (response.ok) {
-        setSnackbar({
-          open: true,
-          message: 'Job deleted successfully',
-          severity: 'success',
-        });
+        showSnackbar('Job deleted successfully', 'success');
         // Refresh the schedule
         await fetchCoachSchedule();
       } else {
         const errorData = await response.json().catch(() => ({}));
-        setSnackbar({
-          open: true,
-          message: errorData.message || 'Failed to delete job',
-          severity: 'error',
-        });
+        showSnackbar(errorData.message || 'Failed to delete job', 'error');
       }
     } catch (error: any) {
       console.error('Error deleting job:', error);
-      setSnackbar({
-        open: true,
-        message: 'Failed to delete job',
-        severity: 'error',
-      });
+      showSnackbar('Failed to delete job', 'error');
     } finally {
       setUpdatingJobId(null);
       handleCloseContextMenu();
@@ -831,11 +826,7 @@ export function CoachSchedule() {
           errorMessage.trim() &&
           !abortController.signal.aborted
         ) {
-          setSnackbar({
-            open: true,
-            message: errorMessage,
-            severity: 'error',
-          });
+          showSnackbar(errorMessage, 'error');
         }
         abortControllersRef.current.delete(event.id);
         return;
@@ -861,11 +852,7 @@ export function CoachSchedule() {
       ) {
         // Don't update state - FullCalendar already has the event in the correct position
         // Only show success message
-        setSnackbar({
-          open: true,
-          message: 'Job availability updated successfully',
-          severity: 'success',
-        });
+        showSnackbar('Job availability updated successfully', 'success');
       }
       abortControllersRef.current.delete(event.id);
     } catch (error: any) {
@@ -880,11 +867,7 @@ export function CoachSchedule() {
       const errorMessage =
         error?.message || 'Failed to update job availability';
       if (errorMessage && errorMessage.trim()) {
-        setSnackbar({
-          open: true,
-          message: errorMessage,
-          severity: 'error',
-        });
+        showSnackbar(errorMessage, 'error');
       }
       abortControllersRef.current.delete(event.id);
     }
@@ -980,11 +963,7 @@ export function CoachSchedule() {
           errorMessage.trim() &&
           !abortController.signal.aborted
         ) {
-          setSnackbar({
-            open: true,
-            message: errorMessage,
-            severity: 'error',
-          });
+          showSnackbar(errorMessage, 'error');
         }
         abortControllersRef.current.delete(event.id);
         return;
@@ -1010,11 +989,7 @@ export function CoachSchedule() {
       ) {
         // Don't update state - FullCalendar already has the event in the correct position
         // Only show success message
-        setSnackbar({
-          open: true,
-          message: 'Job availability updated successfully',
-          severity: 'success',
-        });
+        showSnackbar('Job availability updated successfully', 'success');
       }
       abortControllersRef.current.delete(event.id);
     } catch (error: any) {
@@ -1029,11 +1004,7 @@ export function CoachSchedule() {
       const errorMessage =
         error?.message || 'Failed to update job availability';
       if (errorMessage && errorMessage.trim()) {
-        setSnackbar({
-          open: true,
-          message: errorMessage,
-          severity: 'error',
-        });
+        showSnackbar(errorMessage, 'error');
       }
       abortControllersRef.current.delete(event.id);
     }
@@ -1093,11 +1064,7 @@ export function CoachSchedule() {
       !adminFormData.characterRealm ||
       !adminFormData.discordUsername
     ) {
-      setSnackbar({
-        open: true,
-        message: 'Please fill in all required fields',
-        severity: 'error',
-      });
+      showSnackbar('Please fill in all required fields', 'error');
       return;
     }
 
@@ -1133,29 +1100,17 @@ export function CoachSchedule() {
 
       if (response.ok) {
         await response.json();
-        setSnackbar({
-          open: true,
-          message: 'Booking created successfully',
-          severity: 'success',
-        });
+        showSnackbar('Booking created successfully', 'success');
         handleCloseTimeDialog();
         // Refresh the calendar
         await fetchCoachSchedule();
       } else {
         const errorData = await response.json().catch(() => ({}));
-        setSnackbar({
-          open: true,
-          message: errorData.message || 'Failed to create booking',
-          severity: 'error',
-        });
+        showSnackbar(errorData.message || 'Failed to create booking', 'error');
       }
     } catch (err: any) {
       console.error('Error creating booking:', err);
-      setSnackbar({
-        open: true,
-        message: 'Failed to create booking',
-        severity: 'error',
-      });
+      showSnackbar('Failed to create booking', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -1169,11 +1124,7 @@ export function CoachSchedule() {
       !quickBookingFormData.characterRealm ||
       !quickBookingFormData.discordUsername
     ) {
-      setSnackbar({
-        open: true,
-        message: 'Please fill in all required fields',
-        severity: 'error',
-      });
+      showSnackbar('Please fill in all required fields', 'error');
       return;
     }
 
@@ -1215,11 +1166,7 @@ export function CoachSchedule() {
 
       if (response.ok) {
         await response.json();
-        setSnackbar({
-          open: true,
-          message: 'Booking request submitted successfully!',
-          severity: 'success',
-        });
+        showSnackbar('Booking request submitted successfully!', 'success');
         handleCloseTimeDialog();
         // Refresh the calendar after a short delay
         setTimeout(() => {
@@ -1227,19 +1174,14 @@ export function CoachSchedule() {
         }, 1000);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        setSnackbar({
-          open: true,
-          message: errorData.message || 'Failed to submit booking request',
-          severity: 'error',
-        });
+        showSnackbar(
+          errorData.message || 'Failed to submit booking request',
+          'error'
+        );
       }
     } catch (err: any) {
       console.error('Error submitting booking:', err);
-      setSnackbar({
-        open: true,
-        message: 'Failed to submit booking request',
-        severity: 'error',
-      });
+      showSnackbar('Failed to submit booking request', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -1473,7 +1415,14 @@ export function CoachSchedule() {
         <ScheduleTitle variant='h2' gutterBottom>
           {displayName}'s Schedule
         </ScheduleTitle>
-        <Typography variant='body1' color='text.secondary' sx={{ mb: 3 }}>
+        <Typography
+          variant='body1'
+          color='text.secondary'
+          sx={{
+            mb: { xs: 2, md: 3 },
+            fontSize: { xs: '0.875rem', sm: '1rem' },
+          }}
+        >
           View {displayName}'s coaching sessions and availability.
         </Typography>
 
@@ -1482,11 +1431,14 @@ export function CoachSchedule() {
           <Alert
             severity='info'
             sx={{
-              mb: 3,
+              mb: { xs: 2, md: 3 },
               backgroundColor: alpha(theme.palette.info.main, 0.1),
               border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
               '& .MuiAlert-icon': {
                 color: theme.palette.info.main,
+              },
+              '& .MuiAlert-message': {
+                fontSize: { xs: '0.875rem', sm: '1rem' },
               },
             }}
           >
@@ -1526,18 +1478,31 @@ export function CoachSchedule() {
           <Alert
             severity='info'
             sx={{
-              mb: 3,
+              mb: { xs: 2, md: 3 },
               backgroundColor: alpha(theme.palette.info.main, 0.1),
               border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
               '& .MuiAlert-icon': {
                 color: theme.palette.info.main,
               },
+              '& .MuiAlert-message': {
+                fontSize: { xs: '0.875rem', sm: '1rem' },
+              },
             }}
           >
-            <Typography variant='body1' sx={{ fontWeight: 600, mb: 0.5 }}>
+            <Typography
+              variant='body1'
+              sx={{
+                fontWeight: 600,
+                mb: 0.5,
+                fontSize: { xs: '0.875rem', sm: '1rem' },
+              }}
+            >
               📅 How to Book a Time
             </Typography>
-            <Typography variant='body2'>
+            <Typography
+              variant='body2'
+              sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}
+            >
               Switch to <strong>Day</strong> or <strong>Week</strong> view using
               the buttons above, then <strong>click and drag</strong> on the
               calendar to select your desired time slot.
@@ -1547,18 +1512,34 @@ export function CoachSchedule() {
           <Alert
             severity='info'
             sx={{
-              mb: 3,
+              mb: { xs: 2, md: 3 },
               backgroundColor: alpha(theme.palette.info.main, 0.1),
               border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
               '& .MuiAlert-icon': {
                 color: theme.palette.info.main,
               },
+              '& .MuiAlert-message': {
+                fontSize: { xs: '0.875rem', sm: '1rem' },
+              },
             }}
           >
-            <Typography variant='body1' sx={{ fontWeight: 600, mb: 0.5 }}>
+            <Typography
+              variant='body1'
+              sx={{
+                fontWeight: 600,
+                mb: 0.5,
+                fontSize: { xs: '0.875rem', sm: '1rem' },
+              }}
+            >
               🖱️ Click and Drag to Book
             </Typography>
-            <Typography variant='body2' sx={{ mb: 1 }}>
+            <Typography
+              variant='body2'
+              sx={{
+                mb: 1,
+                fontSize: { xs: '0.8rem', sm: '0.875rem' },
+              }}
+            >
               <strong>Click and drag</strong> on the calendar below to select
               your desired time range. A dialog will appear to confirm your
               selection and proceed to booking.
@@ -1566,7 +1547,11 @@ export function CoachSchedule() {
             <Typography
               variant='caption'
               color='text.secondary'
-              sx={{ display: 'block', fontStyle: 'italic' }}
+              sx={{
+                display: 'block',
+                fontStyle: 'italic',
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+              }}
             >
               📍 All times are shown in your local timezone (
               {getTimezoneAbbreviation()})
@@ -1581,15 +1566,31 @@ export function CoachSchedule() {
             width: '100%',
             '& .fc': {
               fontFamily: theme.typography.fontFamily,
-              minWidth: { xs: '600px', sm: 'auto' },
+              fontSize: { xs: '0.75rem', sm: '0.875rem', md: '1rem' },
+              '& .fc-col-header-cell': {
+                fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                padding: { xs: '4px 2px', sm: '8px 4px' },
+              },
+              '& .fc-timegrid-slot-label': {
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+              },
             },
             '& .fc-header-toolbar': {
-              marginBottom: theme.spacing(3),
+              marginBottom: { xs: theme.spacing(1.5), md: theme.spacing(3) },
+              flexWrap: 'wrap',
+              gap: { xs: 0.5, sm: 1 },
+              '& .fc-toolbar-chunk': {
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: { xs: 0.25, sm: 0.5 },
+              },
             },
             '& .fc-button': {
               backgroundColor: theme.palette.primary.main,
               borderColor: theme.palette.primary.main,
               color: theme.palette.primary.contrastText,
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
+              padding: { xs: '4px 8px', sm: '6px 12px' },
               '&:hover': {
                 backgroundColor: theme.palette.primary.dark,
                 borderColor: theme.palette.primary.dark,
@@ -1642,6 +1643,9 @@ export function CoachSchedule() {
                   : 'default',
               border: 'none',
               borderRadius: theme.shape.borderRadius,
+              touchAction: 'none',
+              WebkitTouchCallout: 'none',
+              userSelect: 'none',
             },
             '& .fc-event-title': {
               fontWeight: 500,
@@ -1653,7 +1657,8 @@ export function CoachSchedule() {
               borderRadius: theme.shape.borderRadius,
             },
             '& .fc-timegrid-slot': {
-              height: '2.5em',
+              height: { xs: '2em', sm: '2.5em' },
+              touchAction: 'pan-y',
             },
             // Highlight available business hours (background events)
             '& .fc-bg-event': {
@@ -1682,6 +1687,20 @@ export function CoachSchedule() {
                 0.15
               ),
             },
+            // Mobile touch support
+            '& .fc-timegrid-body': {
+              touchAction: 'pan-y',
+            },
+            '& .fc-timegrid-col': {
+              touchAction: 'pan-y',
+            },
+            '& .fc-scrollgrid': {
+              touchAction: 'pan-y',
+            },
+            '& .fc-scroller': {
+              WebkitOverflowScrolling: 'touch',
+              touchAction: 'pan-y',
+            },
           }}
         >
           <FullCalendar
@@ -1690,7 +1709,7 @@ export function CoachSchedule() {
             headerToolbar={{
               left: 'prev,next today',
               center: 'title',
-              right: 'dayGridMonth,timeGridWeek,timeGridDay',
+              right: 'timeGridWeek,timeGridDay',
             }}
             editable={
               canCreateEvents &&
@@ -1730,8 +1749,11 @@ export function CoachSchedule() {
             snapDuration='00:30:00'
             slotLabelInterval='01:00:00'
             allDaySlot={false}
-            selectMinDistance={10}
+            selectMinDistance={0}
+            longPressDelay={200}
+            selectLongPressDelay={200}
             datesSet={handleViewChange}
+            nowIndicator={true}
           />
         </Box>
       </SchedulePaper>
@@ -1742,32 +1764,63 @@ export function CoachSchedule() {
         onClose={handleCloseTimeDialog}
         maxWidth='sm'
         fullWidth
+        fullScreen={isMobile}
+        sx={{
+          '& .MuiDialog-paper': {
+            margin: { xs: 0, sm: 'auto' },
+            maxHeight: { xs: '100vh', sm: '90vh' },
+          },
+        }}
       >
         <DialogTitle>
-          <Typography variant='h6' sx={{ fontWeight: 600 }}>
+          <Typography
+            variant='h6'
+            sx={{
+              fontWeight: 600,
+              fontSize: { xs: '1rem', sm: '1.25rem' },
+            }}
+          >
             Selected Time Range
           </Typography>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
           {selectedTimeRange && (
-            <Box sx={{ py: 2 }}>
-              <Typography variant='body1' sx={{ mb: 2 }}>
+            <Box sx={{ py: { xs: 1, sm: 2 } }}>
+              <Typography
+                variant='body1'
+                sx={{
+                  mb: { xs: 1.5, sm: 2 },
+                  fontSize: { xs: '0.875rem', sm: '1rem' },
+                }}
+              >
                 <strong>Date:</strong> {formatDate(selectedTimeRange.start)}
               </Typography>
-              <Typography variant='body1' sx={{ mb: 2 }}>
+              <Typography
+                variant='body1'
+                sx={{
+                  mb: { xs: 1.5, sm: 2 },
+                  fontSize: { xs: '0.875rem', sm: '1rem' },
+                }}
+              >
                 <strong>Start Time:</strong>{' '}
                 {formatTime(selectedTimeRange.start)}
               </Typography>
-              <Typography variant='body1' sx={{ mb: 2 }}>
+              <Typography
+                variant='body1'
+                sx={{
+                  mb: { xs: 1.5, sm: 2 },
+                  fontSize: { xs: '0.875rem', sm: '1rem' },
+                }}
+              >
                 <strong>End Time:</strong> {formatTime(selectedTimeRange.end)}
               </Typography>
               <Typography
                 variant='body1'
                 sx={{
-                  mb: 2,
+                  mb: { xs: 1.5, sm: 2 },
                   color: 'primary.main',
                   fontWeight: 600,
-                  fontSize: '1.1rem',
+                  fontSize: { xs: '0.95rem', sm: '1.1rem' },
                 }}
               >
                 <strong>Duration:</strong>{' '}
@@ -1798,14 +1851,24 @@ export function CoachSchedule() {
 
               {isAdminMode ? (
                 <>
-                  <Divider sx={{ my: 3 }} />
-                  <Typography variant='h6' sx={{ mb: 2, fontWeight: 600 }}>
+                  <Divider sx={{ my: { xs: 2, sm: 3 } }} />
+                  <Typography
+                    variant='h6'
+                    sx={{
+                      mb: { xs: 1.5, sm: 2 },
+                      fontWeight: 600,
+                      fontSize: { xs: '1rem', sm: '1.25rem' },
+                    }}
+                  >
                     Quick Add Booking
                   </Typography>
                   <Typography
                     variant='body2'
                     color='text.secondary'
-                    sx={{ mb: 2 }}
+                    sx={{
+                      mb: { xs: 1.5, sm: 2 },
+                      fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                    }}
                   >
                     Fill in the essential information to quickly create a
                     booking.
@@ -1876,14 +1939,24 @@ export function CoachSchedule() {
                 </>
               ) : (
                 <>
-                  <Divider sx={{ my: 3 }} />
-                  <Typography variant='h6' sx={{ mb: 2, fontWeight: 600 }}>
+                  <Divider sx={{ my: { xs: 2, sm: 3 } }} />
+                  <Typography
+                    variant='h6'
+                    sx={{
+                      mb: { xs: 1.5, sm: 2 },
+                      fontWeight: 600,
+                      fontSize: { xs: '1rem', sm: '1.25rem' },
+                    }}
+                  >
                     Quick Booking
                   </Typography>
                   <Typography
                     variant='body2'
                     color='text.secondary'
-                    sx={{ mb: 2 }}
+                    sx={{
+                      mb: { xs: 1.5, sm: 2 },
+                      fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                    }}
                   >
                     Fill in the essential information to submit your booking
                     request. Times are shown in your local timezone (
@@ -2090,19 +2163,30 @@ export function CoachSchedule() {
 
       {/* Snackbar */}
       <Snackbar
+        key={snackbarKey}
         open={
           snackbar.open && !!snackbar.message && snackbar.message.trim() !== ''
         }
         autoHideDuration={6000}
-        onClose={() =>
-          setSnackbar({ open: false, message: '', severity: 'success' })
-        }
+        onClose={() => {
+          // Only close the snackbar, keep the message until animation completes
+          setSnackbar(prev => ({ ...prev, open: false }));
+          // Clear the message after the close animation completes (typically ~300ms)
+          setTimeout(() => {
+            setSnackbar({ open: false, message: '', severity: 'success' });
+          }, 300);
+        }}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert
-          onClose={() =>
-            setSnackbar({ open: false, message: '', severity: 'success' })
-          }
+          onClose={() => {
+            // Only close the snackbar, keep the message until animation completes
+            setSnackbar(prev => ({ ...prev, open: false }));
+            // Clear the message after the close animation completes (typically ~300ms)
+            setTimeout(() => {
+              setSnackbar({ open: false, message: '', severity: 'success' });
+            }, 300);
+          }}
           severity={snackbar.severity || 'success'}
           variant='filled'
           sx={{ width: '100%', color: 'white' }}

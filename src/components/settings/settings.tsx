@@ -409,14 +409,14 @@ export function Settings() {
                 id='settings-tab-1'
               />
             )}
-            {isAdminOrCoach && (
+            {/* {isAdminOrCoach && (
               <Tab
                 icon={<Notifications />}
                 iconPosition='start'
                 label='Notifications'
                 id='settings-tab-2'
               />
-            )}
+            )} */}
             {isAdminOrCoach && (
               <Tab
                 icon={<Schedule />}
@@ -562,7 +562,7 @@ export function Settings() {
         )}
 
         {/* Notifications Tab - Admin/Coach Only */}
-        {isAdminOrCoach && (
+        {/* {isAdminOrCoach && (
           <CustomTabPanel value={tabValue} index={2}>
             <Typography
               variant='h5'
@@ -662,11 +662,11 @@ export function Settings() {
               </Box>
             </Box>
           </CustomTabPanel>
-        )}
+        )} */}
 
         {/* Availability Tab - Admin/Coach Only */}
         {isAdminOrCoach && (
-          <CustomTabPanel value={tabValue} index={3}>
+          <CustomTabPanel value={tabValue} index={2}>
             <Typography
               variant='h5'
               sx={{

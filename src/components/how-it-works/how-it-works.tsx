@@ -10,7 +10,7 @@ import {
   Divider,
   useTheme,
 } from '@mui/material';
-import { ArrowBack, Info } from '@mui/icons-material';
+import { ArrowBack, Info, BookOnline } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 
@@ -163,7 +163,7 @@ const steps = [
     icon: '💬',
     label: 'We Contact You',
     description:
-      "Within 24 hours, we'll reach out to you via Discord to confirm your booking details, discuss your goals, and answer any questions you may have. We'll start with a consultation to understand your goals and needs.",
+      "Within 24 hours, we'll reach out to you via Discord to confirm your booking details, discuss your goals, and answer any questions you may have. If it's your first time, your first booking will be a consultation free of charge to understand your personalized goals and needs.",
   },
   {
     icon: '📅',
@@ -333,6 +333,7 @@ export function HowItWorks() {
           <Button
             variant='contained'
             size='large'
+            startIcon={<BookOnline />}
             onClick={() => navigate(ROUTE_PATHS.booking)}
             sx={{
               padding: theme => theme.spacing(1.5, 4),

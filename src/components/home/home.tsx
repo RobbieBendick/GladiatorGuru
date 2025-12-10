@@ -414,7 +414,7 @@ export function Home() {
                 lineHeight: 1.2,
               }}
             >
-              Starting at $30/hour
+              Book a Coaching Session
             </Typography>
             <Typography
               variant='body1'
@@ -422,7 +422,8 @@ export function Home() {
                 color: 'text.secondary',
               }}
             >
-              Competitive rates for an elite-level arena friend.
+              If it's your first time, your first booking will be a consultation
+              free of charge to understand your personalized goals and needs.
             </Typography>
           </PriceBox>
           <ButtonContainer>
@@ -541,10 +542,8 @@ export function Home() {
               },
             }}
           >
-            <span className='button-text-short'>Get Started</span>
-            <span className='button-text-full'>
-              Get Started - Starting at $30/hour
-            </span>
+            <span className='button-text-short'>Book Coach</span>
+            <span className='button-text-full'>Book a Coaching Session</span>
           </PrimaryButton>
         </CallToActionBox>
       </Container>

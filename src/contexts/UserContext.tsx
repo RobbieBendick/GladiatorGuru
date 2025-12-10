@@ -26,6 +26,7 @@ export interface User {
   email?: string;
   timezone?: string;
   availability?: AvailabilitySlot[];
+  usedPromoCode?: string;
 }
 
 interface UserContextType {
