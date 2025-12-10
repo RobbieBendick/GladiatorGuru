@@ -20,4 +20,5 @@ export const ROUTE_PATHS: { [key: string]: string } = {
   privacyPolicy: '/privacy-policy',
   termsOfService: '/terms-of-service',
   customerManagement: '/admin/customers',
+  customerDetail: '/admin/customers/:discordUsername',
 };

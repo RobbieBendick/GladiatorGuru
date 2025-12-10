@@ -26,6 +26,7 @@ import {
   Cancel as CancelIcon,
   Refresh as RefreshIcon,
   AccountBalance as AccountBalanceIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
@@ -302,7 +303,30 @@ export function CustomerManagement() {
               ) : (
                 customers.map(customer => (
                   <TableRow key={customer.discordUsername} hover>
-                    <TableCell>{customer.discordUsername}</TableCell>
+                    <TableCell>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                        }}
+                      >
+                        {customer.discordUsername}
+                        <IconButton
+                          size='small'
+                          onClick={() =>
+                            navigate(
+                              `/admin/customers/${encodeURIComponent(
+                                customer.discordUsername
+                              )}`
+                            )
+                          }
+                          sx={{ ml: 0.5 }}
+                        >
+                          <VisibilityIcon fontSize='small' />
+                        </IconButton>
+                      </Box>
+                    </TableCell>
                     <TableCell>
                       {editingCustomer === customer.discordUsername ? (
                         <TextField

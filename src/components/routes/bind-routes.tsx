@@ -11,6 +11,7 @@ import { DiscordCallback } from '../auth/discord-callback';
 import { AdminDashboard } from '../admin/admin-dashboard';
 import { CoachList } from '../admin/coach-list';
 import { CustomerManagement } from '../admin/customer-management';
+import { CustomerDetail } from '../admin/customer-detail';
 import { ProtectedRoute } from '../admin/protected-route';
 import { CoachSchedule } from '../schedule/coach-schedule';
 import { JobDetails } from '../job/job-details';
@@ -81,8 +82,16 @@ export function BindRoutes(props: { children?: React.ReactNode }): JSX.Element {
           <Route
             path={ROUTE_PATHS.customerManagement}
             element={
-              <ProtectedRoute allowedRoles={['admin', 'coach']}>
+              <ProtectedRoute allowedRoles={['admin']}>
                 <CustomerManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={ROUTE_PATHS.customerDetail}
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <CustomerDetail />
               </ProtectedRoute>
             }
           />

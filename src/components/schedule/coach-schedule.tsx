@@ -266,6 +266,14 @@ export function CoachSchedule() {
   const { drawerOpen, setDrawerOpen } = useCustomerDrawer();
   const [draggedCustomer, setDraggedCustomer] = useState<Customer | null>(null);
   const calendarContainerRef = useRef<HTMLDivElement>(null);
+  // Customer context menu state
+  const [customerContextMenu, setCustomerContextMenu] = useState<{
+    mouseX: number;
+    mouseY: number;
+  } | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+    null
+  );
 
   // Helper function to show snackbar with proper key update for remounting
   const showSnackbar = (
@@ -1884,6 +1892,15 @@ export function CoachSchedule() {
                       onDragEnd={() => {
                         // Don't clear here - let the drop handler do it
                       }}
+                      onContextMenu={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSelectedCustomer(customer);
+                        setCustomerContextMenu({
+                          mouseX: e.clientX + 2,
+                          mouseY: e.clientY - 6,
+                        });
+                      }}
                     >
                       <Avatar
                         sx={{
@@ -1979,6 +1996,49 @@ export function CoachSchedule() {
           </Box>
         </Drawer>
       )}
+
+      {/* Customer Context Menu */}
+      <Menu
+        open={customerContextMenu !== null}
+        onClose={() => {
+          setCustomerContextMenu(null);
+          setSelectedCustomer(null);
+        }}
+        anchorReference='anchorPosition'
+        anchorPosition={
+          customerContextMenu !== null
+            ? {
+                top: customerContextMenu.mouseY,
+                left: customerContextMenu.mouseX,
+              }
+            : undefined
+        }
+        PaperProps={{
+          sx: {
+            minWidth: 200,
+            borderRadius: 2,
+          },
+        }}
+      >
+        <MenuItem
+          onClick={() => {
+            if (selectedCustomer) {
+              navigate(
+                `/admin/customers/${encodeURIComponent(
+                  selectedCustomer.discordUsername
+                )}`
+              );
+            }
+            setCustomerContextMenu(null);
+            setSelectedCustomer(null);
+          }}
+        >
+          <ListItemIcon>
+            <Visibility fontSize='small' />
+          </ListItemIcon>
+          <ListItemText>View Customer</ListItemText>
+        </MenuItem>
+      </Menu>
 
       <SchedulePaper elevation={3}>
         <Box

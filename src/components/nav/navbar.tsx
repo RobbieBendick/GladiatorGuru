@@ -711,7 +711,7 @@ function ResponsiveNavBar() {
                           />
                           View Coaches
                         </MenuItem>
-                        {isScheduleRoute && canAccessCustomers && (
+                        {user && user.role === 'admin' && (
                           <MenuItem
                             component={Link}
                             to={ROUTE_PATHS.customerManagement}
@@ -741,7 +741,7 @@ function ResponsiveNavBar() {
                                 fontSize: 20,
                               }}
                             />
-                            Customer Management
+                            View Customers
                           </MenuItem>
                         )}
                       </>
@@ -835,41 +835,6 @@ function ResponsiveNavBar() {
                             />
                             My Schedule
                           </MenuItem>
-                          {isScheduleRoute && canAccessCustomers && (
-                            <MenuItem
-                              component={Link}
-                              to={ROUTE_PATHS.customerManagement}
-                              onClick={handleMenuClose}
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                py: 1.5,
-                                px: 2,
-                                mx: 0.75,
-                                borderRadius: 1.5,
-                                transition: 'all 0.2s ease-in-out',
-                                '&:hover': {
-                                  backgroundColor: theme =>
-                                    alpha(
-                                      theme.palette.text.secondary,
-                                      theme.palette.mode === 'dark'
-                                        ? 0.15
-                                        : 0.08
-                                    ),
-                                  transform: 'translateX(4px)',
-                                },
-                              }}
-                            >
-                              <AccountBalanceIcon
-                                sx={{
-                                  mr: 1.5,
-                                  color: 'text.secondary',
-                                  fontSize: 20,
-                                }}
-                              />
-                              Customer Management
-                            </MenuItem>
-                          )}
                         </>
                       )}
                     {user && (
