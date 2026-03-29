@@ -450,6 +450,13 @@ export function AdminDashboard() {
             <>
               <Button
                 variant='outlined'
+                onClick={() => navigate('/admin/coach-tracker')}
+                sx={{ textTransform: 'none', borderColor: '#f0a500', color: '#f0a500', '&:hover': { borderColor: '#f0a500', backgroundColor: 'rgba(240,165,0,0.08)' } }}
+              >
+                Coach Tracker (Beta)
+              </Button>
+              <Button
+                variant='outlined'
                 startIcon={<DeleteSweepIcon />}
                 onClick={handleToggleDeleteMode}
                 color='error'
