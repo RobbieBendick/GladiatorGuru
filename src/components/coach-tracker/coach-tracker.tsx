@@ -44,6 +44,9 @@ interface Coach {
   hoursUsed: number;
   notes: string;
   activityLog: LogEntry[];
+  brackets: string[];
+  updatedAt: string;
+  createdAt: string;
 }
 
 interface CoachForm {
@@ -55,6 +58,7 @@ interface CoachForm {
   hoursPrepaid: number;
   hoursUsed: number;
   notes: string;
+  brackets: string[];
 }
 
 const emptyForm: CoachForm = {
@@ -66,6 +70,7 @@ const emptyForm: CoachForm = {
   hoursPrepaid: 0,
   hoursUsed: 0,
   notes: '',
+  brackets: [],
 };
 
 export function CoachTracker() {
@@ -78,10 +83,30 @@ export function CoachTracker() {
   const [classFilter, setClassFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('ct-pinned');
+      return new Set(saved ? JSON.parse(saved) : []);
+    } catch { return new Set(); }
+  });
+  const [pinNotes, setPinNotes] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem('ct-pin-notes');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+  const [pinNoteTimes, setPinNoteTimes] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('ct-pin-note-times');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
   const [logCoach, setLogCoach] = useState<Coach | null>(null);
   const [logMessage, setLogMessage] = useState('');
   const [logSending, setLogSending] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
+  const justEnteredEditRef = useRef(false);
 
   const authHeaders = () => {
     const token = getAuthToken();
@@ -127,6 +152,7 @@ export function CoachTracker() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (justEnteredEditRef.current) return;
     if (!form.discord.trim() || !form.wowClass) return;
 
     try {
@@ -167,6 +193,7 @@ export function CoachTracker() {
       hoursPrepaid: coach.hoursPrepaid,
       hoursUsed: coach.hoursUsed,
       notes: coach.notes,
+      brackets: coach.brackets || [],
     });
     setViewing(coach._id);
     setEditing(null);
@@ -174,8 +201,10 @@ export function CoachTracker() {
 
   const startEdit = () => {
     if (viewing) {
+      justEnteredEditRef.current = true;
       setEditing(viewing);
       setViewing(null);
+      setTimeout(() => { justEnteredEditRef.current = false; }, 300);
     }
   };
 
@@ -209,6 +238,30 @@ export function CoachTracker() {
   const closeLog = () => {
     setLogCoach(null);
     setLogMessage('');
+  };
+
+  const togglePin = (id: string) => {
+    setPinnedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      localStorage.setItem('ct-pinned', JSON.stringify([...next]));
+      return next;
+    });
+  };
+
+  const savePinNote = (id: string, note: string) => {
+    const now = Date.now();
+    setPinNotes(prev => {
+      const next = { ...prev, [id]: note };
+      localStorage.setItem('ct-pin-notes', JSON.stringify(next));
+      return next;
+    });
+    setPinNoteTimes(prev => {
+      const next = { ...prev, [id]: now };
+      localStorage.setItem('ct-pin-note-times', JSON.stringify(next));
+      return next;
+    });
   };
 
   const sendLogEntry = async () => {
@@ -252,7 +305,20 @@ export function CoachTracker() {
         return false;
       return true;
     })
-    .sort((a, b) => a.discord.localeCompare(b.discord, undefined, { sensitivity: 'base' }));
+    .sort((a, b) => {
+      const aPinned = pinnedIds.has(a._id) ? 0 : 1;
+      const bPinned = pinnedIds.has(b._id) ? 0 : 1;
+      if (aPinned !== bPinned) return aPinned - bPinned;
+      const aTime = Math.max(
+        new Date(a.updatedAt || a.createdAt || 0).getTime(),
+        pinNoteTimes[a._id] || 0
+      );
+      const bTime = Math.max(
+        new Date(b.updatedAt || b.createdAt || 0).getTime(),
+        pinNoteTimes[b._id] || 0
+      );
+      return bTime - aTime;
+    });
 
   const hordeCount = coaches.filter(c => c.faction === 'Horde').length;
   const allianceCount = coaches.filter(c => c.faction === 'Alliance').length;
@@ -446,9 +512,14 @@ export function CoachTracker() {
                 {editing ? 'Save Changes' : 'Add Coach'}
               </button>
               {editing && (
-                <button type="button" className="btn-secondary" onClick={cancelEdit}>
-                  Cancel
-                </button>
+                <>
+                  <button type="button" className="btn-secondary" onClick={cancelEdit}>
+                    Cancel
+                  </button>
+                  <button type="button" className="btn-new" onClick={() => { setEditing(null); setViewing(null); setForm({ ...emptyForm }); }}>
+                    + New
+                  </button>
+                </>
               )}
             </>
           )}
@@ -506,6 +577,8 @@ export function CoachTracker() {
                 <th>Class</th>
                 <th>Coaching With</th>
                 <th>Hours</th>
+                <th>Bracket</th>
+                <th></th>
                 <th></th>
               </tr>
             </thead>
@@ -513,7 +586,7 @@ export function CoachTracker() {
               {filtered.map(coach => (
                 <tr
                   key={coach._id}
-                  className={`${coach.faction.toLowerCase()} clickable ${viewing === coach._id ? 'selected' : ''}`}
+                  className={`${coach.faction.toLowerCase()} clickable ${viewing === coach._id ? 'selected' : ''} ${pinnedIds.has(coach._id) ? 'pinned-row' : ''}`}
                   onClick={() => viewCoach(coach)}
                 >
                   <td className="discord-cell">
@@ -548,27 +621,89 @@ export function CoachTracker() {
                     )}
                     {coach.notes && <span className="has-notes" title={coach.notes}>*</span>}
                   </td>
+                  <td className="bracket-cell" onClick={e => e.stopPropagation()}>
+                    <div className="bracket-group">
+                      {(['2', '3', '5'] as const).map(b => {
+                        const active = (coach.brackets || []).includes(b);
+                        return (
+                          <button
+                            key={b}
+                            className={`bracket-btn ${active ? 'active' : ''}`}
+                            onClick={async e => {
+                              e.stopPropagation();
+                              const next = active
+                                ? (coach.brackets || []).filter(x => x !== b)
+                                : [...(coach.brackets || []), b];
+                              setCoaches(prev => prev.map(c =>
+                                c._id === coach._id ? { ...c, brackets: next } : c
+                              ));
+                              fetch(`${API_BASE_URL}/api/coach-tracker/coaches/${coach._id}`, {
+                                method: 'PATCH',
+                                headers: authHeaders(),
+                                credentials: 'include',
+                                body: JSON.stringify({ brackets: next }),
+                              });
+                            }}
+                          >
+                            {b}s
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </td>
+                  <td className="pin-note-cell">
+                    {pinnedIds.has(coach._id) && (
+                      <input
+                        className="pin-note-input"
+                        type="text"
+                        placeholder="why pinned..."
+                        value={pinNotes[coach._id] || ''}
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => { e.stopPropagation(); savePinNote(coach._id, e.target.value); }}
+                        maxLength={80}
+                      />
+                    )}
+                  </td>
                   <td className="actions-cell">
                     <button
+                      className={`btn-icon pin ${pinnedIds.has(coach._id) ? 'pinned' : ''}`}
+                      onClick={e => { e.stopPropagation(); togglePin(coach._id); }}
+                      title={pinnedIds.has(coach._id) ? 'Unpin' : 'Pin to top'}
+                    >
+                      {pinnedIds.has(coach._id) ? '★' : '☆'}
+                    </button>
+                    <button
                       className="btn-icon log"
-                      onClick={e => {
-                        e.stopPropagation();
-                        openLog(coach);
-                      }}
+                      onClick={e => { e.stopPropagation(); openLog(coach); }}
                       title="Activity Log"
                     >
                       Log{coach.activityLog?.length ? ` (${coach.activityLog.length})` : ''}
                     </button>
-                    <button
-                      className="btn-icon delete"
-                      onClick={e => {
-                        e.stopPropagation();
-                        deleteCoach(coach._id);
-                      }}
-                      title="Delete"
-                    >
-                      Del
-                    </button>
+                    {confirmDeleteId === coach._id ? (
+                      <span className="delete-confirm" onClick={e => e.stopPropagation()}>
+                        <span className="delete-confirm-label">Sure?</span>
+                        <button
+                          className="btn-icon delete confirm-yes"
+                          onClick={e => { e.stopPropagation(); setConfirmDeleteId(null); deleteCoach(coach._id); }}
+                        >
+                          Yes
+                        </button>
+                        <button
+                          className="btn-icon confirm-no"
+                          onClick={e => { e.stopPropagation(); setConfirmDeleteId(null); }}
+                        >
+                          No
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        className="btn-icon delete"
+                        onClick={e => { e.stopPropagation(); setConfirmDeleteId(coach._id); }}
+                        title="Delete"
+                      >
+                        Del
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

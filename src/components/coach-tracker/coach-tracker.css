@@ -501,6 +501,153 @@
   font-weight: 700;
 }
 
+/* Pin button (inline in actions cell) */
+.coach-tracker .btn-icon.pin {
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+.coach-tracker .btn-icon.pin:hover {
+  color: #f0a500;
+  border-color: rgba(240, 165, 0, 0.4);
+  background: rgba(240, 165, 0, 0.08);
+}
+
+.coach-tracker .btn-icon.pin.pinned {
+  color: #f0a500;
+  border-color: rgba(240, 165, 0, 0.3);
+}
+
+.coach-tracker tbody tr.pinned-row {
+  background: rgba(240, 165, 0, 0.04);
+  border-left: 2px solid rgba(240, 165, 0, 0.6);
+}
+
+/* Delete confirm inline */
+.coach-tracker .delete-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.coach-tracker .delete-confirm-label {
+  font-size: 0.78rem;
+  color: #ef5350;
+  font-weight: 600;
+}
+
+.coach-tracker .btn-icon.confirm-yes {
+  border-color: rgba(239, 83, 80, 0.5);
+  color: #ef5350;
+  padding: 5px 8px;
+}
+
+.coach-tracker .btn-icon.confirm-yes:hover {
+  background: rgba(239, 83, 80, 0.15);
+}
+
+.coach-tracker .btn-icon.confirm-no {
+  color: #aaa;
+  padding: 5px 8px;
+}
+
+.coach-tracker .btn-icon.confirm-no:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.06);
+}
+
+/* Bracket toggle group */
+.coach-tracker .bracket-cell {
+  white-space: nowrap;
+  padding: 0 6px;
+}
+
+.coach-tracker .bracket-group {
+  display: inline-flex;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.coach-tracker .bracket-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 7px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  letter-spacing: 0.02em;
+}
+
+.coach-tracker .bracket-btn:last-child {
+  border-right: none;
+}
+
+.coach-tracker .bracket-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.coach-tracker .bracket-btn.active {
+  background: rgba(99, 179, 237, 0.18);
+  color: #63b3ed;
+}
+
+.coach-tracker .bracket-btn.active:hover {
+  background: rgba(99, 179, 237, 0.28);
+}
+
+/* Pin note inline input */
+.coach-tracker .pin-note-cell {
+  width: 180px;
+  padding: 0 8px;
+}
+
+.coach-tracker .pin-note-input {
+  width: 100%;
+  background: rgba(240, 165, 0, 0.06);
+  border: 1px solid rgba(240, 165, 0, 0.2);
+  border-radius: 5px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.78rem;
+  padding: 4px 8px;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+  font-style: italic;
+}
+
+.coach-tracker .pin-note-input::placeholder {
+  color: rgba(240, 165, 0, 0.3);
+}
+
+.coach-tracker .pin-note-input:focus {
+  border-color: rgba(240, 165, 0, 0.5);
+  background: rgba(240, 165, 0, 0.1);
+  color: #fff;
+}
+
+/* btn-new */
+.coach-tracker .btn-new {
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  border: 1px solid rgba(240, 165, 0, 0.5);
+  color: #f0a500;
+  background: rgba(240, 165, 0, 0.08);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.coach-tracker .btn-new:hover {
+  background: rgba(240, 165, 0, 0.15);
+  border-color: #f0a500;
+}
+
 /* Log button */
 .coach-tracker .btn-icon.log {
   color: #888;
