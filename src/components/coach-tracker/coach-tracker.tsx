@@ -324,7 +324,13 @@ export function CoachTracker() {
   const allianceCount = coaches.filter(c => c.faction === 'Alliance').length;
 
   const exportData = () => {
-    const blob = new Blob([JSON.stringify(coaches, null, 2)], { type: 'application/json' });
+    const payload = {
+      coaches,
+      pinned: [...pinnedIds],
+      pinNotes,
+      pinNoteTimes,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -339,16 +345,37 @@ export function CoachTracker() {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
-        const data = JSON.parse(evt.target?.result as string);
-        if (!Array.isArray(data)) throw new Error('Invalid format');
+        const raw = JSON.parse(evt.target?.result as string);
+
+        // Support both old format (plain array) and new format (object with coaches + local state)
+        const coachList = Array.isArray(raw) ? raw : raw.coaches;
+        if (!Array.isArray(coachList)) throw new Error('Invalid format');
 
         const response = await fetch(`${API_BASE_URL}/api/coach-tracker/coaches/import`, {
           method: 'POST',
           headers: authHeaders(),
           credentials: 'include',
-          body: JSON.stringify({ coaches: data }),
+          body: JSON.stringify({ coaches: coachList }),
         });
         if (handleAuthError(response.status)) return;
+
+        // Restore local state (pins, notes, times) if present in export
+        if (!Array.isArray(raw)) {
+          if (raw.pinned) {
+            const newPinned = new Set<string>(raw.pinned);
+            setPinnedIds(newPinned);
+            localStorage.setItem('ct-pinned', JSON.stringify([...newPinned]));
+          }
+          if (raw.pinNotes) {
+            setPinNotes(raw.pinNotes);
+            localStorage.setItem('ct-pin-notes', JSON.stringify(raw.pinNotes));
+          }
+          if (raw.pinNoteTimes) {
+            setPinNoteTimes(raw.pinNoteTimes);
+            localStorage.setItem('ct-pin-note-times', JSON.stringify(raw.pinNoteTimes));
+          }
+        }
+
         await fetchCoaches();
       } catch {
         alert('Invalid JSON file. Make sure it was exported from Coach Tracker.');
