@@ -648,6 +648,41 @@
   border-color: #f0a500;
 }
 
+/* Delete All */
+.coach-tracker .btn-delete-all {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  border: 1px solid rgba(239, 83, 80, 0.4);
+  color: #ef5350;
+  background: rgba(239, 83, 80, 0.07);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.coach-tracker .btn-delete-all:hover {
+  background: rgba(239, 83, 80, 0.15);
+  border-color: #ef5350;
+}
+
+.coach-tracker .btn-delete-all.confirm {
+  background: rgba(239, 83, 80, 0.15);
+  border-color: #ef5350;
+}
+
+.coach-tracker .delete-all-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coach-tracker .delete-all-label {
+  font-size: 0.82rem;
+  color: #ef5350;
+  font-weight: 600;
+}
+
 /* Log button */
 .coach-tracker .btn-icon.log {
   color: #888;

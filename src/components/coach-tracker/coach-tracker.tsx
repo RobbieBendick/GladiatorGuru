@@ -84,6 +84,7 @@ export function CoachTracker() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteAllStep, setDeleteAllStep] = useState(0); // 0=idle, 1=first confirm, 2=second confirm
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem('ct-pinned');
@@ -226,6 +227,22 @@ export function CoachTracker() {
       await fetchCoaches();
     } catch (error) {
       console.error('Error deleting coach:', error);
+    }
+  };
+
+  const deleteAll = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/coach-tracker/coaches`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+        credentials: 'include',
+      });
+      if (handleAuthError(response.status)) return;
+      setDeleteAllStep(0);
+      cancelEdit();
+      await fetchCoaches();
+    } catch (error) {
+      console.error('Error deleting all coaches:', error);
     }
   };
 
@@ -410,6 +427,25 @@ export function CoachTracker() {
             Import JSON
             <input type="file" accept=".json" onChange={importData} hidden />
           </label>
+          {deleteAllStep === 0 && (
+            <button type="button" className="btn-delete-all" onClick={() => setDeleteAllStep(1)}>
+              Delete All
+            </button>
+          )}
+          {deleteAllStep === 1 && (
+            <span className="delete-all-confirm">
+              <span className="delete-all-label">Are you sure?</span>
+              <button type="button" className="btn-delete-all confirm" onClick={() => setDeleteAllStep(2)}>Yes, delete all</button>
+              <button type="button" className="btn-secondary" onClick={() => setDeleteAllStep(0)}>Cancel</button>
+            </span>
+          )}
+          {deleteAllStep === 2 && (
+            <span className="delete-all-confirm">
+              <span className="delete-all-label">This cannot be undone.</span>
+              <button type="button" className="btn-delete-all confirm" onClick={deleteAll}>Confirm delete all</button>
+              <button type="button" className="btn-secondary" onClick={() => setDeleteAllStep(0)}>Cancel</button>
+            </span>
+          )}
         </div>
       </div>
 
