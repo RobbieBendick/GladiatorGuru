@@ -19,6 +19,7 @@ import { CoachDashboard } from '../coach/coach-dashboard';
 import { Settings } from '../settings/settings';
 import { PrivacyPolicy } from '../legal/privacy-policy';
 import { TermsOfService } from '../legal/terms-of-service';
+import { CoachTracker } from '../coach-tracker/coach-tracker';
 import ResponsiveNavBar from '../nav/navbar';
 import { Footer } from '../footer/footer';
 import { IRoute, ROUTE_PATHS } from '../../schemas/route-paths';
@@ -110,6 +111,14 @@ export function BindRoutes(props: { children?: React.ReactNode }): JSX.Element {
             element={
               <ProtectedRoute requireAuthOnly={true}>
                 <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/admin/coach-tracker'
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <CoachTracker />
               </ProtectedRoute>
             }
           />

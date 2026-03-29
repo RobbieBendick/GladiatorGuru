@@ -196,7 +196,7 @@ const getVersionDisplayName = (
     MOP: 'Mists of Pandaria',
   };
   const baseName = versionNames[version] || version;
-  if (version === 'TBC' && includeComingSoon) {
+  if (version === 'MOP' && includeComingSoon) {
     return `${baseName} (Coming soon)`;
   }
   return baseName;
@@ -340,7 +340,7 @@ export function BookingForm() {
   const [formData, setFormData] = useState<BookingFormData>({
     characterName: '',
     characterRealm: '',
-    version: 'MOP',
+    version: 'TBC',
     bracket: '',
     coaches: '1',
     hours: '1',
@@ -1534,9 +1534,9 @@ export function BookingForm() {
                   <StyledMenuItem
                     key={version}
                     value={version}
-                    disabled={version === 'TBC'}
+                    disabled={version === 'MOP'}
                     sx={
-                      version === 'TBC'
+                      version === 'MOP'
                         ? {
                             opacity: 0.5,
                             cursor: 'not-allowed',
