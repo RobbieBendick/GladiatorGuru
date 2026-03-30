@@ -36,7 +36,7 @@ export default function CompGuidesSection() {
             <span style={{ fontSize: 20 }}>{g.icon}</span>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'inherit' }}>{g.name}</div>
-              <div style={{ fontSize: 11, color: '#475569', marginTop: 1 }}>{g.bracket}</div>
+              <div style={{ fontSize: 11, color: '#9aaac0', marginTop: 1 }}>{g.bracket}</div>
             </div>
           </button>
         ))}
@@ -70,12 +70,12 @@ function CompGuideDetail({ guide }: { guide: CompGuide }) {
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' as const, marginBottom: 4 }}>
               <span style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em' }}>{guide.name}</span>
-              <span style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>{guide.fullName}</span>
-              <span style={{ fontSize: 11, color: '#475569', background: '#1e2630', padding: '2px 10px', borderRadius: 20, fontWeight: 600 }}>{guide.bracket}</span>
+              <span style={{ fontSize: 13, color: '#8a9ab8', fontWeight: 500 }}>{guide.fullName}</span>
+              <span style={{ fontSize: 11, color: '#9aaac0', background: '#1e2630', padding: '2px 10px', borderRadius: 20, fontWeight: 600 }}>{guide.bracket}</span>
             </div>
           </div>
         </div>
-        <p style={{ margin: '16px 0 0', fontSize: 14, color: '#7a8aa8', lineHeight: 1.75 }}>{guide.description}</p>
+        <p style={{ margin: '16px 0 0', fontSize: 14, color: '#9aaac0', lineHeight: 1.75 }}>{guide.description}</p>
       </div>
 
       {/* Win Condition */}
@@ -93,7 +93,7 @@ function CompGuideDetail({ guide }: { guide: CompGuide }) {
               <div style={{ minWidth: 22, height: 22, borderRadius: '50%', background: `${guide.color}20`, border: `1px solid ${guide.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: guide.color, flexShrink: 0, marginTop: 1 }}>
                 {i + 1}
               </div>
-              <p style={{ margin: 0, fontSize: 13, color: '#7a8aa8', lineHeight: 1.7 }}>{step}</p>
+              <p style={{ margin: 0, fontSize: 13, color: '#9aaac0', lineHeight: 1.7 }}>{step}</p>
             </div>
           ))}
         </div>
@@ -124,7 +124,7 @@ function CompGuideDetail({ guide }: { guide: CompGuide }) {
             {guide.strengths.map((str, i) => (
               <li key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                 <span style={{ color: '#4ade80', fontSize: 13, flexShrink: 0, marginTop: 2 }}>✓</span>
-                <span style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>{str}</span>
+                <span style={{ fontSize: 12, color: '#8a9ab8', lineHeight: 1.6 }}>{str}</span>
               </li>
             ))}
           </ul>
@@ -135,7 +135,7 @@ function CompGuideDetail({ guide }: { guide: CompGuide }) {
             {guide.weaknesses.map((w, i) => (
               <li key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                 <span style={{ color: '#fb923c', fontSize: 13, flexShrink: 0, marginTop: 2 }}>→</span>
-                <span style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>{w}</span>
+                <span style={{ fontSize: 12, color: '#8a9ab8', lineHeight: 1.6 }}>{w}</span>
               </li>
             ))}
           </ul>
@@ -178,7 +178,7 @@ function RoleNoteCard({ note }: { note: RoleNote }) {
         {note.points.map((pt, i) => (
           <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <span style={{ color: note.color, fontSize: 14, flexShrink: 0, marginTop: 1, opacity: 0.7 }}>›</span>
-            <p style={{ margin: 0, fontSize: 13, color: '#7a8aa8', lineHeight: 1.75 }}>{pt}</p>
+            <p style={{ margin: 0, fontSize: 13, color: '#9aaac0', lineHeight: 1.75 }}>{pt}</p>
           </div>
         ))}
       </div>
@@ -234,7 +234,7 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex', alignItems: 'center', gap: 12,
     padding: '12px 18px', background: '#0d1118',
     border: '1px solid #1a2030', borderRadius: 12,
-    cursor: 'pointer', color: '#64748b',
+    cursor: 'pointer', color: '#8a9ab8',
     transition: 'all 0.15s', textAlign: 'left' as const,
   },
   tabActive: {},

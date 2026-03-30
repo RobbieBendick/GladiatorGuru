@@ -52,7 +52,7 @@ function CompGuidePanel({ guide }: { guide: CompGuide }) {
           <span style={{ fontSize: 20 }}>{guide.icon}</span>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: guide.color }}>{guide.name} Comp Guide</div>
-            <div style={{ fontSize: 11, color: '#475569', marginTop: 1 }}>{guide.fullName} · {guide.bracket}</div>
+            <div style={{ fontSize: 11, color: '#7a8aa8', marginTop: 1 }}>{guide.fullName} · {guide.bracket}</div>
           </div>
         </div>
         <span style={{ color: '#334155', fontSize: 14, transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
@@ -63,19 +63,19 @@ function CompGuidePanel({ guide }: { guide: CompGuide }) {
           {/* Win condition */}
           <div style={{ marginBottom: 14, padding: '12px 14px', background: '#0a1520', borderRadius: 8, border: '1px solid #1a3050' }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#60a5fa', marginBottom: 6 }}>Win Condition</div>
-            <p style={{ margin: 0, fontSize: 13, color: '#7ba8d8', lineHeight: 1.65 }}>{guide.winCondition}</p>
+            <p style={{ margin: 0, fontSize: 13, color: '#a0bcd8', lineHeight: 1.65 }}>{guide.winCondition}</p>
           </div>
 
           {/* How it works */}
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b', marginBottom: 8 }}>How It Works</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a9ab8', marginBottom: 8 }}>How It Works</div>
             <div style={{ display: 'grid', gap: 6 }}>
               {guide.howItWorks.map((step, i) => (
                 <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <div style={{ minWidth: 20, height: 20, borderRadius: '50%', background: `${guide.color}18`, border: `1px solid ${guide.color}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: guide.color, flexShrink: 0, marginTop: 1 }}>
                     {i + 1}
                   </div>
-                  <span style={{ fontSize: 12, color: '#64748b', lineHeight: 1.65 }}>{step}</span>
+                  <span style={{ fontSize: 12, color: '#8a9ab8', lineHeight: 1.65 }}>{step}</span>
                 </div>
               ))}
             </div>
@@ -93,7 +93,7 @@ function CompGuidePanel({ guide }: { guide: CompGuide }) {
                       <span style={{ fontSize: 12, fontWeight: 700, color: '#d0daf0' }}>{ability.name}</span>
                       <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: `${ability.color}15`, color: ability.color, border: `1px solid ${ability.color}25` }}>{ability.who}</span>
                     </div>
-                    <p style={{ margin: 0, fontSize: 11, color: '#4a5a78', lineHeight: 1.6 }}>{ability.desc}</p>
+                    <p style={{ margin: 0, fontSize: 11, color: '#8090b0', lineHeight: 1.6 }}>{ability.desc}</p>
                   </div>
                 ))}
               </div>
@@ -103,7 +103,7 @@ function CompGuidePanel({ guide }: { guide: CompGuide }) {
           {/* Role Notes */}
           {guide.roleNotes && guide.roleNotes.length > 0 && (
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b', marginBottom: 8 }}>🌳 Role Breakdown</div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a9ab8', marginBottom: 8 }}>🌳 Role Breakdown</div>
               {guide.roleNotes.map((rn: RoleNote) => (
                 <div key={rn.who} style={{ marginBottom: 8, background: `${rn.color}08`, border: `1px solid ${rn.color}20`, borderLeft: `3px solid ${rn.color}`, borderRadius: 8, padding: '10px 13px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
@@ -113,7 +113,7 @@ function CompGuidePanel({ guide }: { guide: CompGuide }) {
                   {rn.points.map((pt, i) => (
                     <div key={i} style={{ display: 'flex', gap: 7, marginBottom: i < rn.points.length - 1 ? 6 : 0 }}>
                       <span style={{ color: rn.color, opacity: 0.6, flexShrink: 0 }}>›</span>
-                      <p style={{ margin: 0, fontSize: 11, color: '#4a5a78', lineHeight: 1.65 }}>{pt}</p>
+                      <p style={{ margin: 0, fontSize: 11, color: '#8090b0', lineHeight: 1.65 }}>{pt}</p>
                     </div>
                   ))}
                 </div>
@@ -128,7 +128,7 @@ function CompGuidePanel({ guide }: { guide: CompGuide }) {
               {guide.strengths.map((str, i) => (
                 <div key={i} style={{ display: 'flex', gap: 6, fontSize: 12, lineHeight: 1.55, marginBottom: i < guide.strengths.length - 1 ? 6 : 0 }}>
                   <span style={{ color: '#4ade80', flexShrink: 0 }}>✓</span>
-                  <span style={{ color: '#64748b' }}>{str}</span>
+                  <span style={{ color: '#8a9ab8' }}>{str}</span>
                 </div>
               ))}
             </div>
@@ -137,7 +137,7 @@ function CompGuidePanel({ guide }: { guide: CompGuide }) {
               {guide.weaknesses.map((w, i) => (
                 <div key={i} style={{ display: 'flex', gap: 6, fontSize: 12, lineHeight: 1.55, marginBottom: i < guide.weaknesses.length - 1 ? 6 : 0 }}>
                   <span style={{ color: '#fb923c', flexShrink: 0 }}>→</span>
-                  <span style={{ color: '#64748b' }}>{w}</span>
+                  <span style={{ color: '#8a9ab8' }}>{w}</span>
                 </div>
               ))}
             </div>
