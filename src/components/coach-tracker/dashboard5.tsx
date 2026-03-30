@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useDashboardData, Coach, Session } from './useDashboardData';
+import { useDashboardData, Coach } from './useDashboardData';
 import { ScheduleModal } from './ScheduleModal';
 
 const CLASS_COLORS: Record<string, string> = {
