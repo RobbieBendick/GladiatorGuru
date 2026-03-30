@@ -5,6 +5,7 @@ interface Props {
   coaches: Coach[];
   onSave: (payload: Omit<Session, '_id'>) => Promise<void>;
   onClose: () => void;
+  defaultCoachId?: string;
 }
 
 const CLASS_COLORS: Record<string, string> = {
@@ -21,8 +22,8 @@ function localDateTimeValue() {
   return now.toISOString().slice(0, 16);
 }
 
-export function ScheduleModal({ coaches, onSave, onClose }: Props) {
-  const [coachId, setCoachId] = useState('');
+export function ScheduleModal({ coaches, onSave, onClose, defaultCoachId }: Props) {
+  const [coachId, setCoachId] = useState(defaultCoachId || '');
   const [bracket, setBracket] = useState<'2' | '3' | '5'>('3');
   const [dateTime, setDateTime] = useState(localDateTimeValue());
   const [notes, setNotes] = useState('');
@@ -41,6 +42,11 @@ export function ScheduleModal({ coaches, onSave, onClose }: Props) {
       bracket,
       scheduledAt: new Date(dateTime).toISOString(),
       notes,
+      userSlug: '',
+      comp: '',
+      pros: [],
+      cons: [],
+      takeaways: '',
     });
     setSaving(false);
     onClose();

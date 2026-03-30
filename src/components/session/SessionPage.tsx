@@ -1,0 +1,196 @@
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { API_BASE_URL } from '../../config/api';
+
+const CLASS_COLORS: Record<string, string> = {
+  'Death Knight': '#C41E3A', 'Demon Hunter': '#A330C9', 'Druid': '#FF7C0A',
+  'Evoker': '#33937F', 'Hunter': '#AAD372', 'Mage': '#3FC7EB', 'Monk': '#00FF98',
+  'Paladin': '#F48CBA', 'Priest': '#FFFFFF', 'Rogue': '#FFF468',
+  'Shaman': '#0070DD', 'Warlock': '#8788EE', 'Warrior': '#C69B6D',
+};
+
+interface SessionData {
+  _id: string;
+  coachId: string;
+  discord: string;
+  wowClass: string;
+  faction: 'Horde' | 'Alliance';
+  bracket: '2' | '3' | '5';
+  scheduledAt: string;
+  notes: string;
+  userSlug: string;
+  comp: string;
+  pros: string[];
+  cons: string[];
+  takeaways: string;
+}
+
+function fmtDateTime(d: Date) {
+  return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) +
+    ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+export function SessionPage() {
+  const { sessionId } = useParams<{ userSlug: string; sessionId: string }>();
+  const [session, setSession] = useState<SessionData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    if (!sessionId) { setNotFound(true); setLoading(false); return; }
+    fetch(`${API_BASE_URL}/api/sessions/${sessionId}`)
+      .then(res => {
+        if (res.status === 404) { setNotFound(true); setLoading(false); return null; }
+        return res.json();
+      })
+      .then(data => {
+        if (!data) return;
+        if (data.data) { setSession(data.data); } else { setNotFound(true); }
+        setLoading(false);
+      })
+      .catch(() => { setNotFound(true); setLoading(false); });
+  }, [sessionId]);
+
+  const pageStyle: React.CSSProperties = {
+    minHeight: '100vh',
+    background: '#0c0e14',
+    fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
+    color: '#c8d0e8',
+  };
+
+  const containerStyle: React.CSSProperties = {
+    maxWidth: 680,
+    margin: '0 auto',
+    padding: '0 20px 60px',
+  };
+
+  if (loading) {
+    return (
+      <div style={pageStyle}>
+        <div style={{ ...containerStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#4a6fa5', letterSpacing: '-0.02em', marginBottom: 16 }}>GladiatorGuru</div>
+            <div style={{ fontSize: 13, color: '#303550' }}>Loading session...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound || !session) {
+    return (
+      <div style={pageStyle}>
+        <div style={{ ...containerStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#4a6fa5', letterSpacing: '-0.02em', marginBottom: 24 }}>GladiatorGuru</div>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>404</div>
+            <div style={{ fontSize: 16, color: '#505878', marginBottom: 8 }}>Session not found</div>
+            <div style={{ fontSize: 13, color: '#303550' }}>This session may have been removed or the link is invalid.</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const clsColor = CLASS_COLORS[session.wowClass] || '#aaa';
+  const factionColor = session.faction === 'Horde' ? '#ef5350' : '#42a5f5';
+  const factionBg = session.faction === 'Horde' ? 'rgba(239,83,80,0.14)' : 'rgba(66,165,245,0.14)';
+  const date = new Date(session.scheduledAt);
+  const hasTakeaways = (session.pros && session.pros.length > 0) || (session.cons && session.cons.length > 0) || (session.takeaways && session.takeaways.trim().length > 0);
+
+  return (
+    <div style={pageStyle}>
+      {/* Top branding bar */}
+      <div style={{ borderBottom: '1px solid #141826', padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontSize: 22, fontWeight: 800, color: '#4a6fa5', letterSpacing: '-0.01em' }}>GladiatorGuru</span>
+      </div>
+
+      <div style={containerStyle}>
+        {/* Session header card */}
+        <div style={{ marginTop: 36, marginBottom: 28, padding: '24px 28px', background: '#10121c', borderRadius: 14, border: '1px solid #1a1e2e', borderTop: `3px solid ${clsColor}` }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#e0e8ff', marginBottom: 6 }}>{session.discord}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: clsColor, marginBottom: 10 }}>{session.wowClass}</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 4, fontWeight: 700, background: factionBg, color: factionColor }}>{session.faction}</span>
+                <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 4, fontWeight: 700, background: '#181c2c', color: '#6070a0', border: '1px solid #252840' }}>{session.bracket}v{session.bracket}</span>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 13, color: '#505878', marginBottom: 4 }}>Session Date</div>
+              <div style={{ fontSize: 14, color: '#8090c0', fontWeight: 600 }}>{fmtDateTime(date)}</div>
+            </div>
+          </div>
+          {session.comp && (
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #1a1e2e', fontSize: 13, color: '#8090c0' }}>
+              <span style={{ color: '#505878', fontWeight: 600, marginRight: 8 }}>Comp Played:</span>
+              <span style={{ color: '#a0b0d0', fontWeight: 700 }}>{session.comp}</span>
+            </div>
+          )}
+        </div>
+
+        {!hasTakeaways ? (
+          <div style={{ textAlign: 'center', padding: '48px 24px', background: '#10121c', borderRadius: 12, border: '1px solid #1a1e2e' }}>
+            <div style={{ fontSize: 32, marginBottom: 16, opacity: 0.4 }}>📋</div>
+            <div style={{ fontSize: 15, color: '#404860', lineHeight: 1.6 }}>Takeaways haven't been added yet, check back soon.</div>
+          </div>
+        ) : (
+          <div>
+            {/* Pros */}
+            {session.pros && session.pros.length > 0 && (
+              <div style={{ marginBottom: 20, padding: '22px 24px', background: '#0a1410', borderRadius: 12, border: '1px solid #14281e' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                  <div style={{ width: 4, height: 20, borderRadius: 2, background: '#2ea86a' }} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#2ea86a', letterSpacing: '0.04em', textTransform: 'uppercase' }}>What You Did Well</span>
+                </div>
+                <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                  {session.pros.map((p, i) => (
+                    <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: i < session.pros.length - 1 ? 10 : 0 }}>
+                      <span style={{ color: '#2ea86a', fontSize: 16, lineHeight: 1.4, flexShrink: 0 }}>✓</span>
+                      <span style={{ fontSize: 14, color: '#a0d8a8', lineHeight: 1.5 }}>{p}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Cons */}
+            {session.cons && session.cons.length > 0 && (
+              <div style={{ marginBottom: 20, padding: '22px 24px', background: '#140e0a', borderRadius: 12, border: '1px solid #28180e' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                  <div style={{ width: 4, height: 20, borderRadius: 2, background: '#d46a3a' }} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#d46a3a', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Areas to Improve</span>
+                </div>
+                <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                  {session.cons.map((c, i) => (
+                    <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: i < session.cons.length - 1 ? 10 : 0 }}>
+                      <span style={{ color: '#d46a3a', fontSize: 16, lineHeight: 1.4, flexShrink: 0 }}>→</span>
+                      <span style={{ fontSize: 14, color: '#d4a080', lineHeight: 1.5 }}>{c}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Takeaways / Coach Notes */}
+            {session.takeaways && session.takeaways.trim().length > 0 && (
+              <div style={{ marginBottom: 20, padding: '22px 24px', background: '#0e1018', borderRadius: 12, border: '1px solid #1a1e2c' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                  <div style={{ width: 4, height: 20, borderRadius: 2, background: '#4a6fa5' }} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#4a6fa5', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Coach Notes</span>
+                </div>
+                <p style={{ margin: 0, fontSize: 14, color: '#a0aac8', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{session.takeaways}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{ marginTop: 40, textAlign: 'center', fontSize: 11, color: '#252840' }}>
+          Powered by <span style={{ color: '#3a5080', fontWeight: 600 }}>GladiatorGuru</span> · WoW Arena Coaching
+        </div>
+      </div>
+    </div>
+  );
+}

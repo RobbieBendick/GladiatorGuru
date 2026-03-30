@@ -20,6 +20,7 @@ import { Settings } from '../settings/settings';
 import { PrivacyPolicy } from '../legal/privacy-policy';
 import { TermsOfService } from '../legal/terms-of-service';
 import { CoachTracker } from '../coach-tracker/coach-tracker';
+import { SessionPage } from '../session/SessionPage';
 import { Dashboard2 } from '../coach-tracker/dashboard2';
 import { Dashboard3 } from '../coach-tracker/dashboard3';
 import { Dashboard5 } from '../coach-tracker/dashboard5';
@@ -128,6 +129,7 @@ export function BindRoutes(props: { children?: React.ReactNode }): JSX.Element {
           <Route path='/admin/dashboard2' element={<ProtectedRoute allowedRoles={['admin']}><Dashboard2 /></ProtectedRoute>} />
           <Route path='/admin/dashboard3' element={<ProtectedRoute allowedRoles={['admin']}><Dashboard3 /></ProtectedRoute>} />
           <Route path='/admin/dashboard5' element={<ProtectedRoute allowedRoles={['admin']}><Dashboard5 /></ProtectedRoute>} />
+          <Route path='/user/:userSlug/:sessionId' element={<SessionPage />} />
           <Route path={ROUTE_PATHS.privacyPolicy} element={<PrivacyPolicy />} />
           <Route
             path={ROUTE_PATHS.termsOfService}

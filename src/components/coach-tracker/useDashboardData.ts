@@ -32,6 +32,11 @@ export interface Session {
   bracket: '2' | '3' | '5';
   scheduledAt: string;
   notes: string;
+  userSlug: string;
+  comp: string;
+  pros: string[];
+  cons: string[];
+  takeaways: string;
 }
 
 export function useDashboardData() {
@@ -85,6 +90,15 @@ export function useDashboardData() {
     }).catch(err => console.error('Error toggling queue:', err));
   };
 
+  const togglePin = (coach: Coach) => {
+    const next = !coach.pinned;
+    setCoaches(prev => prev.map(c => c._id === coach._id ? { ...c, pinned: next } : c));
+    fetch(`${API_BASE_URL}/api/coach-tracker/coaches/${coach._id}`, {
+      method: 'PATCH', headers: authHeaders(), credentials: 'include',
+      body: JSON.stringify({ pinned: next }),
+    }).catch(err => console.error('Error toggling pin:', err));
+  };
+
   const deleteSession = async (id: string) => {
     const res = await fetch(`${API_BASE_URL}/api/coach-tracker/sessions/${id}`, {
       method: 'DELETE', headers: authHeaders(), credentials: 'include',
@@ -93,5 +107,17 @@ export function useDashboardData() {
     setSessions(prev => prev.filter(s => s._id !== id));
   };
 
-  return { coaches, sessions, loading, fetchAll, createSession, deleteSession, toggleQueued };
+  const updateSession = async (id: string, payload: Partial<Session>): Promise<void> => {
+    const res = await fetch(`${API_BASE_URL}/api/coach-tracker/sessions/${id}`, {
+      method: 'PATCH', headers: authHeaders(), credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+    if (handleAuthError(res.status)) return;
+    const data = await res.json();
+    if (data.data) {
+      setSessions(prev => prev.map(s => s._id === id ? { ...s, ...data.data } : s));
+    }
+  };
+
+  return { coaches, sessions, loading, fetchAll, createSession, deleteSession, toggleQueued, togglePin, updateSession };
 }
