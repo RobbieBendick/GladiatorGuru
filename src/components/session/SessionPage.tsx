@@ -73,14 +73,36 @@ function CompGuidePanel({ guide }: { guide: CompGuide }) {
           {/* How it works */}
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b', marginBottom: 8 }}>How It Works</div>
-            <ol style={{ margin: 0, padding: '0 0 0 18px' }}>
+            <div style={{ display: 'grid', gap: 6 }}>
               {guide.howItWorks.map((step, i) => (
-                <li key={i} style={{ fontSize: 13, color: '#64748b', lineHeight: 1.65, marginBottom: i < guide.howItWorks.length - 1 ? 8 : 0 }}>
-                  {step}
-                </li>
+                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <div style={{ minWidth: 20, height: 20, borderRadius: '50%', background: `${guide.color}18`, border: `1px solid ${guide.color}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: guide.color, flexShrink: 0, marginTop: 1 }}>
+                    {i + 1}
+                  </div>
+                  <span style={{ fontSize: 12, color: '#64748b', lineHeight: 1.65 }}>{step}</span>
+                </div>
               ))}
-            </ol>
+            </div>
           </div>
+
+          {/* Key Abilities */}
+          {guide.keyAbilities && guide.keyAbilities.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#a78bfa', marginBottom: 8 }}>✨ Key Abilities</div>
+              <div style={{ display: 'grid', gap: 7 }}>
+                {guide.keyAbilities.map(ability => (
+                  <div key={ability.name} style={{ background: '#07090f', border: `1px solid ${ability.color}22`, borderLeft: `3px solid ${ability.color}`, borderRadius: 8, padding: '9px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+                      <span style={{ fontSize: 14 }}>{ability.icon}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#d0daf0' }}>{ability.name}</span>
+                      <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: `${ability.color}15`, color: ability.color, border: `1px solid ${ability.color}25` }}>{ability.who}</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 11, color: '#4a5a78', lineHeight: 1.6 }}>{ability.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Strengths + Weaknesses */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>

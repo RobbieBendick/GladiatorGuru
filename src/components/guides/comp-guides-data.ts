@@ -1,20 +1,29 @@
 // ─── Comp Guide Data ──────────────────────────────────────────────────────────
 // Add new comps here. `keywords` is used to match against session.comp (case-insensitive).
 
+export interface KeyAbility {
+  icon: string;
+  name: string;
+  who: string;   // e.g. "Warrior", "Mage", "Druid"
+  color: string; // class color accent
+  desc: string;
+}
+
 export interface CompGuide {
   id: string;
-  name: string;       // short name shown in UI, e.g. "WMD"
-  fullName: string;   // e.g. "Warrior + Mage + Druid"
+  name: string;
+  fullName: string;
   bracket: '2v2' | '3v3' | '2v2 / 3v3';
-  color: string;      // accent color
-  icon: string;       // emoji
+  color: string;
+  icon: string;
   tagline: string;
   description: string;
   winCondition: string;
   howItWorks: string[];
+  keyAbilities: KeyAbility[];
   strengths: string[];
   weaknesses: string[];
-  keywords: string[]; // matched against session.comp (case-insensitive contains)
+  keywords: string[];
 }
 
 export const COMP_GUIDES: CompGuide[] = [
@@ -34,6 +43,43 @@ export const COMP_GUIDES: CompGuide[] = [
       'Warrior opens with full HoTs on them and gets the game started — druid pre-hots before the engage so healing is already rolling the moment the warrior goes in.',
       'Mage and druid work together to give the warrior full uptime: Counterspell on a Poly or after a Clone/Root creates the window for the warrior to keep training freely.',
       'Mage and druid can lock two different players simultaneously all game — Poly one, Cyclone another. Neither target can be healed. Warrior destroys whoever is left.',
+    ],
+    keyAbilities: [
+      {
+        icon: '⚡',
+        name: 'Intercept',
+        who: 'Warrior',
+        color: '#C69B6D',
+        desc: 'Charge to the target in combat. Keeps the warrior glued and makes peeling nearly impossible — especially with Gnome racial to break roots and charge again immediately.',
+      },
+      {
+        icon: '❄️',
+        name: 'Shatter',
+        who: 'Mage',
+        color: '#3FC7EB',
+        desc: 'Freeze a target with Frost Nova or Frostbite then Frostbolt + Ice Lance for a guaranteed crit combo. On a rogue caught in the open or a mage out of position this ends games instantly. Combines with Intercept — warrior charges in to keep the target locked down after the shatter lands.',
+      },
+      {
+        icon: '🌀',
+        name: 'Cyclone',
+        who: 'Druid',
+        color: '#FF7C0A',
+        desc: 'Takes someone entirely out of the game for 6 seconds. Run it on two different targets all game — Clone the healer when the warrior goes in, Clone the DPS if they\'re low. Also used to Clone rogues and mages who are hard to deal with in melee, removing them from the fight while the warrior trains their partner.',
+      },
+      {
+        icon: '🌸',
+        name: 'Lifebloom Bloom',
+        who: 'Druid',
+        color: '#FF7C0A',
+        desc: 'Intentionally letting Lifebloom expire delivers a large burst heal. Against high burst comps, timing a bloom to land during an incoming kill attempt can be the difference between surviving and dying — use it as a deliberate tool, not an accident.',
+      },
+      {
+        icon: '🧪',
+        name: 'Abolish Poison',
+        who: 'Druid',
+        color: '#FF7C0A',
+        desc: 'Super key for this comp. Keeps Abolish running on the mage so it auto-cleanses slows and poisons — this lets the mage kite rogues far more effectively without wasting globals. Also means Mortal Strike and wound effects can\'t permanently stack up, because we can reset them. On top of that, druid can Cyclone the rogues and mages causing the issues — taking them out of the game entirely while Abolish does its work.',
+      },
     ],
     strengths: [
       'Warrior + mage is the highest burst combo in the game — priests, locks, and clothies die fast',
