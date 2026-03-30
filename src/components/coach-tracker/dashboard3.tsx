@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useDashboardData, Coach } from './useDashboardData';
+import { useNavigate } from 'react-router-dom';
+import { useDashboardData, Coach, Session } from './useDashboardData';
 import { ScheduleModal } from './ScheduleModal';
 
 const CLASS_COLORS: Record<string, string> = {
@@ -41,28 +42,9 @@ function SessionCard({ s, onDelete }: { s: Session; onDelete: () => void }) {
   );
 }
 
-function CoachCard({ c }: { c: Coach }) {
-  const clsColor = CLASS_COLORS[c.wowClass] || '#aaa';
-  const isHorde = c.faction === 'Horde';
-  const factionColor = isHorde ? '#e53935' : '#1e88e5';
-  const hoursLeft = Math.max(0, c.hoursPrepaid - (c.hoursUsed || 0));
-  return (
-    <div style={{ background: '#0e1016', borderRadius: 6, marginBottom: 8, borderLeft: `3px solid ${clsColor}`, padding: '10px 12px', boxShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#d8e0f0' }}>{c.discord}</span>
-        <span style={{ fontSize: 9, padding: '2px 5px', borderRadius: 3, fontWeight: 700, background: isHorde ? 'rgba(229,57,53,0.18)' : 'rgba(30,136,229,0.18)', color: factionColor }}>{c.faction.toUpperCase()}</span>
-      </div>
-      <div style={{ fontSize: 11, color: clsColor, marginBottom: 5 }}>{c.wowClass}</div>
-      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-        {c.brackets.map(b => <span key={b} style={{ padding: '1px 6px', borderRadius: 3, background: '#181c28', color: '#6070a0', fontWeight: 600, border: '1px solid #252840', fontSize: 10 }}>{b}s</span>)}
-        {c.hoursPrepaid > 0 && <span style={{ padding: '1px 6px', borderRadius: 3, fontSize: 10, fontWeight: 700, background: hoursLeft === 0 ? 'rgba(229,57,53,0.15)' : 'rgba(42,138,90,0.15)', color: hoursLeft === 0 ? '#ef5350' : '#4caf80' }}>{c.hoursUsed}/{c.hoursPrepaid}h</span>}
-      </div>
-      {c.pinNote && <div style={{ fontSize: 10, color: '#7060a0', fontStyle: 'italic', lineHeight: 1.4, marginTop: 6 }}>{c.pinNote}</div>}
-    </div>
-  );
-}
 
 export function Dashboard3() {
+  const navigate = useNavigate();
   const { coaches, sessions, loading, createSession, deleteSession, toggleQueued } = useDashboardData();
   const [showModal, setShowModal] = useState(false);
   const now = new Date();
@@ -103,7 +85,8 @@ export function Dashboard3() {
               <div style={{ fontSize: 9, color: '#303550' }}>{s.label}</div>
             </div>
           ))}
-          <button onClick={() => setShowModal(true)} style={{ marginLeft: 8, padding: '7px 16px', borderRadius: 8, border: 'none', background: '#4a6fa5', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Session</button>
+          <button onClick={() => navigate('/admin/coach-tracker')} style={{ marginLeft: 8, padding: '7px 16px', borderRadius: 8, border: '1px solid rgba(0,210,140,0.3)', background: 'transparent', color: '#00d28c', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Coach Tracker</button>
+          <button onClick={() => setShowModal(true)} style={{ marginLeft: 4, padding: '7px 16px', borderRadius: 8, border: 'none', background: '#4a6fa5', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Session</button>
         </div>
         <span style={{ fontSize: 11, color: '#303550' }}>{now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
       </div>

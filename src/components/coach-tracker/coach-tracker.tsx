@@ -377,6 +377,9 @@ export function CoachTracker() {
           <span className="total-badge">{coaches.length} Total</span>
         </div>
         <div className="data-actions">
+          <button type="button" className="btn-secondary" onClick={() => navigate('/admin/dashboard3')} style={{ borderColor: 'rgba(0,210,140,0.3)', color: '#00d28c' }}>
+            Dashboard
+          </button>
           <button type="button" className="btn-secondary" onClick={exportData}>
             Export JSON
           </button>
