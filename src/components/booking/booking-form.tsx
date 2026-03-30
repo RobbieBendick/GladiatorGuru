@@ -1470,43 +1470,17 @@ export function BookingForm() {
               e.currentTarget.style.display = 'none';
             }}
           />
-          <Box>
-            <Typography
-              sx={{
-                fontWeight: 800,
-                color: '#F59E0B',
-                fontSize: '0.8rem',
-                letterSpacing: 2,
-                textTransform: 'uppercase',
-              }}
-            >
-              ⚔️ The Burning Crusade — Active
-            </Typography>
-            <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-              All coaching is currently TBC. Mists of Pandaria coming soon.
-            </Typography>
-          </Box>
-          <Box
+          <Typography
             sx={{
-              ml: 'auto',
-              px: 1.5,
-              py: 0.5,
-              borderRadius: 1,
-              bgcolor: 'rgba(245,158,11,0.15)',
-              border: '1px solid rgba(245,158,11,0.35)',
+              fontWeight: 800,
+              color: '#F59E0B',
+              fontSize: '0.9rem',
+              letterSpacing: 1.5,
+              textTransform: 'uppercase',
             }}
           >
-            <Typography
-              sx={{
-                color: '#F59E0B',
-                fontWeight: 700,
-                fontSize: '0.75rem',
-                letterSpacing: 1,
-              }}
-            >
-              TBC ONLY
-            </Typography>
-          </Box>
+            The Burning Crusade
+          </Typography>
         </Box>
 
         <FormTitle
@@ -1536,33 +1510,19 @@ export function BookingForm() {
           >
             {/* Game Version */}
             <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Typography
-                  variant='h6'
-                  sx={{
-                    fontWeight: 700,
-                    fontSize: '1.25rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                  }}
-                >
-                  ⚔️ Game Version
-                </Typography>
-                <Box
-                  sx={{
-                    px: 1,
-                    py: 0.25,
-                    borderRadius: 1,
-                    bgcolor: 'rgba(245,158,11,0.12)',
-                    border: '1px solid rgba(245,158,11,0.3)',
-                  }}
-                >
-                  <Typography sx={{ color: '#F59E0B', fontWeight: 700, fontSize: '0.65rem', letterSpacing: 1 }}>
-                    TBC ONLY
-                  </Typography>
-                </Box>
-              </Box>
+              <Typography
+                variant='h6'
+                sx={{
+                  fontWeight: 700,
+                  fontSize: '1.25rem',
+                  mb: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                🎮 Game Version
+              </Typography>
               <StyledTextField
                 fullWidth
                 select
