@@ -60,11 +60,6 @@ function CompGuidePanel({ guide }: { guide: CompGuide }) {
 
       {open && (
         <div style={{ padding: '0 20px 20px', background: '#0a0e18', borderTop: '1px solid #1a2030' }}>
-          {/* Tagline */}
-          <p style={{ fontSize: 13, fontStyle: 'italic', color: guide.color, opacity: 0.85, margin: '16px 0 12px', lineHeight: 1.5 }}>
-            {guide.tagline}
-          </p>
-
           {/* Win condition */}
           <div style={{ marginBottom: 14, padding: '12px 14px', background: '#0a1520', borderRadius: 8, border: '1px solid #1a3050' }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#60a5fa', marginBottom: 6 }}>Win Condition</div>

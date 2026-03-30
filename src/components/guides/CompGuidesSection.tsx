@@ -73,7 +73,6 @@ function CompGuideDetail({ guide }: { guide: CompGuide }) {
               <span style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>{guide.fullName}</span>
               <span style={{ fontSize: 11, color: '#475569', background: '#1e2630', padding: '2px 10px', borderRadius: 20, fontWeight: 600 }}>{guide.bracket}</span>
             </div>
-            <div style={{ fontSize: 14, fontStyle: 'italic', color: guide.color }}>{guide.tagline}</div>
           </div>
         </div>
         <p style={{ margin: '16px 0 0', fontSize: 14, color: '#7a8aa8', lineHeight: 1.75 }}>{guide.description}</p>

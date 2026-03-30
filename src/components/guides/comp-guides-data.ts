@@ -23,7 +23,6 @@ export interface CompGuide {
   bracket: '2v2' | '3v3' | '2v2 / 3v3';
   color: string;
   icon: string;
-  tagline: string;
   description: string;
   winCondition: string;
   howItWorks: string[];
@@ -42,7 +41,6 @@ export const COMP_GUIDES: CompGuide[] = [
     bracket: '3v3',
     color: '#60a5fa',
     icon: '⚔️',
-    tagline: 'Train. Lock out. Burst. Priest killer.',
     description:
       'WMD is a physical + magic cleave that wins through sustained pressure and coordinated CC chains. The mage and druid lock out the enemy mage or druid with Counterspell and Feral Charge, giving the warrior uninterrupted uptime on the kill target.',
     winCondition:
@@ -119,6 +117,116 @@ export const COMP_GUIDES: CompGuide[] = [
       'If the warrior gets hard kited or peeled for an extended period, the comp\'s pressure window is wasted',
     ],
     keywords: ['wmd', 'warrior mage druid', 'war mage druid'],
+  },
+  {
+    id: 'rmd',
+    name: 'RMD',
+    fullName: 'Rogue + Mage + Druid',
+    bracket: '3v3',
+    color: '#d4b44a',
+    icon: '🗡️',
+    description:
+      'RMD is like RMP but with a druid instead of a priest — you gain Abolish Poison and Cyclone but lose the magic dispel. The extra interrupt from Feral Charge replaces Fear, making the comp rely on CC coordination and execution rather than sustained fear chains. High skill cap, but the most fun comp to play as a druid.',
+    winCondition:
+      'Isolate a target and kill them once no one has trinkets. The rogue stuns, the mage does big damage, and Poly + Cyclone spam means the other team is always playing 1v3. When the rogue and mage are both on one target with no way out, that target dies.',
+    howItWorks: [
+      'Open fast — especially vs RMP and other mobile comps. Blind the healer early to fish for a trinket before the real kill window.',
+      'Vs rogue teams: force Cloak of Shadows early. Once Cloak is gone the rogue is wide open to CC and you control the game from there.',
+      'Abolish Poison keeps wounds from stacking — use it to stay ahead of Mortal Strike and wound effects so your healing stays effective all game.',
+      'Spam Poly and Cyclone on two different targets simultaneously. Spammable Cyclone is the comp\'s version of RMP\'s Fear — when you\'re getting free clones all game, the other team can never coordinate a response.',
+    ],
+    keyAbilities: [
+      {
+        icon: '⚡',
+        name: 'Kidney Shot',
+        who: 'Rogue',
+        color: '#FFF468',
+        desc: 'The main setup stun. Sets up the kill window — mage goes in hard the moment Kidney lands and the target has no way out.',
+      },
+      {
+        icon: '🙈',
+        name: 'Blind',
+        who: 'Rogue',
+        color: '#FFF468',
+        desc: 'Use early to force a trinket before the real kill attempt. Once the trinket is gone, Kidney Shot later in the game is essentially a guaranteed kill window.',
+      },
+      {
+        icon: '🔇',
+        name: 'Counterspell',
+        who: 'Mage',
+        color: '#3FC7EB',
+        desc: 'Lock out heals or anything that would break rogue uptime — a CS on a Poly or incoming Clone that would end the stun chain keeps the pressure going.',
+      },
+      {
+        icon: '🐑',
+        name: 'Polymorph',
+        who: 'Mage',
+        color: '#3FC7EB',
+        desc: 'Combine with Cyclone for dual CC on two different targets simultaneously. Neither can be healed. Spam it — the more the other team is polymorphed the more free the rogue is.',
+      },
+      {
+        icon: '🌀',
+        name: 'Cyclone',
+        who: 'Druid',
+        color: '#FF7C0A',
+        desc: 'The replacement for RMP\'s Fear — and spammable. Clone whoever is low, whoever would interfere with the stun chain, or run it on two targets at once with Poly. Getting free clones all game is what makes this comp feel unbeatable when it\'s clicking.',
+      },
+      {
+        icon: '🧪',
+        name: 'Abolish Poison',
+        who: 'Druid',
+        color: '#FF7C0A',
+        desc: 'Prevents Mortal Strike and wound effects from permanently stacking. Keeps healing strong all game and lets the mage kite rogues freely without losing globals to dispels.',
+      },
+    ],
+    roleNotes: [
+      {
+        who: 'Rogue',
+        color: '#FFF468',
+        icon: '🗡️',
+        points: [
+          'Lock someone down hard and commit — rogue uptime is everything for this comp.',
+          'Blind early to bait the trinket. Once they\'ve used it, your Kidney Shot later is the real kill window.',
+          'Use Vanish, Cloak, and trinket defensively to survive and stay in the fight — save them for when it\'s actually kill time so you can finish with no interruptions.',
+        ],
+      },
+      {
+        who: 'Mage',
+        color: '#3FC7EB',
+        icon: '❄️',
+        points: [
+          'Counterspell anything that would break the rogue\'s uptime — Poly, Clone, incoming heals on the kill target.',
+          'Do big damage during rogue stuns — this is when the target is locked and can\'t react.',
+          'Kite with the druid when things get dicey and play positioning well. A dead mage ends the comp\'s pressure.',
+        ],
+      },
+      {
+        who: 'Druid',
+        color: '#FF7C0A',
+        icon: '🌳',
+        points: [
+          'Pre-hot everyone before the opener so healing is already rolling when the rogue goes in.',
+          'Spam Cyclone as much as possible — spammable clones are what separates RMD from RMP and it\'s the druid\'s biggest contribution.',
+          'Keep Abolish Poison running constantly to counter wounds and help the mage kite.',
+          'Generally play well positionally and focus on big clones over reactive healing — if you\'re cloning the right people, your team won\'t take as much damage anyway.',
+        ],
+      },
+    ],
+    strengths: [
+      'Lots of control — Poly + Cyclone spam means the other team is constantly playing shorthanded',
+      'Strong into RMP — can mirror the CC game and out-clone them',
+      'Good into melee cleaves — rogue tools and druid mobility handle trains well',
+      'Shatter setups hit extremely hard when rogue stuns line up with mage burst',
+      'High skill cap means it rewards good players more than most comps — the better the players, the more dominant it gets',
+      'Most fun comp to play as a druid — constant action, constant decisions',
+    ],
+    weaknesses: [
+      'Bad into double healer — worse than WMD here, less raw pressure to break through sustained healing',
+      'No magic dispel (lost from RMP) — can\'t clear enemy buffs or certain debuffs',
+      'Lock teams can be a problem — warlock pressure combined with fear chains is hard to handle without a priest\'s dispel',
+      'Requires all three players operating at a high level — weak individual play breaks the comp\'s coordination',
+    ],
+    keywords: ['rmd', 'rogue mage druid'],
   },
 ];
 
