@@ -1,4 +1,8 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getAuthToken, removeAuthToken } from '../../config/auth';
+import { API_BASE_URL } from '../../config/api';
+import { ROUTE_PATHS } from '../../schemas/route-paths';
 
 const CLASS_COLORS: Record<string, string> = {
   'Death Knight': '#C41E3A', 'Demon Hunter': '#A330C9', 'Druid': '#FF7C0A',
@@ -7,85 +11,93 @@ const CLASS_COLORS: Record<string, string> = {
   'Shaman': '#0070DD', 'Warlock': '#8788EE', 'Warrior': '#C69B6D',
 };
 
-const TEST_COACHES = [
-  { _id: '1', discord: 'avectz', alias: 'avectz', faction: 'Horde', wowClass: 'Warlock', partner: 'hd / lock pri', hoursPrepaid: 0, hoursUsed: 0, brackets: ['3', '5'], pinned: true, pinNote: 'hot prospect, follow up Friday' },
-  { _id: '2', discord: 'bromlette', alias: 'zomtini', faction: 'Horde', wowClass: 'Rogue', partner: '', hoursPrepaid: 1, hoursUsed: 1, brackets: ['2', '3'], pinned: true, pinNote: 'wants more sessions' },
-  { _id: '3', discord: '2yr0x', alias: 'gertrudo', faction: 'Alliance', wowClass: 'Priest', partner: '3s or 5s iconz', hoursPrepaid: 5, hoursUsed: 2, brackets: ['3'], pinned: false, pinNote: '' },
-  { _id: '4', discord: 'aari_ventures', alias: 'aari', faction: 'Alliance', wowClass: 'Warrior', partner: 'mageiden', hoursPrepaid: 0, hoursUsed: 0, brackets: ['2', '3'], pinned: false, pinNote: '' },
-  { _id: '5', discord: 'ancientxo', alias: 'envenumn', faction: 'Alliance', wowClass: 'Rogue', partner: 'mageiden', hoursPrepaid: 3, hoursUsed: 1, brackets: ['3'], pinned: false, pinNote: '' },
-  { _id: '6', discord: 'chadcow', alias: 'chadcow', faction: 'Horde', wowClass: 'Warrior', partner: 'famedemon/natty', hoursPrepaid: 0, hoursUsed: 0, brackets: ['5'], pinned: false, pinNote: '' },
-  { _id: '7', discord: 'linkzq', alias: 'linkz', faction: 'Alliance', wowClass: 'Rogue', partner: 'many', hoursPrepaid: 10, hoursUsed: 0, brackets: ['2', '3', '5'], pinned: false, pinNote: '' },
-  { _id: '8', discord: 'jandista', alias: 'jandista', faction: 'Alliance', wowClass: 'Mage', partner: 'joxi', hoursPrepaid: 2, hoursUsed: 0, brackets: ['3'], pinned: false, pinNote: '' },
-];
-
-const today = new Date();
-const d1 = new Date(today); d1.setDate(today.getDate());
-const d2 = new Date(today); d2.setDate(today.getDate() + 1);
-const d3 = new Date(today); d3.setDate(today.getDate() + 2);
-
-const TEST_SESSIONS = [
-  { id: 's1', discord: 'avectz', faction: 'Horde', wowClass: 'Warlock', bracket: '3s', date: new Date(new Date(d1).setHours(14, 0, 0, 0)), notes: 'lock/pri comp' },
-  { id: 's2', discord: 'bromlette', faction: 'Horde', wowClass: 'Rogue', bracket: '2s', date: new Date(new Date(d1).setHours(16, 0, 0, 0)), notes: '' },
-  { id: 's3', discord: '2yr0x', faction: 'Alliance', wowClass: 'Priest', bracket: '3s', date: new Date(new Date(d2).setHours(13, 0, 0, 0)), notes: 'iconz comp review' },
-  { id: 's4', discord: 'linkzq', faction: 'Alliance', wowClass: 'Rogue', bracket: '5s', date: new Date(new Date(d2).setHours(18, 0, 0, 0)), notes: '' },
-  { id: 's5', discord: 'ancientxo', faction: 'Alliance', wowClass: 'Rogue', bracket: '3s', date: new Date(new Date(d3).setHours(15, 0, 0, 0)), notes: 'mageiden review' },
-  { id: 's6', discord: 'chadcow', faction: 'Horde', wowClass: 'Warrior', bracket: '5s', date: new Date(new Date(d3).setHours(17, 0, 0, 0)), notes: '' },
-];
-
-function isSameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-
-function fmtDate(d: Date) {
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-}
-
-function fmtTime(d: Date) {
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+interface Coach {
+  _id: string;
+  discord: string;
+  alias: string;
+  faction: 'Horde' | 'Alliance';
+  wowClass: string;
+  partner: string;
+  hoursPrepaid: number;
+  hoursUsed: number;
+  brackets: string[];
+  pinned: boolean;
+  pinNote: string;
+  activityLog: { message: string; createdAt: string }[];
+  updatedAt: string;
+  createdAt: string;
 }
 
 export function Dashboard2() {
+  const navigate = useNavigate();
+  const [coaches, setCoaches] = useState<Coach[]>([]);
+  const [loading, setLoading] = useState(true);
   const now = new Date();
-  const sortedCoaches = [...TEST_COACHES].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
-  const sessToday = TEST_SESSIONS.filter(s => isSameDay(s.date, now));
+
+  const authHeaders = () => ({
+    Authorization: `Bearer ${getAuthToken()}`,
+    'Content-Type': 'application/json',
+  });
+
+  useEffect(() => {
+    const fetch_ = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/coach-tracker/coaches`, {
+          headers: authHeaders(), credentials: 'include',
+        });
+        if (res.status === 401 || res.status === 403) {
+          removeAuthToken(); navigate(ROUTE_PATHS.login); return;
+        }
+        const data = await res.json();
+        if (data.data) setCoaches(data.data);
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    };
+    fetch_();
+  }, []);
+
+  const pinned = coaches.filter(c => c.pinned);
+  const all = [...coaches].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+  const hoursRemaining = coaches.reduce((sum, c) => sum + Math.max(0, c.hoursPrepaid - (c.hoursUsed || 0)), 0);
 
   const stats = [
-    { label: 'Total Coaches', value: TEST_COACHES.length, color: '#4a6fa5' },
-    { label: 'Pinned', value: TEST_COACHES.filter(c => c.pinned).length, color: '#7c5cbf' },
-    { label: 'Sessions Today', value: sessToday.length, color: '#2a8a5a' },
-    { label: 'Sessions This Week', value: TEST_SESSIONS.length, color: '#a06030' },
+    { label: 'Total Coaches', value: coaches.length, color: '#4a6fa5' },
+    { label: 'Pinned / Queued', value: pinned.length, color: '#7c5cbf' },
+    { label: 'Hours Remaining', value: `${hoursRemaining}h`, color: '#2a8a5a' },
+    { label: 'With Hours', value: coaches.filter(c => c.hoursPrepaid > 0).length, color: '#a06030' },
   ];
 
-  const thStyle: React.CSSProperties = {
+  const th: React.CSSProperties = {
     padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600,
-    color: '#505870', letterSpacing: '0.05em',
-    borderBottom: '1px solid #1c2035',
+    color: '#505870', letterSpacing: '0.05em', borderBottom: '1px solid #1c2035',
+  };
+  const td: React.CSSProperties = {
+    padding: '10px 14px', fontSize: 12, color: '#a8b2cc', borderBottom: '1px solid #161828',
   };
 
-  const tdStyle: React.CSSProperties = {
-    padding: '10px 14px', fontSize: 12, color: '#a8b2cc',
-    borderBottom: '1px solid #161828',
-  };
+  if (loading) return (
+    <div style={{ minHeight: '100vh', background: '#111318', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#505870', fontFamily: 'system-ui' }}>
+      Loading...
+    </div>
+  );
 
   return (
-    <div style={{
-      minHeight: '100vh', background: '#111318',
-      fontFamily: "'Segoe UI', system-ui, sans-serif", color: '#c0c8dc',
-      padding: '24px 28px',
-    }}>
-      {/* Title */}
+    <div style={{ minHeight: '100vh', background: '#111318', fontFamily: "'Segoe UI', system-ui, sans-serif", color: '#c0c8dc', padding: '24px 28px' }}>
+
+      {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#d8e0f0', letterSpacing: '-0.01em' }}>WoW Coaching Dashboard</h1>
-        <p style={{ margin: '4px 0 0', fontSize: 12, color: '#404860' }}>Overview · {now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        <p style={{ margin: '4px 0 0', fontSize: 12, color: '#404860' }}>
+          {now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        </p>
       </div>
 
-      {/* Stat Chips */}
+      {/* Stats */}
       <div style={{ display: 'flex', gap: 14, marginBottom: 28, flexWrap: 'wrap' }}>
         {stats.map(s => (
           <div key={s.label} style={{
             flex: '1 1 140px', minWidth: 140, padding: '16px 18px', borderRadius: 12,
             background: '#161a24', border: `1px solid ${s.color}28`,
-            boxShadow: `0 0 0 1px ${s.color}14 inset`,
           }}>
             <div style={{ fontSize: 28, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</div>
             <div style={{ fontSize: 11, color: '#505870', marginTop: 5, fontWeight: 500 }}>{s.label}</div>
@@ -93,106 +105,106 @@ export function Dashboard2() {
         ))}
       </div>
 
-      {/* Session Cards Row */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#404860', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 12 }}>Upcoming Sessions</div>
-        <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8 }}>
-          {TEST_SESSIONS.map(s => {
-            const isHorde = s.faction === 'Horde';
-            const factionColor = isHorde ? '#e53935' : '#1e88e5';
-            const factionBg = isHorde ? 'rgba(229,57,53,0.08)' : 'rgba(30,136,229,0.08)';
-            const clsColor = CLASS_COLORS[s.wowClass] || '#aaa';
-            return (
-              <div key={s.id} style={{
-                minWidth: 200, maxWidth: 220, borderRadius: 12,
-                background: '#161a24', border: `1px solid #1e2235`,
-                borderTop: `3px solid ${factionColor}`,
-                padding: '14px 16px', flexShrink: 0,
-              }}>
-                <div style={{ fontSize: 11, color: factionColor, fontWeight: 700, marginBottom: 4, letterSpacing: '0.04em' }}>
-                  {fmtDate(s.date)}
+      {/* Pinned / Queued Cards */}
+      {pinned.length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#404860', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 12 }}>
+            ★ Pinned / Queued
+          </div>
+          <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8 }}>
+            {pinned.map(c => {
+              const factionColor = c.faction === 'Horde' ? '#e53935' : '#1e88e5';
+              const factionBg = c.faction === 'Horde' ? 'rgba(229,57,53,0.08)' : 'rgba(30,136,229,0.08)';
+              const clsColor = CLASS_COLORS[c.wowClass] || '#aaa';
+              const lastLog = c.activityLog?.slice(-1)[0];
+              return (
+                <div key={c._id} style={{
+                  minWidth: 210, maxWidth: 230, borderRadius: 12,
+                  background: '#161a24', border: '1px solid #1e2235',
+                  borderTop: `3px solid ${factionColor}`, padding: '14px 16px', flexShrink: 0,
+                }}>
+                  <div style={{ fontSize: 11, color: factionColor, fontWeight: 700, marginBottom: 6, letterSpacing: '0.04em' }}>
+                    {c.faction}
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#d0d8ec' }}>{c.discord}</div>
+                  {c.alias && c.alias !== c.discord && <div style={{ fontSize: 10, color: '#404860', marginTop: 1 }}>{c.alias}</div>}
+                  <div style={{ marginTop: 8, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, color: clsColor, fontWeight: 600 }}>{c.wowClass}</span>
+                    {c.brackets.map(b => (
+                      <span key={b} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 20, background: factionBg, color: factionColor, fontWeight: 700 }}>{b}s</span>
+                    ))}
+                  </div>
+                  {c.pinNote && (
+                    <div style={{ marginTop: 8, fontSize: 10, color: '#7060a0', fontStyle: 'italic', lineHeight: 1.4 }}>{c.pinNote}</div>
+                  )}
+                  {lastLog && (
+                    <div style={{ marginTop: 8, fontSize: 10, color: '#40485e', borderTop: '1px solid #1c2035', paddingTop: 8, lineHeight: 1.4 }}>
+                      {lastLog.message}
+                    </div>
+                  )}
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: '#d0d8ec', lineHeight: 1.1 }}>{fmtTime(s.date)}</div>
-                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#c8d0e8' }}>{s.discord}</span>
-                </div>
-                <div style={{ marginTop: 4, display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <span style={{ fontSize: 11, color: clsColor, fontWeight: 600 }}>{s.wowClass}</span>
-                  <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 20, background: factionBg, color: factionColor, fontWeight: 700 }}>{s.bracket}</span>
-                </div>
-                {s.notes && <div style={{ marginTop: 8, fontSize: 10, color: '#50587a', fontStyle: 'italic', lineHeight: 1.4 }}>{s.notes}</div>}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Coach Table */}
+      {/* Full Table */}
       <div>
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#404860', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 12 }}>All Coaches</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#404860', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 12 }}>
+          All Coaches
+        </div>
         <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #1c2035', background: '#13161e' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#0f1118' }}>
-                <th style={thStyle}>Discord / Alias</th>
-                <th style={thStyle}>Faction</th>
-                <th style={thStyle}>Class</th>
-                <th style={thStyle}>Partner</th>
-                <th style={thStyle}>Hours</th>
-                <th style={thStyle}>Brackets</th>
-                <th style={thStyle}>Note</th>
+                <th style={th}>Discord / Alias</th>
+                <th style={th}>Faction</th>
+                <th style={th}>Class</th>
+                <th style={th}>Partner</th>
+                <th style={th}>Hours</th>
+                <th style={th}>Brackets</th>
+                <th style={th}>Note</th>
               </tr>
             </thead>
             <tbody>
-              {sortedCoaches.map((c) => {
+              {all.map(c => {
                 const clsColor = CLASS_COLORS[c.wowClass] || '#aaa';
                 const factionColor = c.faction === 'Horde' ? '#e53935' : '#1e88e5';
                 return (
-                  <tr key={c._id} style={{ background: c.pinned ? '#14172200' : undefined }}>
-                    <td style={{ ...tdStyle }}>
+                  <tr key={c._id} style={{ borderLeft: c.pinned ? '2px solid rgba(240,165,0,0.4)' : undefined }}>
+                    <td style={td}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {c.pinned && (
-                          <span style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            width: 18, height: 18, borderRadius: '50%', background: '#1e1a30',
-                            fontSize: 9, color: '#9060d0',
-                          }}>★</span>
-                        )}
+                        {c.pinned && <span style={{ color: '#f0a500', fontSize: 11 }}>★</span>}
                         <div>
-                          <div style={{ fontWeight: 600, color: '#d0d8ec', fontSize: 13 }}>{c.alias}</div>
-                          {c.discord !== c.alias && <div style={{ fontSize: 10, color: '#40486a' }}>{c.discord}</div>}
+                          <div style={{ fontWeight: 600, color: '#d0d8ec', fontSize: 13 }}>{c.discord}</div>
+                          {c.alias && c.alias !== c.discord && <div style={{ fontSize: 10, color: '#40486a' }}>{c.alias}</div>}
                         </div>
                       </div>
                     </td>
-                    <td style={{ ...tdStyle }}>
+                    <td style={td}>
                       <span style={{
                         fontSize: 11, padding: '3px 8px', borderRadius: 20, fontWeight: 700,
                         background: c.faction === 'Horde' ? 'rgba(229,57,53,0.12)' : 'rgba(30,136,229,0.12)',
                         color: factionColor,
                       }}>{c.faction}</span>
                     </td>
-                    <td style={{ ...tdStyle }}>
-                      <span style={{ color: clsColor, fontWeight: 600, fontSize: 12 }}>{c.wowClass}</span>
-                    </td>
-                    <td style={{ ...tdStyle, color: '#606a88', fontSize: 11 }}>{c.partner || <span style={{ color: '#282e40' }}>—</span>}</td>
-                    <td style={{ ...tdStyle }}>
-                      {c.hoursPrepaid === 0 && c.hoursUsed === 0
+                    <td style={td}><span style={{ color: clsColor, fontWeight: 600, fontSize: 12 }}>{c.wowClass}</span></td>
+                    <td style={{ ...td, color: '#606a88', fontSize: 11 }}>{c.partner || <span style={{ color: '#282e40' }}>—</span>}</td>
+                    <td style={td}>
+                      {c.hoursPrepaid === 0
                         ? <span style={{ color: '#303448' }}>—</span>
-                        : <span style={{ color: '#7080a8', fontSize: 12 }}>{c.hoursUsed}/{c.hoursPrepaid}h</span>
+                        : <span style={{ color: c.hoursUsed >= c.hoursPrepaid ? '#e53935' : '#7080a8', fontSize: 12 }}>{c.hoursUsed}/{c.hoursPrepaid}h</span>
                       }
                     </td>
-                    <td style={{ ...tdStyle }}>
+                    <td style={td}>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         {c.brackets.map(b => (
-                          <span key={b} style={{
-                            display: 'inline-block', padding: '2px 7px', borderRadius: 20,
-                            background: '#1c2035', border: '1px solid #252840',
-                            fontSize: 11, color: '#7080a8', fontWeight: 600,
-                          }}>{b}s</span>
+                          <span key={b} style={{ padding: '2px 7px', borderRadius: 20, background: '#1c2035', border: '1px solid #252840', fontSize: 11, color: '#7080a8', fontWeight: 600 }}>{b}s</span>
                         ))}
                       </div>
                     </td>
-                    <td style={{ ...tdStyle, fontSize: 11, color: '#50587a', fontStyle: 'italic', maxWidth: 200 }}>
+                    <td style={{ ...td, fontSize: 11, color: '#50587a', fontStyle: 'italic', maxWidth: 200 }}>
                       {c.pinNote || <span style={{ color: '#20253a' }}>—</span>}
                     </td>
                   </tr>
