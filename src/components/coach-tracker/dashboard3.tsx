@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardData, Session, Coach } from './useDashboardData';
 import { ScheduleModal } from './ScheduleModal';
+import { COMP_GUIDES } from '../guides/comp-guides-data';
 
 const CLASS_COLORS: Record<string, string> = {
   'Death Knight': '#C41E3A', 'Demon Hunter': '#A330C9', 'Druid': '#FF7C0A',
@@ -26,7 +27,12 @@ interface TakeawaysModalProps {
 function TakeawaysModal({ session, onClose, onSave }: TakeawaysModalProps) {
   const defaultSlug = session.discord.toLowerCase().replace(/\s+/g, '-');
   const [userSlug, setUserSlug] = useState(session.userSlug || '');
-  const [comp, setComp] = useState(session.comp || '');
+  const knownComps = COMP_GUIDES.map(g => g.name);
+  const existingComp = session.comp || '';
+  const isKnown = knownComps.includes(existingComp.toUpperCase()) || knownComps.some(n => n.toLowerCase() === existingComp.toLowerCase());
+  const [compSelect, setCompSelect] = useState(isKnown ? existingComp.toUpperCase() : existingComp ? '__other__' : '');
+  const [compCustom, setCompCustom] = useState(!isKnown ? existingComp : '');
+  const comp = compSelect === '__other__' ? compCustom : compSelect;
   const [pros, setPros] = useState<string[]>(session.pros || []);
   const [cons, setCons] = useState<string[]>(session.cons || []);
   const [takeaways, setTakeaways] = useState(session.takeaways || '');
@@ -42,7 +48,11 @@ function TakeawaysModal({ session, onClose, onSave }: TakeawaysModalProps) {
     setJsonError('');
     try {
       const parsed = JSON.parse(jsonInput.trim());
-      if (parsed.comp !== undefined) setComp(String(parsed.comp));
+      if (parsed.comp !== undefined) {
+        const c = String(parsed.comp).toUpperCase();
+        if (knownComps.includes(c)) { setCompSelect(c); setCompCustom(''); }
+        else { setCompSelect('__other__'); setCompCustom(String(parsed.comp)); }
+      }
       if (Array.isArray(parsed.pros)) setPros(parsed.pros.map(String));
       if (Array.isArray(parsed.cons)) setCons(parsed.cons.map(String));
       if (parsed.takeaways !== undefined) setTakeaways(String(parsed.takeaways));
@@ -197,12 +207,31 @@ function TakeawaysModal({ session, onClose, onSave }: TakeawaysModalProps) {
         {/* Comp */}
         <div style={{ marginBottom: 18 }}>
           <label style={labelStyle}>Comp Played</label>
-          <input
-            value={comp}
-            onChange={e => setComp(e.target.value)}
-            placeholder="e.g. RMP, TSG, Jungle"
-            style={inputStyle}
-          />
+          <select
+            value={compSelect}
+            onChange={e => { setCompSelect(e.target.value); if (e.target.value !== '__other__') setCompCustom(''); }}
+            style={{ ...inputStyle, cursor: 'pointer' }}
+          >
+            <option value="">Select comp...</option>
+            {knownComps.map(n => (
+              <option key={n} value={n}>{n} — {COMP_GUIDES.find(g => g.name === n)?.fullName ?? n}</option>
+            ))}
+            <option value="__other__">Other (type below)</option>
+          </select>
+          {compSelect === '__other__' && (
+            <input
+              value={compCustom}
+              onChange={e => setCompCustom(e.target.value)}
+              placeholder="e.g. RMP, TSG, Jungle..."
+              style={{ ...inputStyle, marginTop: 8 }}
+              autoFocus
+            />
+          )}
+          {compSelect && compSelect !== '__other__' && (
+            <div style={{ marginTop: 6, fontSize: 11, color: '#505878', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ color: '#4ade80' }}>✓</span> Guide available — will show on the shareable link
+            </div>
+          )}
         </div>
 
         {/* Pros */}
