@@ -20,6 +20,11 @@ import { Settings } from '../settings/settings';
 import { PrivacyPolicy } from '../legal/privacy-policy';
 import { TermsOfService } from '../legal/terms-of-service';
 import { CoachTracker } from '../coach-tracker/coach-tracker';
+import { Dashboard1 } from '../coach-tracker/dashboard1';
+import { Dashboard2 } from '../coach-tracker/dashboard2';
+import { Dashboard3 } from '../coach-tracker/dashboard3';
+import { Dashboard4 } from '../coach-tracker/dashboard4';
+import { Dashboard5 } from '../coach-tracker/dashboard5';
 import ResponsiveNavBar from '../nav/navbar';
 import { Footer } from '../footer/footer';
 import { IRoute, ROUTE_PATHS } from '../../schemas/route-paths';
@@ -122,6 +127,11 @@ export function BindRoutes(props: { children?: React.ReactNode }): JSX.Element {
               </ProtectedRoute>
             }
           />
+          <Route path='/admin/dashboard1' element={<ProtectedRoute allowedRoles={['admin']}><Dashboard1 /></ProtectedRoute>} />
+          <Route path='/admin/dashboard2' element={<ProtectedRoute allowedRoles={['admin']}><Dashboard2 /></ProtectedRoute>} />
+          <Route path='/admin/dashboard3' element={<ProtectedRoute allowedRoles={['admin']}><Dashboard3 /></ProtectedRoute>} />
+          <Route path='/admin/dashboard4' element={<ProtectedRoute allowedRoles={['admin']}><Dashboard4 /></ProtectedRoute>} />
+          <Route path='/admin/dashboard5' element={<ProtectedRoute allowedRoles={['admin']}><Dashboard5 /></ProtectedRoute>} />
           <Route path={ROUTE_PATHS.privacyPolicy} element={<PrivacyPolicy />} />
           <Route
             path={ROUTE_PATHS.termsOfService}
