@@ -43,7 +43,9 @@ export function useDashboardData() {
   const navigate = useNavigate();
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [pastSessions, setPastSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pastLoading, setPastLoading] = useState(false);
 
   const authHeaders = () => ({
     Authorization: `Bearer ${getAuthToken()}`,
@@ -71,6 +73,17 @@ export function useDashboardData() {
   }, []);
 
   useEffect(() => { fetchAll(); }, []);
+
+  const fetchPastSessions = useCallback(async () => {
+    setPastLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/coach-tracker/sessions?past=true`, { headers: authHeaders(), credentials: 'include' });
+      if (handleAuthError(res.status)) return;
+      const data = await res.json();
+      if (data.data) setPastSessions(data.data);
+    } catch (e) { console.error(e); }
+    finally { setPastLoading(false); }
+  }, []);
 
   const createSession = async (payload: Omit<Session, '_id'>) => {
     const res = await fetch(`${API_BASE_URL}/api/coach-tracker/sessions`, {
@@ -119,5 +132,5 @@ export function useDashboardData() {
     }
   };
 
-  return { coaches, sessions, loading, fetchAll, createSession, deleteSession, toggleQueued, togglePin, updateSession };
+  return { coaches, sessions, pastSessions, loading, pastLoading, fetchAll, fetchPastSessions, createSession, deleteSession, toggleQueued, togglePin, updateSession };
 }

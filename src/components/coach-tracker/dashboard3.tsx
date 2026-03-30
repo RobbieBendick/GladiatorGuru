@@ -20,13 +20,15 @@ function fmtDate(d: Date) { return d.toLocaleDateString('en-US', { weekday: 'sho
 // --- TakeawaysModal ---
 interface TakeawaysModalProps {
   session: Session;
+  coaches: Coach[];
   onClose: () => void;
   onSave: (id: string, payload: Partial<Session>) => Promise<void>;
 }
 
-function TakeawaysModal({ session, onClose, onSave }: TakeawaysModalProps) {
+function TakeawaysModal({ session, coaches, onClose, onSave }: TakeawaysModalProps) {
   const defaultSlug = session.discord.toLowerCase().replace(/\s+/g, '-');
   const [userSlug, setUserSlug] = useState(session.userSlug || '');
+  const [linkedCoachId, setLinkedCoachId] = useState(session.coachId || '');
   const knownComps = COMP_GUIDES.map(g => g.name);
   const existingComp = session.comp || '';
   const isKnown = knownComps.includes(existingComp.toUpperCase()) || knownComps.some(n => n.toLowerCase() === existingComp.toLowerCase());
@@ -76,7 +78,7 @@ function TakeawaysModal({ session, onClose, onSave }: TakeawaysModalProps) {
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave(session._id, { userSlug, comp, pros, cons, takeaways });
+    await onSave(session._id, { userSlug, comp, pros, cons, takeaways, coachId: linkedCoachId });
     setSaving(false);
     onClose();
   };
@@ -148,6 +150,25 @@ function TakeawaysModal({ session, onClose, onSave }: TakeawaysModalProps) {
             style={inputStyle}
           />
         </div>
+
+        {/* Link to Coach */}
+        {coaches.length > 0 && (
+          <div style={{ marginBottom: 18 }}>
+            <label style={labelStyle}>Link to Coach (roster)</label>
+            <select
+              value={linkedCoachId}
+              onChange={e => setLinkedCoachId(e.target.value)}
+              style={{ ...inputStyle, cursor: 'pointer' }}
+            >
+              <option value="">No coach linked</option>
+              {[...coaches].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)).map(c => (
+                <option key={c._id} value={c._id}>
+                  {c.pinned ? '★ ' : ''}{c.discord}{c.alias && c.alias !== c.discord ? ` (${c.alias})` : ''} — {c.wowClass}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* JSON Import */}
         <div style={{ marginBottom: 18 }}>
@@ -322,10 +343,12 @@ function SessionCard({ s, onDelete, onTakeaways }: { s: Session; onDelete: () =>
 
 export function Dashboard3() {
   const navigate = useNavigate();
-  const { coaches, sessions, loading, createSession, deleteSession, toggleQueued, togglePin, updateSession } = useDashboardData();
+  const { coaches, sessions, pastSessions, pastLoading, loading, createSession, deleteSession, toggleQueued, togglePin, updateSession, fetchPastSessions } = useDashboardData();
   const [showModal, setShowModal] = useState(false);
   const [selectedCoachId, setSelectedCoachId] = useState<string | null>(null);
   const [takeawaysSession, setTakeawaysSession] = useState<Session | null>(null);
+  const [completedOpen, setCompletedOpen] = useState(false);
+  const [pastLoaded, setPastLoaded] = useState(false);
   const now = new Date();
   const d1 = new Date(now); d1.setDate(now.getDate() + 1);
   const d2 = new Date(now); d2.setDate(now.getDate() + 2);
@@ -362,6 +385,7 @@ export function Dashboard3() {
       {takeawaysSession && (
         <TakeawaysModal
           session={takeawaysSession}
+          coaches={coaches}
           onClose={() => setTakeawaysSession(null)}
           onSave={updateSession}
         />
@@ -506,6 +530,85 @@ export function Dashboard3() {
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* ── Completed Sessions ──────────────────────────────────────── */}
+        <div style={{ marginTop: 32, paddingBottom: 40 }}>
+          <button
+            onClick={() => {
+              const next = !completedOpen;
+              setCompletedOpen(next);
+              if (next && !pastLoaded) { fetchPastSessions(); setPastLoaded(true); }
+            }}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+              padding: '12px 18px', background: '#0d1018', border: '1px solid #1a1e2e',
+              borderRadius: completedOpen ? '10px 10px 0 0' : 10, cursor: 'pointer',
+              color: '#505878', fontSize: 12, fontWeight: 700,
+            }}
+          >
+            <span style={{ color: completedOpen ? '#6080b0' : '#404860', fontSize: 13 }}>{completedOpen ? '▾' : '▸'}</span>
+            <span style={{ color: '#6070a0', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Completed Sessions</span>
+            {pastLoaded && !pastLoading && (
+              <span style={{ marginLeft: 6, padding: '1px 8px', borderRadius: 10, background: '#141828', color: '#404860', fontSize: 10 }}>{pastSessions.length}</span>
+            )}
+            <span style={{ marginLeft: 'auto', fontSize: 10, color: '#282e42', fontWeight: 400 }}>click to expand</span>
+          </button>
+
+          {completedOpen && (
+            <div style={{ border: '1px solid #1a1e2e', borderTop: 'none', borderRadius: '0 0 10px 10px', background: '#0a0c14', overflow: 'hidden' }}>
+              {pastLoading ? (
+                <div style={{ padding: '24px', textAlign: 'center', color: '#303550', fontSize: 12 }}>Loading...</div>
+              ) : pastSessions.length === 0 ? (
+                <div style={{ padding: '24px', textAlign: 'center', color: '#303550', fontSize: 12 }}>No completed sessions yet</div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      {['Date', 'Coach', 'Class', 'Bracket', 'Comp', 'Status', ''].map(h => (
+                        <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#303550', letterSpacing: '0.07em', textTransform: 'uppercase', borderBottom: '1px solid #141828' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pastSessions.map(s => {
+                      const clsColor = CLASS_COLORS[s.wowClass] || '#aaa';
+                      const hasTakeaways = (s.pros?.length || 0) > 0 || (s.cons?.length || 0) > 0 || s.takeaways?.trim();
+                      const linkedCoach = coaches.find(c => c._id === s.coachId);
+                      return (
+                        <tr key={s._id} style={{ borderBottom: '1px solid #0e1018' }}>
+                          <td style={{ padding: '9px 14px', fontSize: 11, color: '#505878', whiteSpace: 'nowrap' }}>
+                            {new Date(s.scheduledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </td>
+                          <td style={{ padding: '9px 14px', fontSize: 12, color: '#a0aac0', fontWeight: 600 }}>
+                            {s.discord}
+                            {linkedCoach && <div style={{ fontSize: 10, color: '#404860' }}>→ {linkedCoach.discord}</div>}
+                          </td>
+                          <td style={{ padding: '9px 14px', fontSize: 11, color: clsColor, fontWeight: 600 }}>{s.wowClass}</td>
+                          <td style={{ padding: '9px 14px' }}>
+                            <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 3, background: '#141828', color: '#505878', border: '1px solid #1e2238', fontWeight: 700 }}>{s.bracket}s</span>
+                          </td>
+                          <td style={{ padding: '9px 14px', fontSize: 11, color: '#6070a0' }}>{s.comp || <span style={{ color: '#20253a' }}>—</span>}</td>
+                          <td style={{ padding: '9px 14px' }}>
+                            {hasTakeaways
+                              ? <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: 'rgba(0,180,100,0.1)', color: '#2ea86a', border: '1px solid rgba(0,180,100,0.2)', fontWeight: 700 }}>✓ Done</span>
+                              : <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: '#0e1118', color: '#303550', border: '1px solid #1a1e2e', fontWeight: 700 }}>Pending</span>
+                            }
+                          </td>
+                          <td style={{ padding: '9px 14px', textAlign: 'right' }}>
+                            <button
+                              onClick={() => setTakeawaysSession(s)}
+                              style={{ padding: '3px 12px', borderRadius: 5, background: 'rgba(74,111,165,0.12)', border: '1px solid rgba(74,111,165,0.3)', color: '#6080b0', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                            >Takeaways</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
