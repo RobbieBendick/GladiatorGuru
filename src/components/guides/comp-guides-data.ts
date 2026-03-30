@@ -31,7 +31,7 @@ export const COMP_GUIDES: CompGuide[] = [
     winCondition:
       'Warrior and mage together are the highest burst in the game — better than lock + war on top of someone. This makes WMD a premier priest killer comp. Mage and druid can run independent CC rotations, Poly and Cyclone on two different targets all game, as well as Cloning whoever is low.',
     howItWorks: [
-      'Warrior opens and never leaves the kill target. Hamstring, Mortal Strike, Slam — the goal is zero downtime.',
+      'Warrior opens with full HoTs on them and gets the game started — druid pre-hots before the engage so healing is already rolling the moment the warrior goes in.',
       'Mage and druid work together to give the warrior full uptime: Counterspell on a Poly or after a Clone/Root creates the window for the warrior to keep training freely.',
       'Mage and druid can lock two different players simultaneously all game — Poly one, Cyclone another. Neither target can be healed. Warrior destroys whoever is left.',
       'Mage Spellsteals and Frost Novas to further control positioning and bait defensive cooldowns.',
