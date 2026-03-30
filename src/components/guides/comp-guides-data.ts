@@ -34,7 +34,6 @@ export const COMP_GUIDES: CompGuide[] = [
       'Warrior opens with full HoTs on them and gets the game started — druid pre-hots before the engage so healing is already rolling the moment the warrior goes in.',
       'Mage and druid work together to give the warrior full uptime: Counterspell on a Poly or after a Clone/Root creates the window for the warrior to keep training freely.',
       'Mage and druid can lock two different players simultaneously all game — Poly one, Cyclone another. Neither target can be healed. Warrior destroys whoever is left.',
-      'Mage Spellsteals and Frost Novas to further control positioning and bait defensive cooldowns.',
     ],
     strengths: [
       'Warrior + mage is the highest burst combo in the game — priests, locks, and clothies die fast',
