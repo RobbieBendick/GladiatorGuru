@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
 import { findCompGuide, CompGuide } from '../guides/comp-guides-data';
+import type { RoleNote } from '../guides/comp-guides-data';
 
 const CLASS_COLORS: Record<string, string> = {
   'Death Knight': '#C41E3A', 'Demon Hunter': '#A330C9', 'Druid': '#FF7C0A',
@@ -101,6 +102,27 @@ function CompGuidePanel({ guide }: { guide: CompGuide }) {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Role Notes */}
+          {guide.roleNotes && guide.roleNotes.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b', marginBottom: 8 }}>🌳 Role Breakdown</div>
+              {guide.roleNotes.map((rn: RoleNote) => (
+                <div key={rn.who} style={{ marginBottom: 8, background: `${rn.color}08`, border: `1px solid ${rn.color}20`, borderLeft: `3px solid ${rn.color}`, borderRadius: 8, padding: '10px 13px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <span style={{ fontSize: 13 }}>{rn.icon}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: rn.color }}>{rn.who}</span>
+                  </div>
+                  {rn.points.map((pt, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 7, marginBottom: i < rn.points.length - 1 ? 6 : 0 }}>
+                      <span style={{ color: rn.color, opacity: 0.6, flexShrink: 0 }}>›</span>
+                      <p style={{ margin: 0, fontSize: 11, color: '#4a5a78', lineHeight: 1.65 }}>{pt}</p>
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
           )}
 

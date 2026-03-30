@@ -9,6 +9,13 @@ export interface KeyAbility {
   desc: string;
 }
 
+export interface RoleNote {
+  who: string;
+  color: string;
+  icon: string;
+  points: string[];
+}
+
 export interface CompGuide {
   id: string;
   name: string;
@@ -21,6 +28,7 @@ export interface CompGuide {
   winCondition: string;
   howItWorks: string[];
   keyAbilities: KeyAbility[];
+  roleNotes?: RoleNote[];
   strengths: string[];
   weaknesses: string[];
   keywords: string[];
@@ -79,6 +87,20 @@ export const COMP_GUIDES: CompGuide[] = [
         who: 'Druid',
         color: '#FF7C0A',
         desc: 'Super key for this comp. Keeps Abolish running on the mage so it auto-cleanses slows and poisons — this lets the mage kite rogues far more effectively without wasting globals. Also means Mortal Strike and wound effects can\'t permanently stack up, because we can reset them. On top of that, druid can Cyclone the rogues and mages causing the issues — taking them out of the game entirely while Abolish does its work.',
+      },
+    ],
+    roleNotes: [
+      {
+        who: 'Druid',
+        color: '#FF7C0A',
+        icon: '🌳',
+        points: [
+          'Run Tree of Life form and lean into it — you can generally get away with more PvE gear than other healers because the goal is just big HoTs rolling on everyone at all times.',
+          'The whole philosophy is offensive healing. Start every game super hotted up on all three players and ready to max range Blind immediately. You should almost never need to peel in the opener.',
+          'Keep Abolish Poison up constantly and over-hot everyone so you can stay as far forward as possible. The less you have to react to damage, the more you can use globals to set up the fight.',
+          'If anyone tries to train you, they should get punished immediately — mage Blizzards or Vengeances, warrior Intercepts and Disarms. The druid being left alone is the ideal scenario and good opponents know it, so they\'ll test it early.',
+          'This comp has a compounding effect: the better each player individually, the more the other team is forced to play defensively. If your mage and warrior are really shutting people down, the pressure compounds and the other team never gets to breathe. The comp feels noticeably weaker when individual players aren\'t operating at a high level — it relies on everyone doing their job well simultaneously.',
+        ],
       },
     ],
     strengths: [

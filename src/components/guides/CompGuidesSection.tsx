@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { COMP_GUIDES, CompGuide, KeyAbility } from './comp-guides-data';
+import { COMP_GUIDES, CompGuide, KeyAbility, RoleNote } from './comp-guides-data';
 
 export default function CompGuidesSection() {
   const navigate = useNavigate();
@@ -110,6 +110,13 @@ function CompGuideDetail({ guide }: { guide: CompGuide }) {
         </div>
       </div>
 
+      {/* Role Notes */}
+      {guide.roleNotes && guide.roleNotes.length > 0 && (
+        <div style={{ display: 'grid', gap: 12 }}>
+          {guide.roleNotes.map(rn => <RoleNoteCard key={rn.who} note={rn} />)}
+        </div>
+      )}
+
       {/* Strengths + Weaknesses */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div style={{ ...s.card, background: '#070e09', borderColor: '#0e2414', padding: '18px 20px' }}>
@@ -155,6 +162,27 @@ function AbilityCard({ ability }: { ability: KeyAbility }) {
         </span>
       </div>
       <p style={{ margin: 0, fontSize: 12, color: '#5a6a88', lineHeight: 1.65 }}>{ability.desc}</p>
+    </div>
+  );
+}
+
+function RoleNoteCard({ note }: { note: RoleNote }) {
+  return (
+    <div style={{ ...s.card, borderLeft: `3px solid ${note.color}`, padding: '18px 22px', background: `${note.color}07` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <span style={{ fontSize: 18 }}>{note.icon}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase' as const, color: note.color }}>
+          {note.who} — Playstyle
+        </span>
+      </div>
+      <div style={{ display: 'grid', gap: 10 }}>
+        {note.points.map((pt, i) => (
+          <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <span style={{ color: note.color, fontSize: 14, flexShrink: 0, marginTop: 1, opacity: 0.7 }}>›</span>
+            <p style={{ margin: 0, fontSize: 13, color: '#7a8aa8', lineHeight: 1.75 }}>{pt}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
