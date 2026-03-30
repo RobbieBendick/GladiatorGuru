@@ -37,6 +37,7 @@ export const COMP_GUIDES: CompGuide[] = [
     ],
     strengths: [
       'Warrior + mage is the highest burst combo in the game — priests, locks, and clothies die fast',
+      'Dampens extremely well vs priest teams — if you just survive long enough, the priest or mage goes oom and you can kill whoever is left with no healer',
       'Exceptional into RMP and any priest/rogue/X comp — CS and Shatter can end rogues caught in the open',
       'Dual independent CC (Poly + Cyclone) means the enemy team is always playing 1v3 or 2v3',
       'Good into melee cleaves — mage kiting tools and druid mobility punish predictable trains',
