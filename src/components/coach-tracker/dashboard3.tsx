@@ -34,6 +34,25 @@ function TakeawaysModal({ session, onClose, onSave }: TakeawaysModalProps) {
   const [newCon, setNewCon] = useState('');
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [jsonInput, setJsonInput] = useState('');
+  const [jsonError, setJsonError] = useState('');
+  const [jsonOpen, setJsonOpen] = useState(false);
+
+  const handleApplyJson = () => {
+    setJsonError('');
+    try {
+      const parsed = JSON.parse(jsonInput.trim());
+      if (parsed.comp !== undefined) setComp(String(parsed.comp));
+      if (Array.isArray(parsed.pros)) setPros(parsed.pros.map(String));
+      if (Array.isArray(parsed.cons)) setCons(parsed.cons.map(String));
+      if (parsed.takeaways !== undefined) setTakeaways(String(parsed.takeaways));
+      if (parsed.notes !== undefined) setTakeaways(String(parsed.notes));
+      setJsonOpen(false);
+      setJsonInput('');
+    } catch {
+      setJsonError('Invalid JSON — check formatting and try again');
+    }
+  };
 
   const slugForLink = userSlug || defaultSlug;
   const shareUrl = `https://gladiatorguru.com/#/user/${slugForLink}/${session._id}`;
@@ -118,6 +137,61 @@ function TakeawaysModal({ session, onClose, onSave }: TakeawaysModalProps) {
             placeholder={defaultSlug}
             style={inputStyle}
           />
+        </div>
+
+        {/* JSON Import */}
+        <div style={{ marginBottom: 18 }}>
+          <button
+            type="button"
+            onClick={() => { setJsonOpen(o => !o); setJsonError(''); }}
+            style={{
+              width: '100%', padding: '9px 14px', borderRadius: 8, cursor: 'pointer',
+              border: '1px dashed #2a3048', background: jsonOpen ? 'rgba(100,120,200,0.08)' : 'transparent',
+              color: '#6070a0', fontSize: 12, fontWeight: 600, textAlign: 'left',
+              display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.15s',
+            }}
+          >
+            <span style={{ fontSize: 14 }}>{jsonOpen ? '▾' : '▸'}</span>
+            <span>Import from AI JSON</span>
+            <span style={{ marginLeft: 'auto', fontSize: 10, color: '#404860', fontWeight: 400 }}>paste JSON → auto-fills fields</span>
+          </button>
+
+          {jsonOpen && (
+            <div style={{ marginTop: 8, padding: '14px', background: '#0a0c14', border: '1px solid #1e2535', borderRadius: 8 }}>
+              <div style={{ marginBottom: 10, padding: '10px 12px', background: '#0d1020', borderRadius: 6, border: '1px solid #1a2030' }}>
+                <div style={{ fontSize: 10, color: '#404860', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 6 }}>Expected format</div>
+                <pre style={{ margin: 0, fontSize: 11, color: '#50607a', lineHeight: 1.6, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>{`{
+  "comp": "WMD",
+  "pros": ["good positioning", "cc chains"],
+  "cons": ["missed trinket", "bad peel timing"],
+  "takeaways": "focus on trinket usage next session"
+}`}</pre>
+              </div>
+              <textarea
+                value={jsonInput}
+                onChange={e => { setJsonInput(e.target.value); setJsonError(''); }}
+                placeholder="Paste JSON from AI here..."
+                rows={5}
+                style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5, fontFamily: 'monospace', fontSize: 12, marginBottom: 8 }}
+              />
+              {jsonError && (
+                <div style={{ fontSize: 11, color: '#e07060', marginBottom: 8, padding: '6px 10px', background: 'rgba(220,80,60,0.08)', borderRadius: 6, border: '1px solid rgba(220,80,60,0.2)' }}>
+                  {jsonError}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleApplyJson}
+                disabled={!jsonInput.trim()}
+                style={{
+                  padding: '8px 18px', borderRadius: 8, border: 'none', cursor: jsonInput.trim() ? 'pointer' : 'default',
+                  background: jsonInput.trim() ? 'rgba(100,120,220,0.2)' : '#1a1e2e',
+                  color: jsonInput.trim() ? '#8090d0' : '#404860',
+                  fontSize: 12, fontWeight: 700, transition: 'all 0.15s',
+                }}
+              >Apply JSON</button>
+            </div>
+          )}
         </div>
 
         {/* Comp */}
