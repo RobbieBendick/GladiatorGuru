@@ -45,6 +45,8 @@ interface Coach {
   notes: string;
   activityLog: LogEntry[];
   brackets: string[];
+  pinned: boolean;
+  pinNote: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -85,24 +87,7 @@ export function CoachTracker() {
   const [loading, setLoading] = useState(true);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleteAllStep, setDeleteAllStep] = useState(0); // 0=idle, 1=first confirm, 2=second confirm
-  const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => {
-    try {
-      const saved = localStorage.getItem('ct-pinned');
-      return new Set(saved ? JSON.parse(saved) : []);
-    } catch { return new Set(); }
-  });
-  const [pinNotes, setPinNotes] = useState<Record<string, string>>(() => {
-    try {
-      const saved = localStorage.getItem('ct-pin-notes');
-      return saved ? JSON.parse(saved) : {};
-    } catch { return {}; }
-  });
-  const [pinNoteTimes, setPinNoteTimes] = useState<Record<string, number>>(() => {
-    try {
-      const saved = localStorage.getItem('ct-pin-note-times');
-      return saved ? JSON.parse(saved) : {};
-    } catch { return {}; }
-  });
+  const pinNoteDebounceRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [logCoach, setLogCoach] = useState<Coach | null>(null);
   const [logMessage, setLogMessage] = useState('');
   const [logSending, setLogSending] = useState(false);
@@ -257,28 +242,31 @@ export function CoachTracker() {
     setLogMessage('');
   };
 
-  const togglePin = (id: string) => {
-    setPinnedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      localStorage.setItem('ct-pinned', JSON.stringify([...next]));
-      return next;
-    });
+  const togglePin = (coach: Coach) => {
+    const next = !coach.pinned;
+    // Optimistic local update — no refetch so sort order doesn't shift
+    setCoaches(prev => prev.map(c => c._id === coach._id ? { ...c, pinned: next } : c));
+    fetch(`${API_BASE_URL}/api/coach-tracker/coaches/${coach._id}`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ pinned: next }),
+    }).catch(err => console.error('Error toggling pin:', err));
   };
 
   const savePinNote = (id: string, note: string) => {
-    const now = Date.now();
-    setPinNotes(prev => {
-      const next = { ...prev, [id]: note };
-      localStorage.setItem('ct-pin-notes', JSON.stringify(next));
-      return next;
-    });
-    setPinNoteTimes(prev => {
-      const next = { ...prev, [id]: now };
-      localStorage.setItem('ct-pin-note-times', JSON.stringify(next));
-      return next;
-    });
+    // Optimistic local update
+    setCoaches(prev => prev.map(c => c._id === id ? { ...c, pinNote: note } : c));
+    // Debounce the API call so we don't fire on every keystroke
+    if (pinNoteDebounceRef.current[id]) clearTimeout(pinNoteDebounceRef.current[id]);
+    pinNoteDebounceRef.current[id] = setTimeout(() => {
+      fetch(`${API_BASE_URL}/api/coach-tracker/coaches/${id}`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ pinNote: note }),
+      }).catch(err => console.error('Error saving pin note:', err));
+    }, 600);
   };
 
   const sendLogEntry = async () => {
@@ -323,17 +311,9 @@ export function CoachTracker() {
       return true;
     })
     .sort((a, b) => {
-      const aPinned = pinnedIds.has(a._id) ? 0 : 1;
-      const bPinned = pinnedIds.has(b._id) ? 0 : 1;
-      if (aPinned !== bPinned) return aPinned - bPinned;
-      const aTime = Math.max(
-        new Date(a.updatedAt || a.createdAt || 0).getTime(),
-        pinNoteTimes[a._id] || 0
-      );
-      const bTime = Math.max(
-        new Date(b.updatedAt || b.createdAt || 0).getTime(),
-        pinNoteTimes[b._id] || 0
-      );
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+      const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
       return bTime - aTime;
     });
 
@@ -341,13 +321,7 @@ export function CoachTracker() {
   const allianceCount = coaches.filter(c => c.faction === 'Alliance').length;
 
   const exportData = () => {
-    const payload = {
-      coaches,
-      pinned: [...pinnedIds],
-      pinNotes,
-      pinNoteTimes,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(coaches, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -364,8 +338,8 @@ export function CoachTracker() {
       try {
         const raw = JSON.parse(evt.target?.result as string);
 
-        // Support both old format (plain array) and new format (object with coaches + local state)
-        const coachList = Array.isArray(raw) ? raw : raw.coaches;
+        // Support plain array export
+        const coachList = Array.isArray(raw) ? raw : null;
         if (!Array.isArray(coachList)) throw new Error('Invalid format');
 
         const response = await fetch(`${API_BASE_URL}/api/coach-tracker/coaches/import`, {
@@ -375,23 +349,6 @@ export function CoachTracker() {
           body: JSON.stringify({ coaches: coachList }),
         });
         if (handleAuthError(response.status)) return;
-
-        // Restore local state (pins, notes, times) if present in export
-        if (!Array.isArray(raw)) {
-          if (raw.pinned) {
-            const newPinned = new Set<string>(raw.pinned);
-            setPinnedIds(newPinned);
-            localStorage.setItem('ct-pinned', JSON.stringify([...newPinned]));
-          }
-          if (raw.pinNotes) {
-            setPinNotes(raw.pinNotes);
-            localStorage.setItem('ct-pin-notes', JSON.stringify(raw.pinNotes));
-          }
-          if (raw.pinNoteTimes) {
-            setPinNoteTimes(raw.pinNoteTimes);
-            localStorage.setItem('ct-pin-note-times', JSON.stringify(raw.pinNoteTimes));
-          }
-        }
 
         await fetchCoaches();
       } catch {
@@ -649,7 +606,7 @@ export function CoachTracker() {
               {filtered.map(coach => (
                 <tr
                   key={coach._id}
-                  className={`${coach.faction.toLowerCase()} clickable ${viewing === coach._id ? 'selected' : ''} ${pinnedIds.has(coach._id) ? 'pinned-row' : ''}`}
+                  className={`${coach.faction.toLowerCase()} clickable ${viewing === coach._id ? 'selected' : ''} ${coach.pinned ? 'pinned-row' : ''}`}
                   onClick={() => viewCoach(coach)}
                 >
                   <td className="discord-cell">
@@ -715,12 +672,12 @@ export function CoachTracker() {
                     </div>
                   </td>
                   <td className="pin-note-cell">
-                    {pinnedIds.has(coach._id) && (
+                    {coach.pinned && (
                       <input
                         className="pin-note-input"
                         type="text"
                         placeholder="why pinned..."
-                        value={pinNotes[coach._id] || ''}
+                        value={coach.pinNote || ''}
                         onClick={e => e.stopPropagation()}
                         onChange={e => { e.stopPropagation(); savePinNote(coach._id, e.target.value); }}
                         maxLength={80}
@@ -729,11 +686,11 @@ export function CoachTracker() {
                   </td>
                   <td className="actions-cell">
                     <button
-                      className={`btn-icon pin ${pinnedIds.has(coach._id) ? 'pinned' : ''}`}
-                      onClick={e => { e.stopPropagation(); togglePin(coach._id); }}
-                      title={pinnedIds.has(coach._id) ? 'Unpin' : 'Pin to top'}
+                      className={`btn-icon pin ${coach.pinned ? 'pinned' : ''}`}
+                      onClick={e => { e.stopPropagation(); togglePin(coach); }}
+                      title={coach.pinned ? 'Unpin' : 'Pin to top'}
                     >
-                      {pinnedIds.has(coach._id) ? '★' : '☆'}
+                      {coach.pinned ? '★' : '☆'}
                     </button>
                     <button
                       className="btn-icon log"
