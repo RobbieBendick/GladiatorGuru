@@ -275,7 +275,8 @@ export function Dashboard3() {
               <div style={{ fontSize: 9, color: '#303550' }}>{s.label}</div>
             </div>
           ))}
-          <button onClick={() => navigate('/admin/coach-tracker')} style={{ marginLeft: 8, padding: '7px 16px', borderRadius: 8, border: '1px solid rgba(0,210,140,0.3)', background: 'transparent', color: '#00d28c', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Coach Tracker</button>
+          <button onClick={() => navigate('/guides')} style={{ marginLeft: 8, padding: '7px 16px', borderRadius: 8, border: '1px solid rgba(100,150,255,0.3)', background: 'transparent', color: '#7090d0', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>📚 Guides</button>
+          <button onClick={() => navigate('/admin/coach-tracker')} style={{ marginLeft: 4, padding: '7px 16px', borderRadius: 8, border: '1px solid rgba(0,210,140,0.3)', background: 'transparent', color: '#00d28c', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Coach Tracker</button>
           <button onClick={() => { setSelectedCoachId(null); setShowModal(true); }} style={{ marginLeft: 4, padding: '7px 16px', borderRadius: 8, border: 'none', background: '#4a6fa5', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Session</button>
         </div>
         <span style={{ fontSize: 11, color: '#303550' }}>{now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>

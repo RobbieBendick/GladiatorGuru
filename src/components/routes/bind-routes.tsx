@@ -21,6 +21,8 @@ import { PrivacyPolicy } from '../legal/privacy-policy';
 import { TermsOfService } from '../legal/terms-of-service';
 import { CoachTracker } from '../coach-tracker/coach-tracker';
 import { SessionPage } from '../session/SessionPage';
+import BasicGuidesSection from '../guides/BasicGuidesSection';
+import CompGuidesSection from '../guides/CompGuidesSection';
 import { Dashboard2 } from '../coach-tracker/dashboard2';
 import { Dashboard3 } from '../coach-tracker/dashboard3';
 import { Dashboard5 } from '../coach-tracker/dashboard5';
@@ -130,6 +132,8 @@ export function BindRoutes(props: { children?: React.ReactNode }): JSX.Element {
           <Route path='/admin/dashboard3' element={<ProtectedRoute allowedRoles={['admin']}><Dashboard3 /></ProtectedRoute>} />
           <Route path='/admin/dashboard5' element={<ProtectedRoute allowedRoles={['admin']}><Dashboard5 /></ProtectedRoute>} />
           <Route path='/user/:userSlug/:sessionId' element={<SessionPage />} />
+          <Route path={ROUTE_PATHS.guides} element={<BasicGuidesSection />} />
+          <Route path={ROUTE_PATHS.compGuides} element={<CompGuidesSection />} />
           <Route path={ROUTE_PATHS.privacyPolicy} element={<PrivacyPolicy />} />
           <Route
             path={ROUTE_PATHS.termsOfService}

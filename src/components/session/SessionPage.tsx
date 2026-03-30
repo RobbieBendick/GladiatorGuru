@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
+import { findCompGuide, CompGuide } from '../guides/comp-guides-data';
 
 const CLASS_COLORS: Record<string, string> = {
   'Death Knight': '#C41E3A', 'Demon Hunter': '#A330C9', 'Druid': '#FF7C0A',
@@ -29,6 +30,86 @@ function fmtDateTime(d: Date) {
   return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) +
     ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
+
+// ─── Comp Guide Panel ─────────────────────────────────────────────────────────
+
+function CompGuidePanel({ guide }: { guide: CompGuide }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div style={{ marginBottom: 20, borderRadius: 12, border: `1px solid #1e2a3a`, overflow: 'hidden' }}>
+      {/* Header / toggle */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '16px 20px', background: '#0d1520', border: 'none', cursor: 'pointer',
+          color: '#c8d8f0', textAlign: 'left',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 20 }}>{guide.icon}</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: guide.color }}>{guide.name} Comp Guide</div>
+            <div style={{ fontSize: 11, color: '#475569', marginTop: 1 }}>{guide.fullName} · {guide.bracket}</div>
+          </div>
+        </div>
+        <span style={{ color: '#334155', fontSize: 14, transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
+      </button>
+
+      {open && (
+        <div style={{ padding: '0 20px 20px', background: '#0a0e18', borderTop: '1px solid #1a2030' }}>
+          {/* Tagline */}
+          <p style={{ fontSize: 13, fontStyle: 'italic', color: guide.color, opacity: 0.85, margin: '16px 0 12px', lineHeight: 1.5 }}>
+            {guide.tagline}
+          </p>
+
+          {/* Win condition */}
+          <div style={{ marginBottom: 14, padding: '12px 14px', background: '#0a1520', borderRadius: 8, border: '1px solid #1a3050' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#60a5fa', marginBottom: 6 }}>Win Condition</div>
+            <p style={{ margin: 0, fontSize: 13, color: '#7ba8d8', lineHeight: 1.65 }}>{guide.winCondition}</p>
+          </div>
+
+          {/* How it works */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b', marginBottom: 8 }}>How It Works</div>
+            <ol style={{ margin: 0, padding: '0 0 0 18px' }}>
+              {guide.howItWorks.map((step, i) => (
+                <li key={i} style={{ fontSize: 13, color: '#64748b', lineHeight: 1.65, marginBottom: i < guide.howItWorks.length - 1 ? 8 : 0 }}>
+                  {step}
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          {/* Strengths + Weaknesses */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div style={{ padding: '10px 12px', background: '#0a1410', borderRadius: 8, border: '1px solid #143020' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#4ade80', marginBottom: 7 }}>Strengths</div>
+              {guide.strengths.map((str, i) => (
+                <div key={i} style={{ display: 'flex', gap: 6, fontSize: 12, lineHeight: 1.55, marginBottom: i < guide.strengths.length - 1 ? 6 : 0 }}>
+                  <span style={{ color: '#4ade80', flexShrink: 0 }}>✓</span>
+                  <span style={{ color: '#64748b' }}>{str}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: '10px 12px', background: '#160f0a', borderRadius: 8, border: '1px solid #301a0e' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#fb923c', marginBottom: 7 }}>Weaknesses</div>
+              {guide.weaknesses.map((w, i) => (
+                <div key={i} style={{ display: 'flex', gap: 6, fontSize: 12, lineHeight: 1.55, marginBottom: i < guide.weaknesses.length - 1 ? 6 : 0 }}>
+                  <span style={{ color: '#fb923c', flexShrink: 0 }}>→</span>
+                  <span style={{ color: '#64748b' }}>{w}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function SessionPage() {
   const { sessionId } = useParams<{ userSlug: string; sessionId: string }>();
@@ -59,7 +140,7 @@ export function SessionPage() {
   };
 
   const containerStyle: React.CSSProperties = {
-    maxWidth: 680,
+    maxWidth: 700,
     margin: '0 auto',
     padding: '0 20px 60px',
   };
@@ -96,7 +177,11 @@ export function SessionPage() {
   const factionColor = session.faction === 'Horde' ? '#ef5350' : '#42a5f5';
   const factionBg = session.faction === 'Horde' ? 'rgba(239,83,80,0.14)' : 'rgba(66,165,245,0.14)';
   const date = new Date(session.scheduledAt);
-  const hasTakeaways = (session.pros && session.pros.length > 0) || (session.cons && session.cons.length > 0) || (session.takeaways && session.takeaways.trim().length > 0);
+  const hasTakeaways = (session.pros && session.pros.length > 0) ||
+    (session.cons && session.cons.length > 0) ||
+    (session.takeaways && session.takeaways.trim().length > 0);
+
+  const compGuide = session.comp ? findCompGuide(session.comp) : null;
 
   return (
     <div style={pageStyle}>
@@ -130,6 +215,9 @@ export function SessionPage() {
           )}
         </div>
 
+        {/* Comp guide (collapsible) */}
+        {compGuide && <CompGuidePanel guide={compGuide} />}
+
         {!hasTakeaways ? (
           <div style={{ textAlign: 'center', padding: '48px 24px', background: '#10121c', borderRadius: 12, border: '1px solid #1a1e2e' }}>
             <div style={{ fontSize: 32, marginBottom: 16, opacity: 0.4 }}>📋</div>
@@ -137,6 +225,12 @@ export function SessionPage() {
           </div>
         ) : (
           <div>
+            {/* Section title */}
+            <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 3, height: 16, borderRadius: 2, background: '#4a6fa5' }} />
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#4a6fa5' }}>Your Session Feedback</span>
+            </div>
+
             {/* Pros */}
             {session.pros && session.pros.length > 0 && (
               <div style={{ marginBottom: 20, padding: '22px 24px', background: '#0a1410', borderRadius: 12, border: '1px solid #14281e' }}>
@@ -173,7 +267,7 @@ export function SessionPage() {
               </div>
             )}
 
-            {/* Takeaways / Coach Notes */}
+            {/* Coach Notes */}
             {session.takeaways && session.takeaways.trim().length > 0 && (
               <div style={{ marginBottom: 20, padding: '22px 24px', background: '#0e1018', borderRadius: 12, border: '1px solid #1a1e2c' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
