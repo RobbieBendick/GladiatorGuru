@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDashboardData, Coach, Session } from './useDashboardData';
+import { useDashboardData, Session } from './useDashboardData';
 import { ScheduleModal } from './ScheduleModal';
 
 const CLASS_COLORS: Record<string, string> = {
