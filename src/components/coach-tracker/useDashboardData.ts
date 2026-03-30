@@ -17,6 +17,7 @@ export interface Coach {
   brackets: string[];
   pinned: boolean;
   pinNote: string;
+  queued: boolean;
   activityLog: LogEntry[];
   updatedAt: string;
   createdAt: string;
@@ -75,6 +76,15 @@ export function useDashboardData() {
     await fetchAll();
   };
 
+  const toggleQueued = (coach: Coach) => {
+    const next = !coach.queued;
+    setCoaches(prev => prev.map(c => c._id === coach._id ? { ...c, queued: next } : c));
+    fetch(`${API_BASE_URL}/api/coach-tracker/coaches/${coach._id}`, {
+      method: 'PATCH', headers: authHeaders(), credentials: 'include',
+      body: JSON.stringify({ queued: next }),
+    }).catch(err => console.error('Error toggling queue:', err));
+  };
+
   const deleteSession = async (id: string) => {
     const res = await fetch(`${API_BASE_URL}/api/coach-tracker/sessions/${id}`, {
       method: 'DELETE', headers: authHeaders(), credentials: 'include',
@@ -83,5 +93,5 @@ export function useDashboardData() {
     setSessions(prev => prev.filter(s => s._id !== id));
   };
 
-  return { coaches, sessions, loading, fetchAll, createSession, deleteSession };
+  return { coaches, sessions, loading, fetchAll, createSession, deleteSession, toggleQueued };
 }
