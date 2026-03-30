@@ -29,12 +29,11 @@ export const COMP_GUIDES: CompGuide[] = [
     description:
       'WMD is a physical + magic cleave that wins through sustained pressure and coordinated CC chains. The mage and druid lock out the enemy mage or druid with Counterspell and Feral Charge, giving the warrior uninterrupted uptime on the kill target.',
     winCondition:
-      'Warrior and mage together are the highest burst in the game — better than lock + war on top of someone. This makes WMD a premier priest killer comp. Mage and druid can run independent CC rotations, Poly and Cyclone on two different targets all game, as well as Cloning whoever is low. vs rogue teams, especially Alliance: bait the trinket with Intimidating Shout, then Counterspell and Disarm are free later in the game.',
+      'Warrior and mage together are the highest burst in the game — better than lock + war on top of someone. This makes WMD a premier priest killer comp. Mage and druid can run independent CC rotations, Poly and Cyclone on two different targets all game, as well as Cloning whoever is low.',
     howItWorks: [
       'Warrior opens and never leaves the kill target. Hamstring, Mortal Strike, Slam — the goal is zero downtime.',
       'Mage and druid work together to give the warrior full uptime: Counterspell on a Poly or after a Clone/Root creates the window for the warrior to keep training freely.',
       'Mage and druid can lock two different players simultaneously all game — Poly one, Cyclone another. Neither target can be healed. Warrior destroys whoever is left.',
-      'vs Alliance rogue teams: open with Intimidating Shout to bait their trinket, then Counterspell and Disarm are available for the real go later.',
       'Mage Spellsteals and Frost Novas to further control positioning and bait defensive cooldowns.',
     ],
     strengths: [
