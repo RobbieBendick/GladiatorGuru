@@ -44,7 +44,7 @@ export const COMP_GUIDES: CompGuide[] = [
     ],
     weaknesses: [
       'The comp requires a really good mage — mage is doing most of the setup and a weak mage means the warrior never gets clean uptime',
-      'Gnome is obviously a huge advantage on mage for the racial root break, effectively giving a second trinket and making kiting / escaping roots much more reliable',
+      'Gnome is obviously a huge advantage on warrior for the racial root break, effectively giving a second trinket and making it much harder to peel the warrior off a target',
       'Lock Druid is a tough matchup — warlock pressure on the druid combined with fear chains is hard to deal with',
       'Double healer can be 50/50 — heavily depends on how clean the CC setups are',
       'If the warrior gets hard kited or peeled for an extended period, the comp\'s pressure window is wasted',
