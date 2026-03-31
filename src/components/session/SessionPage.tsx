@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
-import { findCompGuide, CompGuide } from '../guides/comp-guides-data';
+import { findCompGuide, CompGuide, COMP_GUIDES } from '../guides/comp-guides-data';
 import type { RoleNote } from '../guides/comp-guides-data';
+import { useUser } from '../../contexts/UserContext';
+import { getAuthToken } from '../../config/auth';
 
 const CLASS_COLORS: Record<string, string> = {
   'Death Knight': '#C41E3A', 'Demon Hunter': '#A330C9', 'Druid': '#FF7C0A',
@@ -152,9 +154,58 @@ function CompGuidePanel({ guide }: { guide: CompGuide }) {
 
 export function SessionPage() {
   const { sessionId } = useParams<{ userSlug: string; sessionId: string }>();
+  const { user } = useUser();
+  const isAdmin = user?.role === 'admin';
+
   const [session, setSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  // Edit mode state
+  const [editMode, setEditMode] = useState(false);
+  const [editComp, setEditComp] = useState('');
+  const [editCompCustom, setEditCompCustom] = useState('');
+  const [editPros, setEditPros] = useState<string[]>([]);
+  const [editCons, setEditCons] = useState<string[]>([]);
+  const [editTakeaways, setEditTakeaways] = useState('');
+  const [editNewPro, setEditNewPro] = useState('');
+  const [editNewCon, setEditNewCon] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const knownComps = COMP_GUIDES.map(g => g.name);
+
+  const startEdit = () => {
+    if (!session) return;
+    const c = session.comp || '';
+    const isKnown = knownComps.some(n => n.toLowerCase() === c.toLowerCase());
+    setEditComp(isKnown ? c.toUpperCase() : c ? '__other__' : '');
+    setEditCompCustom(!isKnown ? c : '');
+    setEditPros([...(session.pros || [])]);
+    setEditCons([...(session.cons || [])]);
+    setEditTakeaways(session.takeaways || '');
+    setEditMode(true);
+  };
+
+  const cancelEdit = () => setEditMode(false);
+
+  const saveEdit = async () => {
+    if (!session) return;
+    setSaving(true);
+    const comp = editComp === '__other__' ? editCompCustom : editComp;
+    const payload = { comp, pros: editPros, cons: editCons, takeaways: editTakeaways };
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/coach-tracker/sessions/${session._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.data) setSession(prev => prev ? { ...prev, ...data.data } : prev);
+      setEditMode(false);
+    } catch (e) { console.error(e); }
+    finally { setSaving(false); }
+  };
 
   useEffect(() => {
     if (!sessionId) { setNotFound(true); setLoading(false); return; }
@@ -225,8 +276,20 @@ export function SessionPage() {
   return (
     <div style={pageStyle}>
       {/* Top branding bar */}
-      <div style={{ borderBottom: '1px solid #141826', padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ borderBottom: '1px solid #141826', padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
         <span style={{ fontSize: 22, fontWeight: 800, color: '#4a6fa5', letterSpacing: '-0.01em' }}>GladiatorGuru</span>
+        {isAdmin && !editMode && (
+          <button
+            onClick={startEdit}
+            style={{ position: 'absolute', right: 20, padding: '6px 14px', borderRadius: 7, border: '1px solid rgba(74,111,165,0.4)', background: 'rgba(74,111,165,0.1)', color: '#6080b0', fontSize: 11, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}
+          >✏️ Edit</button>
+        )}
+        {isAdmin && editMode && (
+          <div style={{ position: 'absolute', right: 20, display: 'flex', gap: 8 }}>
+            <button onClick={cancelEdit} style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid #252a3a', background: 'transparent', color: '#505878', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+            <button onClick={saveEdit} disabled={saving} style={{ padding: '6px 16px', borderRadius: 7, border: 'none', background: '#4a6fa5', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{saving ? 'Saving…' : '✓ Save'}</button>
+          </div>
+        )}
       </div>
 
       <div style={containerStyle}>
@@ -246,12 +309,25 @@ export function SessionPage() {
               <div style={{ fontSize: 14, color: '#8090c0', fontWeight: 600 }}>{fmtDateTime(date)}</div>
             </div>
           </div>
-          {session.comp && (
-            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #1a1e2e', fontSize: 13, color: '#8090c0' }}>
-              <span style={{ color: '#505878', fontWeight: 600, marginRight: 8 }}>Comp Played:</span>
-              <span style={{ color: '#a0b0d0', fontWeight: 700 }}>{session.comp}</span>
-            </div>
-          )}
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #1a1e2e', fontSize: 13 }}>
+            <span style={{ color: '#505878', fontWeight: 600, marginRight: 8 }}>Comp Played:</span>
+            {editMode ? (
+              <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <select value={editComp} onChange={e => { setEditComp(e.target.value); if (e.target.value !== '__other__') setEditCompCustom(''); }}
+                  style={{ background: '#0e1118', border: '1px solid #252a3a', borderRadius: 6, color: '#c8d0e8', fontSize: 12, padding: '4px 8px', cursor: 'pointer' }}>
+                  <option value="">None</option>
+                  {knownComps.map(n => <option key={n} value={n}>{n}</option>)}
+                  <option value="__other__">Other...</option>
+                </select>
+                {editComp === '__other__' && (
+                  <input value={editCompCustom} onChange={e => setEditCompCustom(e.target.value)} placeholder="comp name..."
+                    style={{ background: '#0e1118', border: '1px solid #252a3a', borderRadius: 6, color: '#c8d0e8', fontSize: 12, padding: '4px 8px', width: 120 }} />
+                )}
+              </span>
+            ) : (
+              <span style={{ color: '#a0b0d0', fontWeight: 700 }}>{session.comp || <span style={{ color: '#303550', fontStyle: 'italic' }}>not set</span>}</span>
+            )}
+          </div>
         </div>
 
         {/* Comp guide (collapsible) */}
@@ -271,49 +347,82 @@ export function SessionPage() {
             </div>
 
             {/* Pros */}
-            {session.pros && session.pros.length > 0 && (
+            {(editMode || (session.pros && session.pros.length > 0)) && (
               <div style={{ marginBottom: 20, padding: '22px 24px', background: '#0a1410', borderRadius: 12, border: '1px solid #14281e' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                   <div style={{ width: 4, height: 20, borderRadius: 2, background: '#2ea86a' }} />
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#2ea86a', letterSpacing: '0.04em', textTransform: 'uppercase' }}>What You Did Well</span>
                 </div>
                 <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-                  {session.pros.map((p, i) => (
-                    <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: i < session.pros.length - 1 ? 10 : 0 }}>
+                  {(editMode ? editPros : session.pros).map((p, i) => (
+                    <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
                       <span style={{ color: '#2ea86a', fontSize: 16, lineHeight: 1.4, flexShrink: 0 }}>✓</span>
-                      <span style={{ fontSize: 14, color: '#a0d8a8', lineHeight: 1.5 }}>{p}</span>
+                      <span style={{ fontSize: 14, color: '#a0d8a8', lineHeight: 1.5, flex: 1 }}>{p}</span>
+                      {editMode && (
+                        <button onClick={() => setEditPros(prev => prev.filter((_, j) => j !== i))}
+                          style={{ background: 'none', border: 'none', color: '#404860', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '0 4px', flexShrink: 0 }}>×</button>
+                      )}
                     </li>
                   ))}
                 </ul>
+                {editMode && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                    <input value={editNewPro} onChange={e => setEditNewPro(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && editNewPro.trim()) { setEditPros(p => [...p, editNewPro.trim()]); setEditNewPro(''); }}}
+                      placeholder="Add a pro..." style={{ flex: 1, background: '#0e1118', border: '1px solid #252a3a', borderRadius: 6, color: '#c8d0e8', fontSize: 13, padding: '7px 10px', outline: 'none' }} />
+                    <button onClick={() => { if (editNewPro.trim()) { setEditPros(p => [...p, editNewPro.trim()]); setEditNewPro(''); }}}
+                      style={{ padding: '7px 14px', borderRadius: 6, border: '1px solid rgba(0,180,80,0.3)', background: 'rgba(0,180,80,0.08)', color: '#50c878', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Add</button>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Cons */}
-            {session.cons && session.cons.length > 0 && (
+            {(editMode || (session.cons && session.cons.length > 0)) && (
               <div style={{ marginBottom: 20, padding: '22px 24px', background: '#140e0a', borderRadius: 12, border: '1px solid #28180e' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                   <div style={{ width: 4, height: 20, borderRadius: 2, background: '#d46a3a' }} />
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#d46a3a', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Areas to Improve</span>
                 </div>
                 <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-                  {session.cons.map((c, i) => (
-                    <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: i < session.cons.length - 1 ? 10 : 0 }}>
+                  {(editMode ? editCons : session.cons).map((c, i) => (
+                    <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
                       <span style={{ color: '#d46a3a', fontSize: 16, lineHeight: 1.4, flexShrink: 0 }}>→</span>
-                      <span style={{ fontSize: 14, color: '#d4a080', lineHeight: 1.5 }}>{c}</span>
+                      <span style={{ fontSize: 14, color: '#d4a080', lineHeight: 1.5, flex: 1 }}>{c}</span>
+                      {editMode && (
+                        <button onClick={() => setEditCons(prev => prev.filter((_, j) => j !== i))}
+                          style={{ background: 'none', border: 'none', color: '#404860', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '0 4px', flexShrink: 0 }}>×</button>
+                      )}
                     </li>
                   ))}
                 </ul>
+                {editMode && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                    <input value={editNewCon} onChange={e => setEditNewCon(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && editNewCon.trim()) { setEditCons(p => [...p, editNewCon.trim()]); setEditNewCon(''); }}}
+                      placeholder="Add a con..." style={{ flex: 1, background: '#0e1118', border: '1px solid #252a3a', borderRadius: 6, color: '#c8d0e8', fontSize: 13, padding: '7px 10px', outline: 'none' }} />
+                    <button onClick={() => { if (editNewCon.trim()) { setEditCons(p => [...p, editNewCon.trim()]); setEditNewCon(''); }}}
+                      style={{ padding: '7px 14px', borderRadius: 6, border: '1px solid rgba(220,80,60,0.3)', background: 'rgba(220,80,60,0.08)', color: '#e07060', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Add</button>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Coach Notes */}
-            {session.takeaways && session.takeaways.trim().length > 0 && (
+            {(editMode || (session.takeaways && session.takeaways.trim().length > 0)) && (
               <div style={{ marginBottom: 20, padding: '22px 24px', background: '#0e1018', borderRadius: 12, border: '1px solid #1a1e2c' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                   <div style={{ width: 4, height: 20, borderRadius: 2, background: '#4a6fa5' }} />
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#4a6fa5', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Coach Notes</span>
                 </div>
-                <p style={{ margin: 0, fontSize: 14, color: '#a0aac8', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{session.takeaways}</p>
+                {editMode ? (
+                  <textarea value={editTakeaways} onChange={e => setEditTakeaways(e.target.value)}
+                    placeholder="Overall session notes, advice, next steps..."
+                    rows={4}
+                    style={{ width: '100%', background: '#0a0c14', border: '1px solid #252a3a', borderRadius: 8, color: '#c8d0e8', fontSize: 14, padding: '10px 12px', outline: 'none', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.7 }} />
+                ) : (
+                  <p style={{ margin: 0, fontSize: 14, color: '#a0aac8', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{session.takeaways}</p>
+                )}
               </div>
             )}
           </div>
