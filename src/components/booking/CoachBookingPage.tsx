@@ -26,7 +26,8 @@ function getWindowSlots(bookedISOs: string[]): TimeSlot[] {
   const now = new Date();
   // Round up to next 30-min boundary
   const startMs = Math.ceil(now.getTime() / (30 * 60 * 1000)) * (30 * 60 * 1000);
-  const endMs = startMs + 12 * 60 * 60 * 1000;
+  // End = 3:00 AM two days from now
+  const endMs = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 3, 0).getTime();
   const slots: TimeSlot[] = [];
   for (let t = startMs; t <= endMs; t += 30 * 60 * 1000) {
     const d = new Date(t);
@@ -66,6 +67,7 @@ export function CoachBookingPage() {
   // Selection
   const [selDate, setSelDate] = useState<SelDate | null>(null);
   const [selSlot, setSelSlot] = useState<TimeSlot | null>(null);
+  const [deadExpanded, setDeadExpanded] = useState(false);
 
   // Form
   const [form, setForm] = useState<FormData>({ discord: '', wowClass: 'Warrior', faction: 'Horde', bracket: '3', notes: '' });
@@ -168,10 +170,13 @@ export function CoachBookingPage() {
     );
   };
 
+  const isDeadHour = (s: TimeSlot) => s.hours >= 3 && s.hours < 12;
+
   const renderSlotPanel = () => {
     if (windowSlots.length === 0) return (
       <div style={{ ...cardSt, color: C.muted, fontSize: 13, textAlign: 'center', padding: 24 }}>No available slots in the next 12 hours.</div>
     );
+
     // Group by calendar day
     const groups: { key: string; date: SelDate; slots: TimeSlot[] }[] = [];
     windowSlots.forEach(slot => {
@@ -180,38 +185,59 @@ export function CoachBookingPage() {
       if (last?.key === key) last.slots.push(slot);
       else groups.push({ key, date: slot.date, slots: [slot] });
     });
+
+    const deadSlots = windowSlots.filter(isDeadHour);
+    const deadCount = deadSlots.length;
+    const deadFirst = deadSlots[0];
+    const deadLast = deadSlots[deadSlots.length - 1];
+    const deadRange = deadCount > 0 ? `${deadFirst.label} – ${deadLast.label}` : '';
+
+    const slotBtn = (slot: TimeSlot) => {
+      const active = selSlot?.hours === slot.hours && selSlot?.minutes === slot.minutes && selDate?.day === slot.date.day && selDate?.month === slot.date.month;
+      return <button key={`${slot.date.day}-${slot.hours}-${slot.minutes}`} onClick={() => pickSlot(slot)} style={pill(active)}>{slot.label}</button>;
+    };
+
+    const renderGroup = (group: typeof groups[0], gi: number) => {
+      const d = new Date(group.date.year, group.date.month, group.date.day);
+      const dowName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
+      const dead = group.slots.filter(isDeadHour);
+      const groupDead = dead.length > 0;
+
+      const header = (
+        <div key="hdr" style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 12 }}>
+          {gi === 0
+            ? <span style={{ fontSize: 11, fontWeight: 700, color: C.blueLight, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Today</span>
+            : <><div style={{ flex: 1, height: 1, background: C.border }} /><span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{dowName}, {MONTH_NAMES[group.date.month].slice(0,3)} {group.date.day}</span><div style={{ flex: 1, height: 1, background: C.border }} /></>
+          }
+          {gi === 0 && <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{dowName}, {MONTH_NAMES[group.date.month].slice(0,3)} {group.date.day}</span>}
+        </div>
+      );
+
+      const visibleSlots = deadExpanded ? group.slots : group.slots.filter(s => !isDeadHour(s));
+
+      return (
+        <div key={group.key} style={{ marginTop: gi > 0 ? 14 : 0 }}>
+          {header}
+          {groupDead && (
+            <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+              {([{ label: 'Active', val: false }, { label: 'All Hours', val: true }] as const).map(opt => (
+                <button key={String(opt.val)} onClick={() => setDeadExpanded(opt.val)}
+                  style={{ padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: deadExpanded === opt.val ? `1px solid ${C.blue}` : `1px solid ${C.border}`, background: deadExpanded === opt.val ? C.blueGlow : 'transparent', color: deadExpanded === opt.val ? C.blueLight : C.faint, transition: 'all 0.12s' }}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+            {visibleSlots.map(slotBtn)}
+          </div>
+        </div>
+      );
+    };
+
     return (
       <div style={cardSt}>
-        {groups.map((group, gi) => {
-          const d = new Date(group.date.year, group.date.month, group.date.day);
-          const isToday = group.date.day === today.getDate() && group.date.month === today.getMonth() && group.date.year === today.getFullYear();
-          const dowName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
-          return (
-            <div key={group.key}>
-              {gi > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '14px 0 12px' }}>
-                  <div style={{ flex: 1, height: 1, background: C.border }} />
-                  <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    {dowName}, {MONTH_NAMES[group.date.month].slice(0,3)} {group.date.day}
-                  </span>
-                  <div style={{ flex: 1, height: 1, background: C.border }} />
-                </div>
-              )}
-              {gi === 0 && (
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 12 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: C.blueLight, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Today</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{dowName}, {MONTH_NAMES[group.date.month].slice(0,3)} {group.date.day}</span>
-                </div>
-              )}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                {group.slots.map(slot => {
-                  const active = selSlot?.hours === slot.hours && selSlot?.minutes === slot.minutes && selDate?.day === slot.date.day && selDate?.month === slot.date.month;
-                  return <button key={`${slot.date.day}-${slot.hours}-${slot.minutes}`} onClick={() => pickSlot(slot)} style={pill(active)}>{slot.label}</button>;
-                })}
-              </div>
-            </div>
-          );
-        })}
+        {groups.map((group, gi) => renderGroup(group, gi))}
       </div>
     );
   };
