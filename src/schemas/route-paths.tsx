@@ -23,4 +23,5 @@ export const ROUTE_PATHS: { [key: string]: string } = {
   customerDetail: '/admin/customers/:discordUsername',
   guides: '/guides',
   compGuides: '/guides/comps',
+  coachBooking: '/schedule/:coachId',
 };

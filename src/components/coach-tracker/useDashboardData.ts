@@ -26,6 +26,8 @@ export interface Coach {
 export interface Session {
   _id: string;
   coachId: string;
+  assignedCoachIds: string[];
+  assignedCoachNames: string[];
   discord: string;
   wowClass: string;
   faction: 'Horde' | 'Alliance';
@@ -37,6 +39,7 @@ export interface Session {
   pros: string[];
   cons: string[];
   takeaways: string;
+  status: 'pending' | 'confirmed';
 }
 
 export function useDashboardData() {
@@ -44,6 +47,7 @@ export function useDashboardData() {
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [pastSessions, setPastSessions] = useState<Session[]>([]);
+  const [requests, setRequests] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [pastLoading, setPastLoading] = useState(false);
 
@@ -60,14 +64,16 @@ export function useDashboardData() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [cRes, sRes] = await Promise.all([
+      const [cRes, sRes, rRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/coach-tracker/coaches`, { headers: authHeaders(), credentials: 'include' }),
         fetch(`${API_BASE_URL}/api/coach-tracker/sessions`, { headers: authHeaders(), credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/coach-tracker/requests`, { headers: authHeaders(), credentials: 'include' }),
       ]);
       if (handleAuthError(cRes.status) || handleAuthError(sRes.status)) return;
-      const [cData, sData] = await Promise.all([cRes.json(), sRes.json()]);
+      const [cData, sData, rData] = await Promise.all([cRes.json(), sRes.json(), rRes.json()]);
       if (cData.data) setCoaches(cData.data);
       if (sData.data) setSessions(sData.data);
+      if (rData.data) setRequests(rData.data);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, []);
@@ -132,5 +138,23 @@ export function useDashboardData() {
     }
   };
 
-  return { coaches, sessions, pastSessions, loading, pastLoading, fetchAll, fetchPastSessions, createSession, deleteSession, toggleQueued, togglePin, updateSession };
+  const acceptRequest = async (id: string, extra: Partial<Session> = {}) => {
+    const res = await fetch(`${API_BASE_URL}/api/coach-tracker/sessions/${id}`, {
+      method: 'PATCH', headers: authHeaders(), credentials: 'include',
+      body: JSON.stringify({ status: 'confirmed', ...extra }),
+    });
+    if (handleAuthError(res.status)) return;
+    setRequests(prev => prev.filter(r => r._id !== id));
+    await fetchAll();
+  };
+
+  const declineRequest = async (id: string) => {
+    const res = await fetch(`${API_BASE_URL}/api/coach-tracker/sessions/${id}`, {
+      method: 'DELETE', headers: authHeaders(), credentials: 'include',
+    });
+    if (handleAuthError(res.status)) return;
+    setRequests(prev => prev.filter(r => r._id !== id));
+  };
+
+  return { coaches, sessions, pastSessions, requests, loading, pastLoading, fetchAll, fetchPastSessions, createSession, deleteSession, toggleQueued, togglePin, updateSession, acceptRequest, declineRequest };
 }

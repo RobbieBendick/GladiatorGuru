@@ -21,6 +21,7 @@ import { PrivacyPolicy } from '../legal/privacy-policy';
 import { TermsOfService } from '../legal/terms-of-service';
 import { CoachTracker } from '../coach-tracker/coach-tracker';
 import { SessionPage } from '../session/SessionPage';
+import { CoachBookingPage } from '../booking/CoachBookingPage';
 import BasicGuidesSection from '../guides/BasicGuidesSection';
 import CompGuidesSection from '../guides/CompGuidesSection';
 import { Dashboard2 } from '../coach-tracker/dashboard2';
@@ -134,6 +135,7 @@ export function BindRoutes(props: { children?: React.ReactNode }): JSX.Element {
           <Route path='/user/:userSlug/:sessionId' element={<SessionPage />} />
           <Route path={ROUTE_PATHS.guides} element={<BasicGuidesSection />} />
           <Route path={ROUTE_PATHS.compGuides} element={<CompGuidesSection />} />
+          <Route path={ROUTE_PATHS.coachBooking} element={<CoachBookingPage />} />
           <Route path={ROUTE_PATHS.privacyPolicy} element={<PrivacyPolicy />} />
           <Route
             path={ROUTE_PATHS.termsOfService}

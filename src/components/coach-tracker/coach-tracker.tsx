@@ -88,6 +88,9 @@ export function CoachTracker() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleteAllStep, setDeleteAllStep] = useState(0); // 0=idle, 1=first confirm, 2=second confirm
   const pinNoteDebounceRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const [schedulesOpen, setSchedulesOpen] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [staff, setStaff] = useState<{ _id: string; username: string; coachAlias?: string; discordUsername?: string; role: string }[]>([]);
   const [logCoach, setLogCoach] = useState<Coach | null>(null);
   const [logMessage, setLogMessage] = useState('');
   const [logSending, setLogSending] = useState(false);
@@ -330,6 +333,25 @@ export function CoachTracker() {
     URL.revokeObjectURL(url);
   };
 
+  const openSchedules = async () => {
+    setSchedulesOpen(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/public/staff`);
+      const data = await res.json();
+      if (data.data) setStaff(data.data);
+    } catch (err) {
+      console.error('Error fetching staff:', err);
+    }
+  };
+
+  const copyLink = (id: string) => {
+    const url = `${window.location.origin}${window.location.pathname}#/schedule/${id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
+
   const importData = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -379,6 +401,9 @@ export function CoachTracker() {
         <div className="data-actions">
           <button type="button" className="btn-secondary" onClick={() => navigate('/admin/dashboard3')} style={{ borderColor: 'rgba(0,210,140,0.3)', color: '#00d28c' }}>
             Dashboard
+          </button>
+          <button type="button" className="btn-secondary" onClick={openSchedules} style={{ borderColor: 'rgba(138,99,255,0.4)', color: '#a07ef5' }}>
+            Schedules
           </button>
           <button type="button" className="btn-secondary" onClick={exportData}>
             Export JSON
@@ -732,6 +757,73 @@ export function CoachTracker() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Schedules Modal */}
+      {schedulesOpen && (
+        <div className="log-overlay" onClick={() => setSchedulesOpen(false)}>
+          <div className="log-modal" style={{ maxWidth: 600, width: '95%' }} onClick={e => e.stopPropagation()}>
+            <div className="log-header">
+              <div className="log-title">
+                <span className="log-icon">🗓</span>
+                <h3>Coach Booking Links</h3>
+                <span style={{ fontSize: 12, color: '#6b7280', marginLeft: 8 }}>{staff.length} coaches</span>
+              </div>
+              <button className="log-close" onClick={() => setSchedulesOpen(false)}>✕</button>
+            </div>
+            <div className="log-messages" style={{ maxHeight: 460 }}>
+              {staff.length === 0 && (
+                <div className="log-empty">Loading...</div>
+              )}
+              {staff
+                .slice()
+                .sort((a, b) => (a.coachAlias || a.username).localeCompare(b.coachAlias || b.username))
+                .map(member => {
+                  const displayName = member.coachAlias || member.username;
+                  const link = `${window.location.origin}${window.location.pathname}#/schedule/${member._id}`;
+                  const copied = copiedId === member._id;
+                  return (
+                    <div key={member._id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #1a1f30' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                          <span style={{ fontWeight: 600, color: '#e2e8f0', fontSize: 14 }}>
+                            {displayName}
+                          </span>
+                          {member.discordUsername && (
+                            <span style={{ fontSize: 12, color: '#6b7280' }}>{member.discordUsername}</span>
+                          )}
+                          <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: member.role === 'admin' ? 'rgba(240,68,56,0.15)' : 'rgba(138,99,255,0.15)', color: member.role === 'admin' ? '#f04438' : '#a07ef5', border: `1px solid ${member.role === 'admin' ? 'rgba(240,68,56,0.3)' : 'rgba(138,99,255,0.3)'}` }}>
+                            {member.role}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {link}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button
+                          className="btn-secondary"
+                          style={{ fontSize: 12, padding: '4px 10px', minWidth: 64, borderColor: copied ? 'rgba(0,210,140,0.5)' : undefined, color: copied ? '#00d28c' : undefined }}
+                          onClick={() => copyLink(member._id)}
+                        >
+                          {copied ? '✓ Copied' : 'Copy'}
+                        </button>
+                        <a
+                          href={`#/schedule/${member._id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn-secondary"
+                          style={{ fontSize: 12, padding: '4px 10px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                        >
+                          Open
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
         </div>
       )}
 

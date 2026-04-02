@@ -16,9 +16,15 @@ const CLASS_COLORS: Record<string, string> = {
 };
 
 const WOW_CLASSES = [
-  'Death Knight','Demon Hunter','Druid','Evoker','Hunter',
-  'Mage','Monk','Paladin','Priest','Rogue','Shaman','Warlock','Warrior',
+  'Death Knight', 'Demon Hunter', 'Druid', 'Evoker', 'Hunter',
+  'Mage', 'Monk', 'Paladin', 'Priest', 'Rogue', 'Shaman', 'Warlock', 'Warrior',
 ];
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+const DAY_ABBREVS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 function localDateTimeValue() {
   const now = new Date();
@@ -31,6 +37,40 @@ function coachLabel(c: Coach) {
   return `${c.discord}${c.alias && c.alias !== c.discord ? ` (${c.alias})` : ''} — ${c.wowClass} ${c.faction}`;
 }
 
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function getFirstDayOfMonth(year: number, month: number) {
+  return new Date(year, month, 1).getDay();
+}
+
+function parseDT(iso: string) {
+  const [datePart, timePart] = iso.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hours, minutes] = timePart.split(':').map(Number);
+  return { year, month: month - 1, day, hours, minutes };
+}
+
+function buildDT(year: number, month: number, day: number, hours: number, minutes: number) {
+  return (
+    `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` +
+    `T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+  );
+}
+
+function fmtDate(iso: string) {
+  const { year, month, day } = parseDT(iso);
+  const dow = new Date(year, month, day).getDay();
+  return {
+    dayShort: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dow],
+    dayFull: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dow],
+    monthShort: MONTH_NAMES[month].slice(0, 3),
+    monthFull: MONTH_NAMES[month],
+    day, year, dow,
+  };
+}
+
 export function ScheduleModal({ coaches, onSave, onClose, defaultCoachId }: Props) {
   const defaultCoach = coaches.find(c => c._id === defaultCoachId) || null;
 
@@ -41,31 +81,33 @@ export function ScheduleModal({ coaches, onSave, onClose, defaultCoachId }: Prop
   const [writeInClass, setWriteInClass] = useState('Warrior');
   const [writeInFaction, setWriteInFaction] = useState<'Horde' | 'Alliance'>('Horde');
   const [dropdownOpen, setDropdownOpen] = useState(false);
-
   const [bracket, setBracket] = useState<'2' | '3' | '5'>('3');
   const [dateTime, setDateTime] = useState(localDateTimeValue());
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [calMonth, setCalMonth] = useState(() => {
+    const p = parseDT(localDateTimeValue());
+    return { year: p.year, month: p.month };
+  });
+
+  const [calOpen, setCalOpen] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (
         dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
         inputRef.current && !inputRef.current.contains(e.target as Node)
-      ) {
-        setDropdownOpen(false);
-      }
+      ) setDropdownOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const sortedCoaches = [...coaches].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
 
+  const sortedCoaches = [...coaches].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
   const filtered = query.trim()
     ? sortedCoaches.filter(c => {
         const q = query.toLowerCase();
@@ -79,24 +121,16 @@ export function ScheduleModal({ coaches, onSave, onClose, defaultCoachId }: Prop
     : sortedCoaches;
 
   const handleSelectCoach = (c: Coach) => {
-    setSelectedCoach(c);
-    setQuery(coachLabel(c));
-    setWriteInMode(false);
-    setDropdownOpen(false);
+    setSelectedCoach(c); setQuery(coachLabel(c));
+    setWriteInMode(false); setDropdownOpen(false);
   };
-
   const handleWriteIn = () => {
-    setSelectedCoach(null);
-    setWriteInName(query.trim());
-    setWriteInMode(true);
-    setDropdownOpen(false);
+    setSelectedCoach(null); setWriteInName(query.trim());
+    setWriteInMode(true); setDropdownOpen(false);
   };
-
   const handleQueryChange = (val: string) => {
-    setQuery(val);
-    setSelectedCoach(null);
-    setWriteInMode(false);
-    setDropdownOpen(true);
+    setQuery(val); setSelectedCoach(null);
+    setWriteInMode(false); setDropdownOpen(true);
   };
 
   const canSave = writeInMode
@@ -106,41 +140,41 @@ export function ScheduleModal({ coaches, onSave, onClose, defaultCoachId }: Prop
   const handleSave = async () => {
     if (!canSave) return;
     setSaving(true);
-    if (writeInMode) {
-      await onSave({
-        coachId: '',
-        discord: writeInName.trim(),
-        wowClass: writeInClass,
-        faction: writeInFaction,
-        bracket,
-        scheduledAt: new Date(dateTime).toISOString(),
-        notes,
-        userSlug: '',
-        comp: '',
-        pros: [],
-        cons: [],
-        takeaways: '',
-      });
-    } else if (selectedCoach) {
-      await onSave({
-        coachId: selectedCoach._id,
-        discord: selectedCoach.discord,
-        wowClass: selectedCoach.wowClass,
-        faction: selectedCoach.faction,
-        bracket,
-        scheduledAt: new Date(dateTime).toISOString(),
-        notes,
-        userSlug: '',
-        comp: '',
-        pros: [],
-        cons: [],
-        takeaways: '',
-      });
-    }
+    await onSave({
+      coachId: writeInMode ? '' : selectedCoach!._id,
+      discord: writeInMode ? writeInName.trim() : selectedCoach!.discord,
+      wowClass: writeInMode ? writeInClass : selectedCoach!.wowClass,
+      faction: writeInMode ? writeInFaction : selectedCoach!.faction,
+      bracket,
+      scheduledAt: new Date(dateTime).toISOString(),
+      notes, userSlug: '', comp: '', pros: [], cons: [], takeaways: '',
+    });
     setSaving(false);
     onClose();
   };
 
+  function prevMonth() {
+    setCalMonth(p => p.month === 0 ? { year: p.year - 1, month: 11 } : { ...p, month: p.month - 1 });
+  }
+  function nextMonth() {
+    setCalMonth(p => p.month === 11 ? { year: p.year + 1, month: 0 } : { ...p, month: p.month + 1 });
+  }
+  function selectDate(y: number, mo: number, d: number) {
+    const p = parseDT(dateTime);
+    setDateTime(buildDT(y, mo, d, p.hours, p.minutes));
+    setCalMonth({ year: y, month: mo });
+    setCalOpen(false);
+  }
+  function selectTime(h: number, m: number) {
+    const p = parseDT(dateTime);
+    setDateTime(buildDT(p.year, p.month, p.day, h, m));
+  }
+
+  const dtp = parseDT(dateTime);
+  const fmt = fmtDate(dateTime);
+  const today = new Date();
+
+  // ── Styles ───────────────────────────────────────────────────────────────
   const overlayStyle: React.CSSProperties = {
     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -148,9 +182,10 @@ export function ScheduleModal({ coaches, onSave, onClose, defaultCoachId }: Prop
   };
   const modalStyle: React.CSSProperties = {
     background: '#141820', border: '1px solid #252a3a', borderRadius: 14,
-    padding: '28px 32px', width: 460, maxWidth: '95vw',
+    padding: '28px 32px', width: 480, maxWidth: '95vw',
     boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
     fontFamily: "'Segoe UI', system-ui, sans-serif",
+    maxHeight: '90vh', overflowY: 'auto',
   };
   const labelStyle: React.CSSProperties = {
     display: 'block', fontSize: 11, fontWeight: 600, color: '#505878',
@@ -161,10 +196,414 @@ export function ScheduleModal({ coaches, onSave, onClose, defaultCoachId }: Prop
     borderRadius: 8, color: '#c8d0e8', fontSize: 13, padding: '10px 12px',
     outline: 'none', boxSizing: 'border-box',
   };
+  const navBtnStyle: React.CSSProperties = {
+    background: 'none', border: '1px solid #252a3a', borderRadius: 6,
+    color: '#7090c0', cursor: 'pointer', padding: '3px 11px', fontSize: 17, lineHeight: 1,
+  };
+  const spinBtnStyle: React.CSSProperties = {
+    background: 'none', border: '1px solid #252a3a', borderRadius: 4,
+    color: '#7090c0', cursor: 'pointer', padding: '2px 9px', fontSize: 10, lineHeight: 1.4,
+  };
 
+  // ── Full calendar grid ────────────────────────────────────────────────────
+  const renderCalGrid = (compact = false) => {
+    const { year, month } = calMonth;
+    const daysInMonth = getDaysInMonth(year, month);
+    const firstDay = getFirstDayOfMonth(year, month);
+    const cells: (number | null)[] = [
+      ...Array(firstDay).fill(null),
+      ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+    ];
+    while (cells.length % 7 !== 0) cells.push(null);
+    const cellH = compact ? 28 : 32;
+
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <button onClick={prevMonth} style={navBtnStyle}>‹</button>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#c8d0e8' }}>
+            {MONTH_NAMES[month]} {year}
+          </span>
+          <button onClick={nextMonth} style={navBtnStyle}>›</button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 4 }}>
+          {DAY_ABBREVS.map(d => (
+            <div key={d} style={{ textAlign: 'center', fontSize: 10, color: '#505878', fontWeight: 600, paddingBottom: 3 }}>{d}</div>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+          {cells.map((day, i) => {
+            if (!day) return <div key={`e${i}`} style={{ height: cellH }} />;
+            const isSel = day === dtp.day && year === dtp.year && month === dtp.month;
+            const isTod = day === today.getDate() && year === today.getFullYear() && month === today.getMonth();
+            const isPast = new Date(year, month, day) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            return (
+              <div
+                key={day}
+                onClick={() => !isPast && selectDate(year, month, day)}
+                style={{
+                  height: cellH, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: 6, cursor: isPast ? 'default' : 'pointer', fontSize: compact ? 11 : 12,
+                  background: isSel ? '#4a6fa5' : 'transparent',
+                  color: isSel ? '#fff' : isPast ? '#2a3048' : isTod ? '#7090c0' : '#c8d0e8',
+                  fontWeight: isSel ? 700 : 400,
+                  border: isTod && !isSel ? '1px solid rgba(74,111,165,0.4)' : '1px solid transparent',
+                }}
+                onMouseEnter={e => { if (!isPast && !isSel) e.currentTarget.style.background = 'rgba(74,111,165,0.2)'; }}
+                onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent'; }}
+              >{day}</div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // ── Time spinners — ALWAYS VISIBLE ───────────────────────────────────────
+  const renderTimeSpinners = () => {
+    const ampm = dtp.hours < 12 ? 'AM' : 'PM';
+    const dispH = dtp.hours % 12 || 12;
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
+        padding: '14px 0 4px',
+        borderTop: '1px solid #1a1f30', marginTop: 12,
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+          <button style={spinBtnStyle} onClick={() => selectTime((dtp.hours + 1) % 24, dtp.minutes)}>▲</button>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#c8d0e8', width: 40, textAlign: 'center', lineHeight: 1 }}>
+            {String(dispH).padStart(2, '0')}
+          </div>
+          <button style={spinBtnStyle} onClick={() => selectTime((dtp.hours - 1 + 24) % 24, dtp.minutes)}>▼</button>
+        </div>
+        <span style={{ fontSize: 26, color: '#353d55', fontWeight: 300 }}>:</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+          <button style={spinBtnStyle} onClick={() => selectTime(dtp.hours, (dtp.minutes + 15) % 60)}>▲</button>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#c8d0e8', width: 40, textAlign: 'center', lineHeight: 1 }}>
+            {String(dtp.minutes).padStart(2, '0')}
+          </div>
+          <button style={spinBtnStyle} onClick={() => selectTime(dtp.hours, (dtp.minutes - 15 + 60) % 60)}>▼</button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginLeft: 6 }}>
+          {(['AM', 'PM'] as const).map(ap => {
+            const isSel = ampm === ap;
+            return (
+              <button key={ap}
+                onClick={() => selectTime(ap === 'AM' ? dtp.hours % 12 : (dtp.hours % 12) + 12, dtp.minutes)}
+                style={{
+                  padding: '5px 11px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                  border: isSel ? '1px solid #4a6fa5' : '1px solid #252a3a',
+                  background: isSel ? 'rgba(74,111,165,0.25)' : '#0e1118',
+                  color: isSel ? '#a0c0f0' : '#404860',
+                }}
+              >{ap}</button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // VIEW 1 — Accordion bar
+  //   Shows date as a single clickable row. Click ▼ to slide full calendar down.
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const renderDateView1 = () => (
+    <div>
+      <button
+        onClick={() => setCalOpen(p => !p)}
+        style={{
+          width: '100%', background: '#0c0f17',
+          border: '1px solid #252a3a',
+          borderRadius: calOpen ? '8px 8px 0 0' : 8,
+          padding: '10px 14px', cursor: 'pointer',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}
+      >
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13, color: '#404860' }}>📅</span>
+          <span style={{ fontWeight: 600, color: '#c8d0e8', fontSize: 13 }}>
+            {fmt.dayShort}, {fmt.monthShort} {fmt.day}, {fmt.year}
+          </span>
+        </span>
+        <span style={{
+          color: '#505878', fontSize: 10, display: 'inline-block',
+          transform: calOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s',
+        }}>▼</span>
+      </button>
+      <div style={{
+        overflow: 'hidden', maxHeight: calOpen ? 360 : 0,
+        transition: 'max-height 0.3s ease',
+        background: '#0c0f17',
+        border: calOpen ? '1px solid #252a3a' : 'none',
+        borderTop: 'none', borderRadius: '0 0 8px 8px',
+      }}>
+        <div style={{ padding: 14 }}>{renderCalGrid()}</div>
+      </div>
+    </div>
+  );
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // VIEW 2 — Big date card + ✎ Change button
+  //   Large styled date display. "Change" slides calendar in below.
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const renderDateView2 = () => (
+    <div>
+      <div style={{
+        background: '#0c0f17', border: '1px solid #252a3a',
+        borderRadius: calOpen ? '10px 10px 0 0' : 10,
+        padding: '12px 16px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <span style={{ fontSize: 40, fontWeight: 800, color: '#c8d0e8', lineHeight: 1 }}>{fmt.day}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#7090c0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {fmt.monthFull}
+            </span>
+            <span style={{ fontSize: 11, color: '#404860' }}>{fmt.dayFull} · {fmt.year}</span>
+          </div>
+        </div>
+        <button
+          onClick={() => setCalOpen(p => !p)}
+          style={{
+            padding: '5px 13px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600,
+            border: '1px solid #252a3a',
+            background: calOpen ? 'rgba(74,111,165,0.2)' : '#0e1118',
+            color: calOpen ? '#7090c0' : '#505878',
+          }}
+        >{calOpen ? '✕ Close' : '✎ Change'}</button>
+      </div>
+      <div style={{
+        overflow: 'hidden', maxHeight: calOpen ? 360 : 0,
+        transition: 'max-height 0.3s ease',
+        background: '#0c0f17',
+        border: calOpen ? '1px solid #252a3a' : 'none',
+        borderTop: 'none', borderRadius: '0 0 10px 10px',
+      }}>
+        <div style={{ padding: 14 }}>{renderCalGrid()}</div>
+      </div>
+    </div>
+  );
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // VIEW 3 — Week strip → full month
+  //   Shows 7-day current week. Thin toggle above reveals full calendar.
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const renderDateView3 = () => {
+    const selDate = new Date(dtp.year, dtp.month, dtp.day);
+    const dow = selDate.getDay();
+    const weekDays = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(selDate);
+      d.setDate(selDate.getDate() - dow + i);
+      return { year: d.getFullYear(), month: d.getMonth(), day: d.getDate(), dow: i };
+    });
+
+    return (
+      <div style={{ background: '#0c0f17', border: '1px solid #252a3a', borderRadius: 10, overflow: 'hidden' }}>
+        {/* Full month slides in from top */}
+        <div style={{
+          overflow: 'hidden', maxHeight: calOpen ? 300 : 0,
+          transition: 'max-height 0.3s ease',
+          padding: calOpen ? '14px 14px 0' : '0 14px',
+        }}>
+          {renderCalGrid(true)}
+        </div>
+
+        {/* Toggle bar */}
+        <button
+          onClick={() => setCalOpen(p => !p)}
+          style={{
+            width: '100%', background: 'transparent', border: 'none',
+            borderBottom: '1px solid #1e2535',
+            color: '#4a6fa5', fontSize: 10, fontWeight: 700, cursor: 'pointer',
+            padding: '5px 0', letterSpacing: '0.08em', textTransform: 'uppercase',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}
+        >
+          <span style={{ display: 'inline-block', transform: calOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', fontSize: 8 }}>▲</span>
+          {calOpen ? 'Hide month' : `${fmt.monthShort} ${fmt.year} · tap to expand`}
+          <span style={{ display: 'inline-block', transform: calOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', fontSize: 8 }}>▲</span>
+        </button>
+
+        {/* Week strip */}
+        <div style={{ display: 'flex', gap: 3, padding: '10px 10px 10px' }}>
+          {weekDays.map(wd => {
+            const isSel = wd.day === dtp.day && wd.month === dtp.month && wd.year === dtp.year;
+            const isTod = wd.day === today.getDate() && wd.month === today.getMonth() && wd.year === today.getFullYear();
+            const isPast = new Date(wd.year, wd.month, wd.day) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            return (
+              <div key={wd.dow}
+                onClick={() => !isPast && selectDate(wd.year, wd.month, wd.day)}
+                style={{
+                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  padding: '7px 2px', borderRadius: 8, cursor: isPast ? 'default' : 'pointer', gap: 3,
+                  border: isSel ? '1px solid #4a6fa5' : '1px solid transparent',
+                  background: isSel ? 'rgba(74,111,165,0.2)' : 'transparent',
+                }}
+                onMouseEnter={e => { if (!isPast && !isSel) e.currentTarget.style.background = 'rgba(74,111,165,0.1)'; }}
+                onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent'; }}
+              >
+                <span style={{ fontSize: 9, fontWeight: 600, color: isSel ? '#7090c0' : '#404860', textTransform: 'uppercase' }}>
+                  {DAY_ABBREVS[wd.dow]}
+                </span>
+                <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1, color: isSel ? '#fff' : isPast ? '#2a3048' : isTod ? '#7090c0' : '#c8d0e8' }}>
+                  {wd.day}
+                </span>
+                {isTod && <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#4a6fa5' }} />}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // VIEW 4 — Quick chips (KEEP AS IS)
+  //   Today/Tomorrow/nearby pills. "+ More" reveals full calendar.
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const renderDateView4 = () => {
+    const offsets = [-2, -1, 0, 1, 2, 3, 4];
+    const chips = offsets.map(offset => {
+      const d = new Date(today);
+      d.setDate(today.getDate() + offset);
+      const isSel = d.getDate() === dtp.day && d.getMonth() === dtp.month && d.getFullYear() === dtp.year;
+      const isPast = offset < 0;
+      let label = `${DAY_ABBREVS[d.getDay()]} ${d.getDate()}`;
+      if (offset === 0) label = 'Today';
+      if (offset === 1) label = 'Tomorrow';
+      return { d, isSel, isPast, label, offset };
+    });
+
+    return (
+      <div style={{ background: '#0c0f17', border: '1px solid #252a3a', borderRadius: 10, overflow: 'hidden' }}>
+        {/* Full calendar expand */}
+        <div style={{
+          overflow: 'hidden', maxHeight: calOpen ? 300 : 0,
+          transition: 'max-height 0.3s ease',
+          padding: calOpen ? '14px 14px 0' : '0 14px',
+        }}>
+          {renderCalGrid(true)}
+          <div style={{ height: 10 }} />
+        </div>
+
+        <div style={{ padding: '12px 12px 12px' }}>
+          <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 5, flex: 1, overflowX: 'auto', scrollbarWidth: 'none' }}>
+              {chips.map(chip => (
+                <button key={chip.offset}
+                  onClick={() => !chip.isPast && selectDate(chip.d.getFullYear(), chip.d.getMonth(), chip.d.getDate())}
+                  style={{
+                    flexShrink: 0, padding: '5px 10px', borderRadius: 20, fontSize: 11, fontWeight: chip.isSel ? 700 : 500,
+                    border: chip.isSel ? '1px solid #4a6fa5' : '1px solid #1e2535',
+                    background: chip.isSel ? 'rgba(74,111,165,0.25)' : '#0e1118',
+                    color: chip.isSel ? '#a0c0f0' : chip.isPast ? '#2a3048' : '#8090a8',
+                    cursor: chip.isPast ? 'default' : 'pointer',
+                  }}
+                >{chip.label}</button>
+              ))}
+            </div>
+            <button
+              onClick={() => setCalOpen(p => !p)}
+              style={{
+                flexShrink: 0, padding: '5px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                border: calOpen ? '1px solid #4a6fa5' : '1px solid #1e2535',
+                background: calOpen ? 'rgba(74,111,165,0.2)' : '#0e1118',
+                color: calOpen ? '#7090c0' : '#505878', cursor: 'pointer',
+              }}
+            >{calOpen ? '✕' : '+ More'}</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // VIEW 5 — Horizontal day scroll strip
+  //   14-day scrollable cards. "📅 Calendar" button reveals full month above.
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const renderDateView5 = () => {
+    const strip = Array.from({ length: 14 }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      return {
+        year: d.getFullYear(), month: d.getMonth(), day: d.getDate(),
+        dow: d.getDay(), isToday: i === 0,
+      };
+    });
+
+    return (
+      <div style={{ background: '#0c0f17', border: '1px solid #252a3a', borderRadius: 10, overflow: 'hidden' }}>
+        {/* Full calendar slides in from top */}
+        <div style={{
+          overflow: 'hidden', maxHeight: calOpen ? 300 : 0,
+          transition: 'max-height 0.3s ease',
+          padding: calOpen ? '14px 14px 0' : '0 14px',
+        }}>
+          {renderCalGrid(true)}
+          <div style={{ height: 10 }} />
+        </div>
+
+        <div style={{ padding: '12px 12px 12px' }}>
+          {/* Month label + calendar toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#505878', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              {fmt.monthFull} {fmt.year}
+            </span>
+            <button
+              onClick={() => setCalOpen(p => !p)}
+              style={{
+                padding: '3px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: 'pointer',
+                border: calOpen ? '1px solid #4a6fa5' : '1px solid #1e2535',
+                background: calOpen ? 'rgba(74,111,165,0.2)' : 'transparent',
+                color: calOpen ? '#7090c0' : '#404860',
+                display: 'flex', alignItems: 'center', gap: 4, letterSpacing: '0.05em', textTransform: 'uppercase',
+              }}
+            >
+              <span>{calOpen ? '✕' : '📅'}</span>
+              <span>{calOpen ? 'Close' : 'Full month'}</span>
+            </button>
+          </div>
+
+          {/* Scrollable day cards */}
+          <div style={{ display: 'flex', gap: 5, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 }}>
+            {strip.map(s => {
+              const isSel = s.day === dtp.day && s.month === dtp.month && s.year === dtp.year;
+              return (
+                <div key={`${s.month}-${s.day}`}
+                  onClick={() => selectDate(s.year, s.month, s.day)}
+                  style={{
+                    flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    padding: '7px 8px', borderRadius: 9, minWidth: 44, cursor: 'pointer', gap: 2,
+                    border: isSel ? '1px solid #4a6fa5' : '1px solid #1e2535',
+                    background: isSel ? 'rgba(74,111,165,0.25)' : '#0e1118',
+                  }}
+                  onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = 'rgba(74,111,165,0.1)'; }}
+                  onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = '#0e1118'; }}
+                >
+                  <span style={{ fontSize: 9, fontWeight: 600, color: isSel ? '#7090c0' : '#3a4560', textTransform: 'uppercase' }}>
+                    {DAY_ABBREVS[s.dow]}
+                  </span>
+                  <span style={{ fontSize: 17, fontWeight: 700, color: isSel ? '#fff' : s.isToday ? '#7090c0' : '#c8d0e8', lineHeight: 1 }}>
+                    {s.day}
+                  </span>
+                  {s.isToday && <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#4a6fa5' }} />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={overlayStyle} onClick={onClose}>
       <div style={modalStyle} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#d0daf0' }}>Schedule Session</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#404860', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
@@ -174,48 +613,28 @@ export function ScheduleModal({ coaches, onSave, onClose, defaultCoachId }: Prop
         <div style={{ marginBottom: 18, position: 'relative' }}>
           <label style={labelStyle}>Coach</label>
           <input
-            ref={inputRef}
-            type="text"
-            value={query}
+            ref={inputRef} type="text" value={query}
             onChange={e => handleQueryChange(e.target.value)}
             onFocus={() => setDropdownOpen(true)}
             placeholder="Search by name, class, faction..."
             style={{ ...inputStyle, paddingRight: 32 }}
             autoComplete="off"
           />
-          {/* clear btn */}
           {query && (
             <button
               onMouseDown={e => { e.preventDefault(); setQuery(''); setSelectedCoach(null); setWriteInMode(false); setDropdownOpen(true); inputRef.current?.focus(); }}
               style={{ position: 'absolute', right: 10, top: 32, background: 'none', border: 'none', color: '#404860', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: 0 }}
             >×</button>
           )}
-
-          {/* Dropdown */}
           {dropdownOpen && (
-            <div
-              ref={dropdownRef}
-              style={{
-                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
-                background: '#0e1118', border: '1px solid #252a3a', borderRadius: 8,
-                marginTop: 4, maxHeight: 240, overflowY: 'auto',
-                boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-              }}
-            >
+            <div ref={dropdownRef} style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, background: '#0e1118', border: '1px solid #252a3a', borderRadius: 8, marginTop: 4, maxHeight: 240, overflowY: 'auto', boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }}>
               {filtered.length === 0 && !query.trim() && (
                 <div style={{ padding: '10px 14px', color: '#404860', fontSize: 12 }}>Start typing to search...</div>
               )}
               {filtered.map(c => (
-                <div
-                  key={c._id}
+                <div key={c._id}
                   onMouseDown={e => { e.preventDefault(); handleSelectCoach(c); }}
-                  style={{
-                    padding: '9px 14px', cursor: 'pointer', fontSize: 13,
-                    color: selectedCoach?._id === c._id ? '#fff' : '#c8d0e8',
-                    background: selectedCoach?._id === c._id ? 'rgba(74,111,165,0.2)' : 'transparent',
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    borderBottom: '1px solid #161b28',
-                  }}
+                  style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, color: selectedCoach?._id === c._id ? '#fff' : '#c8d0e8', background: selectedCoach?._id === c._id ? 'rgba(74,111,165,0.2)' : 'transparent', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid #161b28' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
                   onMouseLeave={e => (e.currentTarget.style.background = selectedCoach?._id === c._id ? 'rgba(74,111,165,0.2)' : 'transparent')}
                 >
@@ -225,14 +644,9 @@ export function ScheduleModal({ coaches, onSave, onClose, defaultCoachId }: Prop
                   <span style={{ fontSize: 11, color: c.faction === 'Horde' ? '#ef5350' : '#42a5f5', fontWeight: 600 }}>{c.faction}</span>
                 </div>
               ))}
-              {/* Write-in option */}
               <div
                 onMouseDown={e => { e.preventDefault(); handleWriteIn(); }}
-                style={{
-                  padding: '9px 14px', cursor: 'pointer', fontSize: 13,
-                  color: '#7090c0', borderTop: filtered.length > 0 ? '1px solid #252a3a' : 'none',
-                  display: 'flex', alignItems: 'center', gap: 8,
-                }}
+                style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, color: '#7090c0', borderTop: filtered.length > 0 ? '1px solid #252a3a' : 'none', display: 'flex', alignItems: 'center', gap: 8 }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(74,111,165,0.1)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
@@ -243,7 +657,7 @@ export function ScheduleModal({ coaches, onSave, onClose, defaultCoachId }: Prop
           )}
         </div>
 
-        {/* Selected coach chip */}
+        {/* Coach chip */}
         {selectedCoach && !writeInMode && (
           <div style={{ marginTop: -10, marginBottom: 18, display: 'flex', gap: 8, alignItems: 'center', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6, border: '1px solid #1e2535' }}>
             <span style={{ fontSize: 12, color: CLASS_COLORS[selectedCoach.wowClass] || '#aaa', fontWeight: 700 }}>{selectedCoach.wowClass}</span>
@@ -257,14 +671,7 @@ export function ScheduleModal({ coaches, onSave, onClose, defaultCoachId }: Prop
           <div style={{ marginTop: -10, marginBottom: 18, padding: '12px', background: 'rgba(74,111,165,0.06)', borderRadius: 8, border: '1px solid #252a3a' }}>
             <div style={{ marginBottom: 10 }}>
               <label style={labelStyle}>Name</label>
-              <input
-                type="text"
-                value={writeInName}
-                onChange={e => setWriteInName(e.target.value)}
-                placeholder="Discord or in-game name..."
-                style={inputStyle}
-                autoFocus
-              />
+              <input type="text" value={writeInName} onChange={e => setWriteInName(e.target.value)} placeholder="Discord or in-game name..." style={inputStyle} autoFocus />
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <div style={{ flex: 1 }}>
@@ -277,21 +684,8 @@ export function ScheduleModal({ coaches, onSave, onClose, defaultCoachId }: Prop
                 <label style={labelStyle}>Faction</label>
                 <div style={{ display: 'flex', gap: 6, height: 38 }}>
                   {(['Horde', 'Alliance'] as const).map(f => (
-                    <button
-                      key={f} type="button" onClick={() => setWriteInFaction(f)}
-                      style={{
-                        flex: 1, borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 12,
-                        border: writeInFaction === f
-                          ? `1px solid ${f === 'Horde' ? '#ef5350' : '#42a5f5'}`
-                          : '1px solid #252a3a',
-                        background: writeInFaction === f
-                          ? f === 'Horde' ? 'rgba(239,83,80,0.15)' : 'rgba(66,165,245,0.15)'
-                          : '#0e1118',
-                        color: writeInFaction === f
-                          ? f === 'Horde' ? '#ef5350' : '#42a5f5'
-                          : '#404860',
-                        transition: 'all 0.15s',
-                      }}
+                    <button key={f} type="button" onClick={() => setWriteInFaction(f)}
+                      style={{ flex: 1, borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 12, border: writeInFaction === f ? `1px solid ${f === 'Horde' ? '#ef5350' : '#42a5f5'}` : '1px solid #252a3a', background: writeInFaction === f ? f === 'Horde' ? 'rgba(239,83,80,0.15)' : 'rgba(66,165,245,0.15)' : '#0e1118', color: writeInFaction === f ? f === 'Horde' ? '#ef5350' : '#42a5f5' : '#404860', transition: 'all 0.15s' }}
                     >{f}</button>
                   ))}
                 </div>
@@ -300,15 +694,13 @@ export function ScheduleModal({ coaches, onSave, onClose, defaultCoachId }: Prop
           </div>
         )}
 
-        {/* Date/Time */}
+        {/* ── Date & Time ── */}
         <div style={{ marginBottom: 18 }}>
-          <label style={labelStyle}>Date & Time</label>
-          <input
-            type="datetime-local"
-            value={dateTime}
-            onChange={e => setDateTime(e.target.value)}
-            style={inputStyle}
-          />
+          <label style={labelStyle}>Date &amp; Time</label>
+          {renderDateView3()}
+
+          {/* Time spinners — always visible */}
+          {renderTimeSpinners()}
         </div>
 
         {/* Bracket */}
@@ -316,15 +708,8 @@ export function ScheduleModal({ coaches, onSave, onClose, defaultCoachId }: Prop
           <label style={labelStyle}>Bracket</label>
           <div style={{ display: 'flex', gap: 8 }}>
             {(['2', '3', '5'] as const).map(b => (
-              <button
-                key={b} type="button" onClick={() => setBracket(b)}
-                style={{
-                  flex: 1, padding: '10px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14,
-                  border: bracket === b ? '1px solid #4a6fa5' : '1px solid #252a3a',
-                  background: bracket === b ? 'rgba(74,111,165,0.2)' : '#0e1118',
-                  color: bracket === b ? '#7090c0' : '#404860',
-                  transition: 'all 0.15s',
-                }}
+              <button key={b} type="button" onClick={() => setBracket(b)}
+                style={{ flex: 1, padding: '10px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14, border: bracket === b ? '1px solid #4a6fa5' : '1px solid #252a3a', background: bracket === b ? 'rgba(74,111,165,0.2)' : '#0e1118', color: bracket === b ? '#7090c0' : '#404860', transition: 'all 0.15s' }}
               >{b}s</button>
             ))}
           </div>
@@ -333,31 +718,14 @@ export function ScheduleModal({ coaches, onSave, onClose, defaultCoachId }: Prop
         {/* Notes */}
         <div style={{ marginBottom: 24 }}>
           <label style={labelStyle}>Notes (optional)</label>
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            placeholder="comp, goals, anything relevant..."
-            rows={2}
-            style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }}
-          />
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="comp, goals, anything relevant..." rows={2} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
         </div>
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{
-            padding: '9px 20px', borderRadius: 8, border: '1px solid #252a3a',
-            background: 'transparent', color: '#505878', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-          }}>Cancel</button>
-          <button
-            onClick={handleSave}
-            disabled={!canSave || saving}
-            style={{
-              padding: '9px 24px', borderRadius: 8, border: 'none',
-              background: canSave ? '#4a6fa5' : '#252a3a',
-              color: canSave ? '#fff' : '#404860',
-              cursor: canSave ? 'pointer' : 'default',
-              fontSize: 13, fontWeight: 700, transition: 'all 0.15s',
-            }}
+          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid #252a3a', background: 'transparent', color: '#505878', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Cancel</button>
+          <button onClick={handleSave} disabled={!canSave || saving}
+            style={{ padding: '9px 24px', borderRadius: 8, border: 'none', background: canSave ? '#4a6fa5' : '#252a3a', color: canSave ? '#fff' : '#404860', cursor: canSave ? 'pointer' : 'default', fontSize: 13, fontWeight: 700, transition: 'all 0.15s' }}
           >{saving ? 'Saving...' : 'Schedule'}</button>
         </div>
       </div>
