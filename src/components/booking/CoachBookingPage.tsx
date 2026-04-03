@@ -17,7 +17,6 @@ const CLASS_COLORS: Record<string, string> = {
 };
 const WOW_CLASSES = ['Death Knight','Demon Hunter','Druid','Evoker','Hunter','Mage','Monk','Paladin','Priest','Rogue','Shaman','Warlock','Warrior'];
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const DAY_ABBREVS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 // Returns slots in a 12-hour window starting from the next 30-min boundary after now.
@@ -56,7 +55,6 @@ function fmtDate(d: SelDate) {
 // ── Main Component ────────────────────────────────────────────────────────
 export function CoachBookingPage() {
   const { coachId } = useParams<{ coachId: string }>();
-  const today = new Date();
 
   // Data
   const [coach, setCoach] = useState<CoachInfo | null>(null);
@@ -186,11 +184,6 @@ export function CoachBookingPage() {
       else groups.push({ key, date: slot.date, slots: [slot] });
     });
 
-    const deadSlots = windowSlots.filter(isDeadHour);
-    const deadCount = deadSlots.length;
-    const deadFirst = deadSlots[0];
-    const deadLast = deadSlots[deadSlots.length - 1];
-    const deadRange = deadCount > 0 ? `${deadFirst.label} – ${deadLast.label}` : '';
 
     const slotBtn = (slot: TimeSlot) => {
       const active = selSlot?.hours === slot.hours && selSlot?.minutes === slot.minutes && selDate?.day === slot.date.day && selDate?.month === slot.date.month;
@@ -242,7 +235,7 @@ export function CoachBookingPage() {
     );
   };
 
-  const renderBookingForm = (inline = false) => (
+  const renderBookingForm = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {selDate && selSlot && (
         <div style={{ padding: '8px 12px', background: C.blueGlow, border: `1px solid ${C.blue}44`, borderRadius: 8, fontSize: 12, color: '#a0c0f0', fontWeight: 600 }}>

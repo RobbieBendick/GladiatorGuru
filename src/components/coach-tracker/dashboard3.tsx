@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardData, Session, Coach } from './useDashboardData';
 import { ScheduleModal } from './ScheduleModal';
@@ -36,8 +36,6 @@ function EditSessionModal({ session, staff, onClose, onSave }: {
   const [faction, setFaction] = useState<'Horde'|'Alliance'>(session.faction);
   const [notes, setNotes] = useState(session.notes || '');
   const [assignedIds, setAssignedIds] = useState<string[]>(session.assignedCoachIds || []);
-  const [coachSearch, setCoachSearch] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const coachName = (s: StaffMember) => s.coachAlias || s.username;
@@ -46,11 +44,6 @@ function EditSessionModal({ session, staff, onClose, onSave }: {
   const toggle = (id: string) => {
     setAssignedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
-
-  const filteredStaff = staff.filter(s => {
-    const q = coachSearch.toLowerCase();
-    return (s.coachAlias || s.username).toLowerCase().includes(q) || (s.discordUsername || '').toLowerCase().includes(q);
-  });
 
   const handleSave = async () => {
     setSaving(true);
@@ -70,22 +63,6 @@ function EditSessionModal({ session, staff, onClose, onSave }: {
 
   const inp: React.CSSProperties = { width: '100%', background: '#0a0c14', border: '1px solid #1e2235', borderRadius: 7, color: '#d0d8f0', fontSize: 13, padding: '9px 11px', outline: 'none', boxSizing: 'border-box' };
   const lbl: React.CSSProperties = { display: 'block', fontSize: 10, fontWeight: 700, color: '#505878', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4 };
-
-  // ── selected coaches chip row (shared) ────────────────────────────────
-  const renderSelected = () => assignedIds.length === 0 ? null : (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
-      {assignedIds.map(id => {
-        const m = staff.find(s => s._id === id);
-        if (!m) return null;
-        return (
-          <span key={id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 20, background: 'rgba(74,111,165,0.18)', border: '1px solid rgba(74,111,165,0.35)', fontSize: 11, color: '#90b0e0', fontWeight: 600 }}>
-            {coachName(m)}
-            <button onClick={() => toggle(id)} style={{ background: 'none', border: 'none', color: '#506080', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: 0, marginLeft: 1 }}>×</button>
-          </span>
-        );
-      })}
-    </div>
-  );
 
   // ── Coach picker — avatar initials bubbles ────────────────────────────
   const renderCoachPicker = () => (
