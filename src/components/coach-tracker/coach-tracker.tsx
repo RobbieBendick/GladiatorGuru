@@ -512,7 +512,7 @@ export function CoachTracker() {
             <input
               type="number"
               min="0"
-              step="0.5"
+              step="0.1667"
               placeholder="0"
               value={form.hoursPrepaid || ''}
               onChange={e => setForm(f => ({ ...f, hoursPrepaid: parseFloat(e.target.value) || 0 }))}
@@ -524,7 +524,7 @@ export function CoachTracker() {
             <input
               type="number"
               min="0"
-              step="0.5"
+              step="0.1667"
               placeholder="0"
               value={form.hoursUsed || ''}
               onChange={e => setForm(f => ({ ...f, hoursUsed: parseFloat(e.target.value) || 0 }))}

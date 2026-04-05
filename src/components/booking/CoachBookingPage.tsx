@@ -24,11 +24,12 @@ const MONTH_NAMES = ['January','February','March','April','May','June','July','A
 function getWindowSlots(bookedISOs: string[]): TimeSlot[] {
   const now = new Date();
   // Round up to next 30-min boundary
-  const startMs = Math.ceil(now.getTime() / (30 * 60 * 1000)) * (30 * 60 * 1000);
+  const INTERVAL = 10 * 60 * 1000; // 10-minute increments
+  const startMs = Math.ceil(now.getTime() / INTERVAL) * INTERVAL;
   // End = 3:00 AM two days from now
   const endMs = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 3, 0).getTime();
   const slots: TimeSlot[] = [];
-  for (let t = startMs; t <= endMs; t += 30 * 60 * 1000) {
+  for (let t = startMs; t <= endMs; t += INTERVAL) {
     const d = new Date(t);
     const date: SelDate = { year: d.getFullYear(), month: d.getMonth(), day: d.getDate() };
     const h = d.getHours();
