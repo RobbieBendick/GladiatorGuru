@@ -18,6 +18,7 @@ export interface Coach {
   pinned: boolean;
   pinNote: string;
   queued: boolean;
+  inactive: boolean;
   activityLog: LogEntry[];
   updatedAt: string;
   createdAt: string;
@@ -118,6 +119,15 @@ export function useDashboardData() {
     }).catch(err => console.error('Error toggling pin:', err));
   };
 
+  const toggleInactive = (coach: Coach) => {
+    const next = !coach.inactive;
+    setCoaches(prev => prev.map(c => c._id === coach._id ? { ...c, inactive: next } : c));
+    fetch(`${API_BASE_URL}/api/coach-tracker/coaches/${coach._id}`, {
+      method: 'PATCH', headers: authHeaders(), credentials: 'include',
+      body: JSON.stringify({ inactive: next }),
+    }).catch(err => console.error('Error toggling inactive:', err));
+  };
+
   const deleteSession = async (id: string) => {
     const res = await fetch(`${API_BASE_URL}/api/coach-tracker/sessions/${id}`, {
       method: 'DELETE', headers: authHeaders(), credentials: 'include',
@@ -156,5 +166,5 @@ export function useDashboardData() {
     setRequests(prev => prev.filter(r => r._id !== id));
   };
 
-  return { coaches, sessions, pastSessions, requests, loading, pastLoading, fetchAll, fetchPastSessions, createSession, deleteSession, toggleQueued, togglePin, updateSession, acceptRequest, declineRequest };
+  return { coaches, sessions, pastSessions, requests, loading, pastLoading, fetchAll, fetchPastSessions, createSession, deleteSession, toggleQueued, togglePin, toggleInactive, updateSession, acceptRequest, declineRequest };
 }

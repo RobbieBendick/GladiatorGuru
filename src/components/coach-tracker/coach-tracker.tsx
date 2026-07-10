@@ -5,6 +5,17 @@ import { API_BASE_URL } from '../../config/api';
 import { ROUTE_PATHS } from '../../schemas/route-paths';
 import './coach-tracker.css';
 
+// Format a decimal hours value to friendly string e.g. 1.5 → "1h 30m"
+const fmtHours = (h: number): string => {
+  const totalMins = Math.round(h * 60);
+  const hrs = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hrs === 0) return `${mins}m`;
+  if (mins === 0) return `${hrs}h`;
+  return `${hrs}h ${mins}m`;
+};
+
+
 const WOW_CLASSES = [
   'Death Knight', 'Demon Hunter', 'Druid', 'Evoker', 'Hunter',
   'Mage', 'Monk', 'Paladin', 'Priest', 'Rogue',
@@ -47,6 +58,7 @@ interface Coach {
   brackets: string[];
   pinned: boolean;
   pinNote: string;
+  inactive: boolean;
   updatedAt: string;
   createdAt: string;
 }
@@ -85,6 +97,7 @@ export function CoachTracker() {
   const [classFilter, setClassFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [submitError, setSubmitError] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleteAllStep, setDeleteAllStep] = useState(0); // 0=idle, 1=first confirm, 2=second confirm
   const pinNoteDebounceRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -96,6 +109,10 @@ export function CoachTracker() {
   const [logSending, setLogSending] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
   const justEnteredEditRef = useRef(false);
+  const [hoursPickerOpen, setHoursPickerOpen] = useState<'hoursPrepaid'|'hoursUsed'|null>(null);
+  const [jsonMode, setJsonMode] = useState(false);
+  const [jsonInput, setJsonInput] = useState('');
+  const [jsonError, setJsonError] = useState('');
 
   const authHeaders = () => {
     const token = getAuthToken();
@@ -143,6 +160,7 @@ export function CoachTracker() {
     e.preventDefault();
     if (justEnteredEditRef.current) return;
     if (!form.discord.trim() || !form.wowClass) return;
+    setSubmitError('');
 
     try {
       if (editing) {
@@ -161,6 +179,11 @@ export function CoachTracker() {
           body: JSON.stringify(form),
         });
         if (handleAuthError(response.status)) return;
+        if (!response.ok) {
+          const data = await response.json();
+          setSubmitError(data?.validationErrors?.message || 'Failed to add coach.');
+          return;
+        }
       }
 
       setForm({ ...emptyForm });
@@ -247,7 +270,6 @@ export function CoachTracker() {
 
   const togglePin = (coach: Coach) => {
     const next = !coach.pinned;
-    // Optimistic local update — no refetch so sort order doesn't shift
     setCoaches(prev => prev.map(c => c._id === coach._id ? { ...c, pinned: next } : c));
     fetch(`${API_BASE_URL}/api/coach-tracker/coaches/${coach._id}`, {
       method: 'PATCH',
@@ -255,6 +277,17 @@ export function CoachTracker() {
       credentials: 'include',
       body: JSON.stringify({ pinned: next }),
     }).catch(err => console.error('Error toggling pin:', err));
+  };
+
+  const toggleInactive = (coach: Coach) => {
+    const next = !coach.inactive;
+    setCoaches(prev => prev.map(c => c._id === coach._id ? { ...c, inactive: next } : c));
+    fetch(`${API_BASE_URL}/api/coach-tracker/coaches/${coach._id}`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ inactive: next }),
+    }).catch(err => console.error('Error toggling inactive:', err));
   };
 
   const savePinNote = (id: string, note: string) => {
@@ -314,6 +347,7 @@ export function CoachTracker() {
       return true;
     })
     .sort((a, b) => {
+      if (a.inactive !== b.inactive) return a.inactive ? 1 : -1;
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
       const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
       const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
@@ -389,6 +423,83 @@ export function CoachTracker() {
     );
   }
 
+  const applyJson = () => {
+    setJsonError('');
+    try {
+      const parsed = JSON.parse(jsonInput);
+      setForm(f => ({
+        ...f,
+        discord: parsed.discord || f.discord,
+        alias: parsed.alias || parsed.character || parsed.char || f.alias,
+        faction: ['Horde', 'Alliance'].includes(parsed.faction) ? parsed.faction : f.faction,
+        wowClass: WOW_CLASSES.includes(parsed.wowClass || parsed.class) ? (parsed.wowClass || parsed.class) : f.wowClass,
+        partner: parsed.partner || f.partner,
+        hoursPrepaid: parsed.hoursPrepaid ?? f.hoursPrepaid,
+        hoursUsed: parsed.hoursUsed ?? f.hoursUsed,
+        notes: parsed.notes || f.notes,
+        brackets: Array.isArray(parsed.brackets) ? parsed.brackets : f.brackets,
+      }));
+      setJsonMode(false);
+      setJsonInput('');
+    } catch {
+      setJsonError('Invalid JSON — check the format and try again.');
+    }
+  };
+
+  // ── Hours picker helpers ──────────────────────────────────────────────────
+  const getH = (v: number) => Math.floor(Math.round(v * 60) / 60);
+  const getM = (v: number) => Math.round(v * 60) % 60;
+  const fromHM = (h: number, m: number) => h + m / 60;
+
+  const renderHoursSection = () => {
+    const fields: { key: 'hoursPrepaid' | 'hoursUsed'; label: string }[] = [
+      { key: 'hoursPrepaid', label: 'Hours Prepaid' },
+      { key: 'hoursUsed', label: 'Hours Used' },
+    ];
+    return (
+      <div className="form-row">
+        {fields.map(({ key, label }) => (
+          <label key={key} style={{ position: 'relative' }}>
+            {label}
+            <button type="button" className="hui-picker-btn" disabled={!!viewing}
+              onClick={() => setHoursPickerOpen(hoursPickerOpen === key ? null : key)}>
+              <span className="hui-picker-icon">⏱</span>
+              <span className="hui-picker-val">{form[key] > 0 ? fmtHours(form[key]) : '—'}</span>
+              <span className="hui-picker-arrow">▾</span>
+            </button>
+            {hoursPickerOpen === key && (
+              <div className="hui-popover">
+                <div className="hui-pop-col">
+                  <div className="hui-pop-col-head">hr</div>
+                  <div className="hui-pop-scroll">
+                    {Array.from({ length: 21 }, (_, i) => (
+                      <div key={i} className={`hui-pop-item ${getH(form[key]) === i ? 'sel' : ''}`}
+                        onClick={() => { setForm(f => ({ ...f, [key]: fromHM(i, getM(f[key])) })); }}>
+                        {i}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="hui-pop-sep" />
+                <div className="hui-pop-col">
+                  <div className="hui-pop-col-head">min</div>
+                  <div className="hui-pop-scroll">
+                    {[0, 10, 20, 30, 40, 50].map(m => (
+                      <div key={m} className={`hui-pop-item ${getM(form[key]) === m ? 'sel' : ''}`}
+                        onClick={() => { setForm(f => ({ ...f, [key]: fromHM(getH(f[key]), m) })); setHoursPickerOpen(null); }}>
+                        {String(m).padStart(2, '0')}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </label>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="coach-tracker">
       <div className="ct-header">
@@ -435,7 +546,30 @@ export function CoachTracker() {
       </div>
 
       <form onSubmit={handleSubmit} className={`coach-form ${viewing ? 'viewing' : ''}`}>
-        <h2>{viewing ? 'Viewing Coach' : editing ? 'Edit Coach' : 'Add Coach'}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <h2 style={{ margin: 0 }}>{viewing ? 'Viewing Coach' : editing ? 'Edit Coach' : 'Add Coach'}</h2>
+          {!viewing && !editing && (
+            <button type="button" onClick={() => { setJsonMode(m => !m); setJsonError(''); }} style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', background: jsonMode ? 'rgba(138,99,255,0.15)' : 'transparent', border: '1px solid rgba(138,99,255,0.35)', color: '#a07ef5' }}>
+              {jsonMode ? '✕ Cancel JSON' : '{ } Paste JSON'}
+            </button>
+          )}
+        </div>
+        {jsonMode && (
+          <div style={{ marginBottom: 14 }}>
+            <textarea
+              placeholder={'{\n  "discord": "username",\n  "alias": "CharName",\n  "faction": "Horde",\n  "wowClass": "Warrior",\n  "brackets": ["3"]\n}'}
+              value={jsonInput}
+              onChange={e => setJsonInput(e.target.value)}
+              rows={7}
+              style={{ width: '100%', background: '#0a0c14', border: '1px solid rgba(138,99,255,0.3)', borderRadius: 7, color: '#c0b8f0', fontSize: 12, padding: '10px 12px', fontFamily: 'monospace', boxSizing: 'border-box', resize: 'vertical', outline: 'none' }}
+              autoFocus
+            />
+            {jsonError && <div style={{ fontSize: 11, color: '#ef5350', marginTop: 4 }}>{jsonError}</div>}
+            <button type="button" onClick={applyJson} style={{ marginTop: 8, fontSize: 12, fontWeight: 700, padding: '6px 16px', borderRadius: 6, cursor: 'pointer', background: 'rgba(138,99,255,0.2)', border: '1px solid rgba(138,99,255,0.4)', color: '#a07ef5' }}>
+              Apply JSON →
+            </button>
+          </div>
+        )}
         <div className="form-row">
           <label>
             Discord
@@ -506,32 +640,7 @@ export function CoachTracker() {
             />
           </label>
         </div>
-        <div className="form-row">
-          <label>
-            Hours Prepaid
-            <input
-              type="number"
-              min="0"
-              step="0.1667"
-              placeholder="0"
-              value={form.hoursPrepaid || ''}
-              onChange={e => setForm(f => ({ ...f, hoursPrepaid: parseFloat(e.target.value) || 0 }))}
-              disabled={!!viewing}
-            />
-          </label>
-          <label>
-            Hours Used
-            <input
-              type="number"
-              min="0"
-              step="0.1667"
-              placeholder="0"
-              value={form.hoursUsed || ''}
-              onChange={e => setForm(f => ({ ...f, hoursUsed: parseFloat(e.target.value) || 0 }))}
-              disabled={!!viewing}
-            />
-          </label>
-        </div>
+        {renderHoursSection()}
         <div className="form-row full">
           <label>
             Notes
@@ -544,6 +653,7 @@ export function CoachTracker() {
             />
           </label>
         </div>
+        {submitError && <div style={{ fontSize: 12, color: '#ef5350', marginBottom: 8, padding: '6px 10px', background: 'rgba(239,83,80,0.08)', borderRadius: 6, border: '1px solid rgba(239,83,80,0.2)' }}>{submitError}</div>}
         <div className="form-actions">
           {viewing ? (
             <>
@@ -636,6 +746,7 @@ export function CoachTracker() {
                   key={coach._id}
                   className={`${coach.faction.toLowerCase()} clickable ${viewing === coach._id ? 'selected' : ''} ${coach.pinned ? 'pinned-row' : ''}`}
                   onClick={() => viewCoach(coach)}
+                  style={coach.inactive ? { opacity: 0.4 } : undefined}
                 >
                   <td className="discord-cell">
                     {coach.discord}
@@ -662,7 +773,7 @@ export function CoachTracker() {
                           coach.hoursPrepaid - (coach.hoursUsed || 0) <= 0 ? 'depleted' : 'remaining'
                         }`}
                       >
-                        {coach.hoursUsed || 0}/{coach.hoursPrepaid}h
+                        {fmtHours(coach.hoursUsed || 0)}/{fmtHours(coach.hoursPrepaid)}
                       </span>
                     ) : (
                       '\u2014'
@@ -752,6 +863,14 @@ export function CoachTracker() {
                         Del
                       </button>
                     )}
+                    <button
+                      className="btn-icon"
+                      onClick={e => { e.stopPropagation(); toggleInactive(coach); }}
+                      title={coach.inactive ? 'Mark active' : 'Mark inactive'}
+                      style={{ color: coach.inactive ? '#00d28c' : '#604878', borderColor: coach.inactive ? 'rgba(0,210,140,0.3)' : 'rgba(80,60,100,0.4)', background: coach.inactive ? 'rgba(0,210,140,0.08)' : 'transparent' }}
+                    >
+                      {coach.inactive ? 'Active' : 'Inactive'}
+                    </button>
                   </td>
                 </tr>
               ))}

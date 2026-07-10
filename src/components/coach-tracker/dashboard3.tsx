@@ -4,6 +4,7 @@ import { useDashboardData, Session, Coach } from './useDashboardData';
 import { ScheduleModal } from './ScheduleModal';
 import { COMP_GUIDES } from '../guides/comp-guides-data';
 import { API_BASE_URL } from '../../config/api';
+import { getAuthToken } from '../../config/auth';
 
 const CLASS_COLORS: Record<string, string> = {
   'Death Knight': '#C41E3A', 'Demon Hunter': '#A330C9', 'Druid': '#FF7C0A',
@@ -17,11 +18,12 @@ const WOW_CLASSES_LIST = ['Death Knight','Demon Hunter','Druid','Evoker','Hunter
 interface StaffMember { _id: string; username: string; coachAlias?: string; discordUsername?: string; role: string; }
 
 // ─── EditSessionModal ───────────────────────────────────────────────────────
-function EditSessionModal({ session, staff, onClose, onSave }: {
+function EditSessionModal({ session, staff, onClose, onSave, onCoachAdded }: {
   session: Session;
   staff: StaffMember[];
   onClose: () => void;
   onSave: (id: string, payload: Partial<Session>) => Promise<void>;
+  onCoachAdded?: () => void;
 }) {
   const toLocalDT = (iso: string) => {
     const d = new Date(iso);
@@ -37,6 +39,25 @@ function EditSessionModal({ session, staff, onClose, onSave }: {
   const [notes, setNotes] = useState(session.notes || '');
   const [assignedIds, setAssignedIds] = useState<string[]>(session.assignedCoachIds || []);
   const [saving, setSaving] = useState(false);
+  const [addingToRoster, setAddingToRoster] = useState(false);
+  const [rosterAdded, setRosterAdded] = useState(false);
+
+  const isWriteIn = !session.coachId;
+
+  const handleAddToRoster = async () => {
+    setAddingToRoster(true);
+    try {
+      await fetch(`${API_BASE_URL}/api/coach-tracker/coaches`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getAuthToken()}`, 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ discord, wowClass, faction }),
+      });
+      setRosterAdded(true);
+      onCoachAdded?.();
+    } catch (e) { console.error(e); }
+    finally { setAddingToRoster(false); }
+  };
 
   const coachName = (s: StaffMember) => s.coachAlias || s.username;
   const isAssigned = (id: string) => assignedIds.includes(id);
@@ -95,10 +116,23 @@ function EditSessionModal({ session, staff, onClose, onSave }: {
       onClick={onClose}>
       <div style={{ background: '#0e1120', border: '1px solid #1e2235', borderRadius: 14, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', padding: 24 }}
         onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#c0ccf0' }}>Edit Session</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isWriteIn ? 10 : 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#c0ccf0' }}>Edit Session</div>
+            {isWriteIn && <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', padding: '2px 7px', borderRadius: 4, background: 'rgba(255,180,0,0.12)', color: '#e0a020', border: '1px solid rgba(255,180,0,0.25)' }}>WRITE-IN</span>}
+          </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#505878', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
         </div>
+        {isWriteIn && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,180,0,0.06)', border: '1px solid rgba(255,180,0,0.15)', borderRadius: 8, padding: '8px 12px', marginBottom: 16 }}>
+            <span style={{ fontSize: 11, color: '#907040' }}>Not on your roster yet</span>
+            <button
+              onClick={handleAddToRoster}
+              disabled={addingToRoster || rosterAdded}
+              style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 6, cursor: rosterAdded ? 'default' : 'pointer', border: '1px solid rgba(255,180,0,0.3)', background: rosterAdded ? 'rgba(42,138,90,0.2)' : 'rgba(255,180,0,0.12)', color: rosterAdded ? '#2a8a5a' : '#e0a020' }}
+            >{rosterAdded ? '✓ Added to roster' : addingToRoster ? 'Adding...' : '+ Add to roster'}</button>
+          </div>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Discord */}
@@ -467,7 +501,7 @@ function TakeawaysModal({ session, coaches, onClose, onSave }: TakeawaysModalPro
 }
 
 // --- SessionCard ---
-function SessionCard({ s, onDelete, onTakeaways, onEdit }: { s: Session; onDelete: () => void; onTakeaways: () => void; onEdit: () => void }) {
+function SessionCard({ s, onDelete, onTakeaways, onEdit, showDate }: { s: Session; onDelete: () => void; onTakeaways: () => void; onEdit: () => void; showDate?: boolean }) {
   const clsColor = CLASS_COLORS[s.wowClass] || '#aaa';
   const isHorde = s.faction === 'Horde';
   const factionColor = isHorde ? '#e53935' : '#1e88e5';
@@ -483,6 +517,7 @@ function SessionCard({ s, onDelete, onTakeaways, onEdit }: { s: Session; onDelet
         <span style={{ fontSize: 13, fontWeight: 700, color: '#d8e0f0' }}>{s.discord}</span>
         <span style={{ fontSize: 9, padding: '2px 5px', borderRadius: 3, fontWeight: 700, background: isHorde ? 'rgba(229,57,53,0.18)' : 'rgba(30,136,229,0.18)', color: factionColor }}>{s.faction.toUpperCase()}</span>
       </div>
+      {showDate && <div style={{ fontSize: 10, color: '#2a8a5a', fontWeight: 600, marginBottom: 2 }}>{fmtDate(date)}</div>}
       <div style={{ fontSize: 16, fontWeight: 700, color: '#e8eeff', marginBottom: 4 }}>{fmtTime(date)}</div>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4 }}>
         <span style={{ fontSize: 11, color: clsColor }}>{s.wowClass}</span>
@@ -521,7 +556,7 @@ function SessionCard({ s, onDelete, onTakeaways, onEdit }: { s: Session; onDelet
 
 export function Dashboard3() {
   const navigate = useNavigate();
-  const { coaches, sessions, requests, pastSessions, pastLoading, loading, createSession, deleteSession, toggleQueued, togglePin, updateSession, fetchPastSessions, acceptRequest, declineRequest } = useDashboardData();
+  const { coaches, sessions, requests, pastSessions, pastLoading, loading, createSession, deleteSession, toggleQueued, togglePin, toggleInactive, updateSession, fetchPastSessions, fetchAll, acceptRequest, declineRequest } = useDashboardData();
   const [showModal, setShowModal] = useState(false);
   const [selectedCoachId, setSelectedCoachId] = useState<string | null>(null);
   const [takeawaysSession, setTakeawaysSession] = useState<Session | null>(null);
@@ -546,14 +581,15 @@ export function Dashboard3() {
 
   const sessToday = sessions.filter(s => isSameDay(new Date(s.scheduledAt), now)).sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
   const sessTomorrow = sessions.filter(s => isSameDay(new Date(s.scheduledAt), d1)).sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
-  const sessDay2 = sessions.filter(s => isSameDay(new Date(s.scheduledAt), d2)).sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+  const d1End = new Date(d1); d1End.setHours(23, 59, 59, 999);
+  const sessFuture = sessions.filter(s => new Date(s.scheduledAt) > d1End).sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
 
   const queued = coaches.filter(c => c.queued);
 
   const sessionColumns = [
     { label: 'Today', date: fmtDate(now), sessions: sessToday, accentColor: '#1e88e5', headerBg: '#111a28' },
     { label: 'Tomorrow', date: fmtDate(d1), sessions: sessTomorrow, accentColor: '#8b60d0', headerBg: '#181228' },
-    { label: fmtDate(d2), date: '', sessions: sessDay2, accentColor: '#2a8a5a', headerBg: '#101e18' },
+    { label: 'Coming Up', date: '', sessions: sessFuture, accentColor: '#2a8a5a', headerBg: '#101e18', showDate: true },
   ];
 
   const thStyle: React.CSSProperties = { padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#404860', letterSpacing: '0.07em', textTransform: 'uppercase', borderBottom: '1px solid #151828' };
@@ -763,6 +799,7 @@ export function Dashboard3() {
           staff={staff}
           onClose={() => setEditingSession(null)}
           onSave={updateSession}
+          onCoachAdded={fetchAll}
         />
       )}
 
@@ -836,6 +873,7 @@ export function Dashboard3() {
                       onDelete={() => deleteSession(s._id)}
                       onTakeaways={() => setTakeawaysSession(s)}
                       onEdit={() => setEditingSession(s)}
+                      showDate={col.showDate}
                     />
                   ))
                 }
@@ -884,10 +922,10 @@ export function Dashboard3() {
               <th style={thStyle}>Partner</th><th style={thStyle}>Hours</th><th style={thStyle}>Brackets</th><th style={thStyle}>Note</th><th style={thStyle}></th>
             </tr></thead>
             <tbody>
-              {[...coaches].sort((a, b) => (b.queued ? 1 : 0) - (a.queued ? 1 : 0) || (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)).map((c: Coach, i: number) => {
-                const clsColor = CLASS_COLORS[c.wowClass] || '#aaa';
+              {[...coaches].sort((a, b) => (a.inactive ? 1 : 0) - (b.inactive ? 1 : 0) || (b.queued ? 1 : 0) - (a.queued ? 1 : 0) || (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)).map((c: Coach, i: number) => {
+                const clsColor = c.inactive ? '#303448' : (CLASS_COLORS[c.wowClass] || '#aaa');
                 return (
-                  <tr key={c._id} style={{ background: c.queued ? 'rgba(0,210,140,0.04)' : i % 2 === 0 ? '#0a0a0f' : '#090910', borderLeft: c.queued ? '2px solid rgba(0,210,140,0.35)' : c.pinned ? '2px solid rgba(200,168,48,0.3)' : undefined }}>
+                  <tr key={c._id} style={{ background: c.inactive ? '#07070d' : c.queued ? 'rgba(0,210,140,0.04)' : i % 2 === 0 ? '#0a0a0f' : '#090910', borderLeft: c.inactive ? '2px solid #151820' : c.queued ? '2px solid rgba(0,210,140,0.35)' : c.pinned ? '2px solid rgba(200,168,48,0.3)' : undefined, opacity: c.inactive ? 0.45 : 1 }}>
                     <td style={{ ...tdStyle, width: 40, textAlign: 'center' }}>
                       <button
                         onClick={() => toggleQueued(c)}
@@ -927,10 +965,17 @@ export function Dashboard3() {
                     <td style={tdStyle}><div style={{ display: 'flex', gap: 3 }}>{c.brackets.map(b => <span key={b} style={{ padding: '1px 6px', borderRadius: 3, background: '#141828', border: '1px solid #1e2238', fontSize: 10, color: '#6070a0', fontWeight: 700 }}>{b}s</span>)}</div></td>
                     <td style={{ ...tdStyle, fontSize: 10, color: '#404860', fontStyle: 'italic', maxWidth: 180 }}>{c.pinNote || <span style={{ color: '#181c28' }}>—</span>}</td>
                     <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <button
-                        onClick={e => { e.stopPropagation(); setSelectedCoachId(c._id); setShowModal(true); }}
-                        style={{ padding: '3px 10px', borderRadius: 5, background: 'rgba(74,111,165,0.15)', border: '1px solid rgba(74,111,165,0.4)', color: '#7090c0', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
-                      >+ Session</button>
+                      <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>
+                        <button
+                          onClick={e => { e.stopPropagation(); setSelectedCoachId(c._id); setShowModal(true); }}
+                          style={{ padding: '3px 10px', borderRadius: 5, background: 'rgba(74,111,165,0.15)', border: '1px solid rgba(74,111,165,0.4)', color: '#7090c0', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                        >+ Session</button>
+                        <button
+                          onClick={e => { e.stopPropagation(); toggleInactive(c); }}
+                          title={c.inactive ? 'Mark active' : 'Mark inactive'}
+                          style={{ padding: '3px 10px', borderRadius: 5, background: c.inactive ? 'rgba(0,210,140,0.1)' : 'rgba(80,60,100,0.15)', border: c.inactive ? '1px solid rgba(0,210,140,0.3)' : '1px solid rgba(80,60,100,0.4)', color: c.inactive ? '#00d28c' : '#604878', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                        >{c.inactive ? 'Active' : 'Inactive'}</button>
+                      </div>
                     </td>
                   </tr>
                 );
